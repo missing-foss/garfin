@@ -42,12 +42,15 @@ GPLv2-compatible; we deliberately avoided Roboto for the UI face to keep relicen
 
 Checked and fine, as of 2026-08-02:
 
+Read from each package's own shipped `LICENSE` file, not from its pub.dev page —
+the pub.dev metadata is not always right. Full detail in `THIRD_PARTY_NOTICES.md`.
+
 | Dependency | Licence |
 |---|---|
-| Flutter/Material | BSD-3 |
-| dio, flutter_riverpod, shared_preferences, cached_network_image, logging, mocktail | MIT |
-| flutter_secure_storage | BSD-3 |
-| dynamic_color, material_symbols_icons | Apache 2.0 |
+| Flutter/Material | BSD-3-Clause |
+| dio, flutter_riverpod, cached_network_image, mocktail | MIT |
+| shared_preferences, flutter_secure_storage, logging, intl, flutter_lints | BSD-3-Clause |
+| dynamic_color, material_symbols_icons | Apache-2.0 |
 | Fredoka, Nunito, **Roboto Mono** | SIL OFL 1.1 |
 
 Roboto Mono was relicensed from Apache 2.0 to OFL 1.1 upstream, so the **entire font stack is

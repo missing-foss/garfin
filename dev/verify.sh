@@ -50,6 +50,21 @@ else
   echo "ok"
 fi
 
+step "copy rules (docs/DECISIONS.md § Voice)"
+# Bans "safe"/"protected"/"secure" and surveillance framing in user-facing copy,
+# in both catalogues. Stated-but-unenforced rules erode; this makes it a gate.
+python3 dev/check-copy.py && echo ok || fail=1
+
+step "no print() in app code"
+# flutter_lints' avoid_print covers this today, but a lint rule can be turned
+# off in analysis_options.yaml and this grep survives that. Excludes generated
+# l10n output, which we don't author.
+if grep -rnE '(^|[^.\w])print\s*\(' lib/ --include='*.dart' | grep -v 'lib/l10n/gen'; then
+  echo "PRINT: use the logger — and never log tokens, passwords or Quick Connect secrets"; fail=1
+else
+  echo "ok"
+fi
+
 step "leak scan (household infra must never ship)"
 # #404: `grep -f` on a missing terms file exits 2 (swallowed by 2>/dev/null
 # below), the `if` is then false, and this printed "ok" having scanned

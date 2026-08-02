@@ -53,6 +53,7 @@ Early. Nothing shipped yet — see `CLAUDE.md` for the build order.
 | [`docs/PR-REVIEW-BRIEF.md`](docs/PR-REVIEW-BRIEF.md) | Context to hand a PR reviewer |
 | [`docs/GITHUB-API-BRIEF.md`](docs/GITHUB-API-BRIEF.md) | How to call GitHub without tripping rate limits |
 | [`BRANDING.md`](BRANDING.md) | Logo, colours, type, licences |
+| [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) | What the APK redistributes, and under what terms |
 
 `docs/ui-mockup.jsx` is a clickable React mockup of the whole app — a visual reference, not source.
 Open `brand/garfin-design-pack.html` in a browser for the full identity system.

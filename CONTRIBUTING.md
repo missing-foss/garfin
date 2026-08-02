@@ -24,8 +24,9 @@ dev/verify.sh
 ```
 
 It mirrors CI exactly: `flutter analyze`, `flutter test`, a debug APK build,
-FR translation parity, the hardcoded-string check, the leak scan, gitleaks and
-REUSE lint. CI runs the same gates, so a green `verify.sh` means a green PR.
+FR translation parity, the hardcoded-string check, the copy rules, the
+no-`print` check, the leak scan, gitleaks and REUSE lint. CI runs the same
+gates, so a green `verify.sh` means a green PR.
 
 `gitleaks` and `reuse` are skipped locally if not installed — CI still runs
 them, so install them if you'd rather not find out on the PR:
@@ -49,6 +50,11 @@ pipx install reuse
 - **Copy style** is plain and warm, never cute about permissions. Never
   "safe", "protected" or "secure" — Garfin manages a shortlist and guarantees
   nothing. Never surveillance framing. See `docs/DECISIONS.md` § Voice.
+  **This is enforced**, per-locale, by `dev/check-copy.py`: adding a new
+  language means adding its banned-term list there, or the check fails loudly
+  rather than silently passing untested copy.
+- **No `print`.** Use the logger, and never log tokens, passwords or Quick
+  Connect secrets.
 - **New dependencies need their licence checked and stated in the PR.** MIT,
   BSD and Apache-2.0 are fine. Anything proprietary or GPL-incompatible is
   not — see the licence table in [`CLAUDE.md`](CLAUDE.md).
