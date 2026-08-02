@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: 2026 missing-foss
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# CI: the pre-merge verify gate. Runs on every push/PR. Read-only token,
+# pinned majors.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # Flutter's Android build tooling is Gradle underneath (same as
+      # trobar-android) and needs a JDK — pin it explicitly rather than
+      # trusting whatever the runner image happens to default to, same
+      # reasoning and same version as trobar-android's own ci.yml.
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      # SAFEGUARD (this differs from trobar-desktop's own ci.yml, which skips
+      # a build step — desktop packaging needs GTK/native toolchains it
+      # deliberately keeps out of this job). A mobile target has none of that
+      # friction and `flutter analyze`/`flutter test` alone won't catch every
+      # real compile break (Android-specific API usage, a manifest error, a
+      # native-plugin Gradle wiring issue) — same reasoning as
+      # trobar-android's own `./gradlew assembleDebug` step. Delete this step
+      # only once you're confident analyze+test cover what you need.
+      - name: Build debug APK
+        run: flutter build apk --debug
+      - name: Translations (FR ARB complete, #32)
+        # gen-l10n validates placeholder/ICU parity (errors on a mismatch) and
+        # lists untranslated keys in the untranslated-messages-file; a "[" in it
+        # means a key lacks its FR value, so the build fails instead of shipping
+        # an English fallback in French. Delete this step (and the l10n.yaml
+        # untranslated-messages-file entry) if you're not translating yet.
+        run: |
+          flutter gen-l10n
+          if grep -q "\[" lib/l10n/untranslated.txt; then
+            echo "::error::untranslated FR messages:"; cat lib/l10n/untranslated.txt; exit 1
+          fi
+      - name: Leak scan (household infra must never ship)
+        run: |
+          # #404: a missing terms file makes `grep -f` exit 2, the `if` below
+          # false, and the step green having scanned nothing — fail-open.
+          [ -s dev/forbidden-terms.txt ] || { echo "::error::dev/forbidden-terms.txt missing or empty"; exit 1; }
+          if git ls-files | xargs grep -InE -f dev/forbidden-terms.txt \
+               | grep -viE "\.lock$|^dev/forbidden-terms\.txt:"; then
+            echo "::error::forbidden term(s) found above"; exit 1
+          fi
+      - name: Secret scan
+        # Binary download rather than gitleaks-action: the org Actions policy
+        # only allows GitHub-owned + verified-creator actions.
+        run: |
+          v=8.24.3
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${v}/gitleaks_${v}_linux_x64.tar.gz" | tar -xz gitleaks
+          ./gitleaks git --no-banner .
+      - name: REUSE lint (per-file SPDX licensing)
+        # Python tool; the org Actions policy blocks fsfe/reuse-action, so run it
+        # via pipx (preinstalled on the runner). The charset-normalizer extra
+        # supplies reuse's encoding detection without needing libmagic.
+        run: pipx run --spec 'reuse[charset-normalizer]' reuse lint

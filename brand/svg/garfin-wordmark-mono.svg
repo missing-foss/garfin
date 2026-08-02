@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 140" width="600" height="280" role="img" aria-label="garfin">
+  <title>Garfin wordmark — eye-dot, monochrome</title>
+  <g fill="currentColor">
+    <text x="0" y="100" font-family="Fredoka" font-weight="600" font-size="100" letter-spacing="-0.5">garf</text>
+    <rect x="194" y="48" width="12" height="52" rx="6"/>
+    <path d="M200 13a15 15 0 1 1 0 30 15 15 0 0 1 0-30Zm5 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z"/>
+    <text x="213.5" y="100" font-family="Fredoka" font-weight="600" font-size="100" letter-spacing="-0.5">n</text>
+  </g>
+</svg>

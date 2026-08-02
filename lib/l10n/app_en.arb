@@ -1,0 +1,13 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Garfin",
+  "@appTitle": {
+    "description": "The app's name. A proper noun — left untranslated in every locale."
+  },
+
+  "notBuiltYetBody": "Nothing to pick from yet — sign-in comes first.",
+  "@notBuiltYetBody": {
+    "description": "Placeholder on the temporary home screen, shown until the sign-in screen exists. Plain and warm, never cute about permissions."
+  }
+}

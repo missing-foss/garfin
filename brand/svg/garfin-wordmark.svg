@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 140" width="600" height="280" role="img" aria-label="garfin">
+  <title>Garfin wordmark — eye-dot</title>
+  <!--
+    LIVE TEXT. Open in Inkscape, select all text, Path > Object to Path, then save as
+    garfin-wordmark-outlined.svg before shipping anywhere. See outline.sh.
+    If the 'n' sits wrong after outlining, nudge the #wm-n group in x only.
+  -->
+  <g id="wm" fill="#EADDFF">
+    <text id="wm-garf" x="0" y="100" font-family="Fredoka" font-weight="600" font-size="100"
+          letter-spacing="-0.5">garf</text>
+    <!-- the i: stem + the fish's eye as its tittle -->
+    <g id="wm-i">
+      <rect x="194" y="48" width="12" height="52" rx="6"/>
+      <circle cx="200" cy="28" r="15" fill="#241C36"/>
+      <circle cx="205" cy="23" r="5" fill="#FFFFFF"/>
+    </g>
+    <text id="wm-n" x="213.5" y="100" font-family="Fredoka" font-weight="600" font-size="100"
+          letter-spacing="-0.5">n</text>
+  </g>
+</svg>

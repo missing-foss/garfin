@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: 2026 missing-foss
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: garfin
+description: "Tag-based parental controls for Jellyfin, from your phone."
+# Garfin is a GPL-3.0-or-later application, not a pub package.
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # EN + FR. `intl: any` is deliberate — flutter_localizations pins the
+  # version it needs, and a tighter constraint here just fights it.
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+
+  # HTTP. No generated Jellyfin SDK — the surface we need is small, and dio's
+  # interceptors give us one place to attach the MediaBrowser auth header.
+  dio: ^5.11.0
+
+  # State. The Jellyfin client lives in a repository layer; widgets never call HTTP.
+  flutter_riverpod: ^3.4.2
+
+  # Settings only. The access token goes in flutter_secure_storage, never here.
+  shared_preferences: ^2.5.5
+  flutter_secure_storage: ^10.3.1
+
+  # Material You on Android 12+; degrades to the seed scheme below it.
+  dynamic_color: ^1.8.1
+  material_symbols_icons: ^4.2960.0
+
+  # Posters. Cache key must include the item's ImageTag so a changed poster invalidates.
+  cached_network_image: ^3.4.1
+
+  # No print() anywhere — and never log tokens, passwords, or Quick Connect secrets.
+  logging: ^1.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  mocktail: ^1.0.5
+
+flutter:
+  # Required by gen-l10n to emit lib/l10n/gen/app_localizations.dart.
+  generate: true
+  uses-material-design: true
+
+  assets:
+    - assets/fonts/
+
+  # All three families are SIL OFL 1.1 — the whole stack is OFL, so relicensing
+  # stays open. Variable fonts: the wght axis is driven by TextStyle.fontWeight.
+  fonts:
+    - family: Fredoka
+      fonts:
+        - asset: assets/fonts/Fredoka.ttf
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito.ttf
+        - asset: assets/fonts/Nunito-Italic.ttf
+          style: italic
+    - family: RobotoMono
+      fonts:
+        - asset: assets/fonts/RobotoMono.ttf

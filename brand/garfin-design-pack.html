@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Garfin — design pack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --surface:#141218; --lowest:#0F0D13; --low:#1D1B20; --sc:#211F26; --high:#2B2930; --highest:#36343B;
+  --ink:#E6E0E9; --ink-var:#CAC4D0; --outline:#938F99; --outline-var:#49454F;
+  --primary:#D0BCFF; --on-primary:#381E72; --p-container:#4F378B; --on-p-container:#EADDFF;
+  --sec-container:#4A4458; --on-sec-container:#E8DEF8;
+  --deep:#2B2035; --lilac:#B69DF8; --grape:#8C6ED4; --pearl:#EADDFF; --squid:#241C36;
+  --display:'Fredoka',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--lowest);color:var(--ink);font-family:Nunito,system-ui,sans-serif;
+  line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:48px 24px 96px}
+h1,h2,h3,h4{font-family:var(--display);font-weight:600;margin:0;letter-spacing:.2px}
+h1{font-size:clamp(38px,7vw,60px);line-height:1.05}
+h2{font-size:26px;margin:0 0 4px}
+h3{font-size:18px;margin:0 0 4px}
+h4{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--primary);margin:0 0 10px}
+p{margin:0 0 14px;color:var(--ink-var);font-size:15px}
+code,kbd{font-family:'Roboto Mono',monospace;font-size:12.5px;background:var(--high);
+  padding:2px 6px;border-radius:6px;color:var(--on-sec-container)}
+a{color:var(--primary)}
+hr{border:0;border-top:1px solid var(--outline-var);margin:56px 0}
+section{margin-top:56px}
+.lede{font-size:17px;color:var(--ink);max-width:62ch}
+.muted{color:var(--outline);font-size:13px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.card{background:var(--low);border-radius:20px;padding:22px}
+.tile{background:var(--surface);border-radius:16px;padding:20px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:12px;min-height:150px;text-align:center}
+.tile.light{background:#F6F2FA}
+.tile.pearl{background:var(--pearl)}
+.tile.deep{background:var(--deep)}
+.tile.grape{background:var(--grape)}
+.cap{font-size:12px;color:var(--outline);font-weight:700;letter-spacing:.4px}
+.tile.light .cap,.tile.pearl .cap{color:#5B5468}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-family:var(--display);font-weight:600;font-size:12px;text-transform:uppercase;
+  letter-spacing:.8px;color:var(--primary);padding:8px 10px;border-bottom:1px solid var(--outline-var)}
+td{padding:10px;border-bottom:1px solid var(--outline-var);color:var(--ink-var);vertical-align:top}
+td:first-child{color:var(--ink);font-weight:600}
+.sw{display:flex;align-items:center;gap:10px}
+.dot{width:26px;height:26px;border-radius:8px;flex:none;border:1px solid rgba(255,255,255,.14)}
+ul{margin:0 0 14px;padding-left:20px;color:var(--ink-var);font-size:15px}
+li{margin-bottom:7px}
+.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  padding:3px 10px;border-radius:20px;background:var(--sec-container);color:var(--on-sec-container)}
+.pick{background:var(--p-container);color:var(--on-p-container)}
+
+/* ---------- wordmarks ---------- */
+.wm{font-family:var(--display);font-weight:600;letter-spacing:-.5px;line-height:1;
+  display:inline-flex;align-items:center;color:var(--pearl)}
+.wm.on-light{color:var(--deep)}
+.wm-lg{font-size:46px}
+.wm-md{font-size:34px}
+.wm-sm{font-size:22px}
+.wm-eye{display:inline-block;vertical-align:baseline}
+.bub{display:inline-flex;align-items:flex-end;margin-left:.12em;gap:.06em}
+.bub i{display:block;border-radius:50%;background:currentColor;opacity:.55}
+.sticker{border:3px solid currentColor;border-radius:999px;padding:.18em .62em .24em}
+.lockup{display:flex;align-items:center;gap:14px}
+.lockup-v{display:flex;flex-direction:column;align-items:center;gap:10px}
+.tagline{font-family:Nunito,sans-serif;font-weight:600;font-size:12px;letter-spacing:.3px;
+  color:var(--outline);margin-top:-2px}
+.tile.light .tagline,.tile.pearl .tagline{color:#6E6680}
+
+/* clear space diagram */
+.clear{position:relative;background:var(--surface);border-radius:16px;padding:34px;display:grid;place-items:center}
+.clear-box{position:relative;padding:34px;outline:1px dashed var(--outline-var)}
+.clear-note{position:absolute;top:8px;left:12px;font-size:11px;color:var(--outline);font-family:'Roboto Mono',monospace}
+
+/* mock canvases */
+.social{aspect-ratio:2/1;border-radius:16px;background:
+  radial-gradient(120% 140% at 78% 22%, #4A3663 0%, #241C36 55%, #14101C 100%);
+  display:flex;flex-direction:column;justify-content:center;gap:14px;padding:7%;position:relative;overflow:hidden}
+.social::after{content:"";position:absolute;right:-6%;bottom:-38%;width:52%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 32% 30%, rgba(208,188,255,.20), transparent 62%)}
+.feature{aspect-ratio:1024/500;border-radius:16px;background:linear-gradient(112deg,#241C36,#4A3663 62%,#6B4FA0);
+  display:flex;align-items:center;gap:5%;padding:0 7%;position:relative;overflow:hidden}
+.banner{aspect-ratio:4/1;border-radius:16px;background:var(--deep);display:flex;align-items:center;
+  justify-content:center;gap:16px}
+.shot{aspect-ratio:9/19.5;border-radius:14px;background:var(--surface);border:1px solid var(--outline-var);
+  display:flex;flex-direction:column;padding:12px;gap:8px;overflow:hidden}
+.shot-bar{height:8px;border-radius:4px;background:var(--high)}
+.shot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.shot-p{aspect-ratio:2/3;border-radius:6px;background:linear-gradient(155deg,#3A3350,#221C33)}
+
+.dodont{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.do,.dont{border-radius:16px;padding:16px 18px}
+.do{background:rgba(127,209,174,.08);border:1px solid rgba(127,209,174,.28)}
+.dont{background:rgba(240,150,160,.07);border:1px solid rgba(240,150,160,.26)}
+.do h4{color:#8FD6B4}.dont h4{color:#F0A7B1}
+.do ul,.dont ul{margin:0;font-size:14px}
+@media (max-width:620px){.wm-lg{font-size:34px}.wm-md{font-size:26px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="lockup" style="margin-bottom:18px">
+    <svg viewBox="0 0 64 64" width="76" height="76" aria-label="Garfin">
+      <defs><linearGradient id="b0" x1="0" y1="0" x2=".6" y2="1">
+        <stop offset="0" stop-color="#EADDFF"/><stop offset="1" stop-color="#8C6ED4"/></linearGradient></defs>
+      <path d="M5 32c0-7 4-13 8.5-15.5v31C9 45 5 39 5 32Z" fill="#B69DF8"/>
+      <path d="M33 15c-2.5-7 1.5-12 8.5-12-1.5 5 .5 8.5 4 10.5Z" fill="#B69DF8"/>
+      <path d="M30 47c-2 5 1 8 6 8-1-3.5 0-5.5 2-7Z" fill="#9A7FE0"/>
+      <ellipse cx="36" cy="32" rx="24" ry="17.5" fill="url(#b0)"/>
+      <circle cx="46.5" cy="26.5" r="6.2" fill="#241C36"/><circle cx="48.8" cy="24.2" r="2.2" fill="#fff"/>
+      <path d="M43 38.5q4.5 3.5 9 0" stroke="#241C36" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <circle cx="24" cy="30" r="2.6" fill="#fff" opacity=".5"/><circle cx="20" cy="36" r="1.7" fill="#fff" opacity=".35"/>
+    </svg>
+    <div>
+      <h1>Garfin</h1>
+      <p class="muted" style="margin:0">Design pack v1 · everything GPLv3-safe</p>
+    </div>
+  </div>
+  <p class="lede">One fish, one job: hand-pick what the kids can watch. The identity is warm and slightly
+  silly on the surface, precise underneath — the same balance the app itself needs, since it's a toy-looking
+  thing that writes real permissions to a real server.</p>
+</header>
+
+<hr>
+
+<!-- ========== WORDMARKS ========== -->
+<section>
+  <h4>01 — Wordmark</h4>
+  <h2>Five proposals</h2>
+  <p>All set in Fredoka SemiBold, lowercase. Lowercase matters: it keeps the name friendly and stops
+  it reading as an acronym or a holding company. Pick one and I'll cut the final vector.</p>
+
+  <div class="grid g2" style="margin-top:22px">
+
+    <div class="card">
+      <div class="tile deep" style="min-height:140px">
+        <span class="wm wm-lg">garfin</span>
+      </div>
+      <h3 style="margin-top:16px">1 · Plain</h3>
+      <p style="margin:0">Fredoka as drawn, tracking tightened to −0.5. Nothing clever. Ages best,
+      survives any size, and never fights the mark sitting next to it.</p>
+    </div>
+
+    <div class="card">
+      <div class="tile deep" style="min-height:140px">
+        <span class="wm wm-lg">garf<span class="wm-eye"><svg width="16" height="46" viewBox="0 0 16 46" style="display:block">
+          <rect x="5.5" y="17" width="5" height="22" rx="2.5" fill="currentColor"/>
+          <circle cx="8" cy="8.5" r="7" fill="#241C36"/><circle cx="10.2" cy="6.3" r="2.4" fill="#fff"/>
+        </svg></span>n</span>
+      </div>
+      <h3 style="margin-top:16px">2 · Eye-dot <span class="pill pick">my pick</span></h3>
+      <p style="margin:0">The tittle on the <em>i</em> becomes the fish's eye. One tiny move ties the
+      wordmark to the mark, so the word works alone without losing the character.</p>
+    </div>
+
+    <div class="card">
+      <div class="tile deep" style="min-height:140px">
+        <span class="wm wm-lg" style="position:relative">garfin<svg width="30" height="46" viewBox="0 0 30 46"
+          style="margin-left:-3px"><path d="M4 23c0-7 6-13 13-16-3 6-3 26 0 32C11 36 4 30 4 23Z"
+          fill="currentColor" opacity=".85" transform="scale(-1,1) translate(-30,0)"/></svg></span>
+      </div>
+      <h3 style="margin-top:16px">3 · Tail</h3>
+      <p style="margin:0">A caudal fin flicks off the final <em>n</em>, so the word swims. Charming at
+      banner size, mush below 20px — pair it with a plain small-size variant.</p>
+    </div>
+
+    <div class="card">
+      <div class="tile deep" style="min-height:140px">
+        <span class="wm wm-lg">garfin<span class="bub">
+          <i style="width:7px;height:7px"></i><i style="width:10px;height:10px"></i><i style="width:5px;height:5px;margin-bottom:.5em"></i>
+        </span></span>
+      </div>
+      <h3 style="margin-top:16px">4 · Bubbles</h3>
+      <p style="margin:0">Three bubbles rise off the end. The most obviously kid-facing option, and the
+      easiest to animate for a splash screen. Risks reading as a bath-toy brand.</p>
+    </div>
+
+    <div class="card">
+      <div class="tile deep" style="min-height:140px">
+        <span class="wm wm-md sticker">garfin</span>
+      </div>
+      <h3 style="margin-top:16px">5 · Sticker</h3>
+      <p style="margin:0">Enclosed in a pill, like something you'd stick on a lunchbox. Excellent as a
+      README badge or a repo avatar; too loud as a page header.</p>
+    </div>
+
+    <div class="card">
+      <h3>How to choose</h3>
+      <p>Pick <strong>2 (Eye-dot)</strong> if you want one wordmark that does everything. It's the only
+      option here that carries brand character at 16px.</p>
+      <p style="margin:0">Or run <strong>1 (Plain)</strong> as the workhorse and keep
+      <strong>5 (Sticker)</strong> for the GitHub avatar and merch. That's a normal split and costs nothing.</p>
+    </div>
+
+  </div>
+</section>
+
+<hr>
+
+<!-- ========== LOCKUPS ========== -->
+<section>
+  <h4>02 — Lockups</h4>
+  <h2>Mark, word, and the two together</h2>
+  <p>The mark always sits left of, or above, the word — never right. Cap height of the word is
+  roughly 45% of the mark's height in the horizontal lockup.</p>
+
+  <div class="grid g2" style="margin-top:20px">
+    <div class="tile deep">
+      <div class="lockup">
+        <svg viewBox="0 0 64 64" width="52" height="52"><use href="#markdef"/></svg>
+        <span class="wm wm-md">garfin</span>
+      </div>
+      <span class="cap">Horizontal — app bar, README, docs</span>
+    </div>
+
+    <div class="tile deep">
+      <div class="lockup-v">
+        <svg viewBox="0 0 64 64" width="62" height="62"><use href="#markdef"/></svg>
+        <span class="wm wm-md">garfin</span>
+        <span class="tagline">Parental labels for Jellyfin</span>
+      </div>
+      <span class="cap">Stacked with tagline — splash, store listing</span>
+    </div>
+
+    <div class="tile pearl">
+      <div class="lockup">
+        <svg viewBox="0 0 64 64" width="52" height="52"><use href="#markdef"/></svg>
+        <span class="wm wm-md on-light">garfin</span>
+      </div>
+      <span class="cap">On light — invoices, print, light-theme docs</span>
+    </div>
+
+    <div class="tile deep">
+      <div class="clear-box">
+        <svg viewBox="0 0 64 64" width="56" height="56"><use href="#markdef"/></svg>
+        <span class="clear-note">clear space = 0.5 × mark height, all sides</span>
+      </div>
+      <span class="cap">Clear space &amp; minimums</span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3>Minimum sizes</h3>
+    <ul style="margin-bottom:0">
+      <li><strong>Mark alone</strong> — 20px. Below that the smile and highlight bubbles close up; use the
+      monochrome mark instead.</li>
+      <li><strong>Horizontal lockup</strong> — 96px wide.</li>
+      <li><strong>Stacked with tagline</strong> — 120px wide. Drop the tagline below that.</li>
+    </ul>
+  </div>
+</section>
+
+<hr>
+
+<!-- ========== COLOUR ========== -->
+<section>
+  <h4>03 — Colour</h4>
+  <h2>One seed, a tonal palette</h2>
+  <p>The app derives its whole scheme from a single seed via <code>ColorScheme.fromSeed</code>, and
+  overrides it entirely when Material You dynamic colour is on. So these fixed values are the
+  <em>brand</em> palette — logo, store assets, README — not the in-app UI palette.</p>
+
+  <div class="card" style="margin-top:18px">
+    <table>
+      <tr><th>Token</th><th>Hex</th><th>Where</th></tr>
+      <tr><td><div class="sw"><span class="dot" style="background:#7C5CD6"></span>Seed</div></td>
+        <td><code>#7C5CD6</code></td><td>The one value the app theme is generated from</td></tr>
+      <tr><td><div class="sw"><span class="dot" style="background:#EADDFF"></span>Pearl</div></td>
+        <td><code>#EADDFF</code></td><td>Belly highlight, wordmark on dark</td></tr>
+      <tr><td><div class="sw"><span class="dot" style="background:#B69DF8"></span>Lilac</div></td>
+        <td><code>#B69DF8</code></td><td>Fins, dorsal, tail</td></tr>
+      <tr><td><div class="sw"><span class="dot" style="background:#8C6ED4"></span>Grape</div></td>
+        <td><code>#8C6ED4</code></td><td>Body gradient end</td></tr>
+      <tr><td><div class="sw"><span class="dot" style="background:#241C36"></span>Squid</div></td>
+        <td><code>#241C36</code></td><td>Eye, smile, wordmark on light</td></tr>
+      <tr><td><div class="sw"><span class="dot" style="background:#2B2035"></span>Deep</div></td>
+        <td><code>#2B2035</code></td><td>Icon background, banner fields</td></tr>
+      <tr><td><div class="sw"><span class="dot" style="background:#F6F2FA"></span>Foam</div></td>
+        <td><code>#F6F2FA</code></td><td>Light-surface alternative</td></tr>
+    </table>
+  </div>
+
+  <div class="grid g4" style="margin-top:16px">
+    <div class="tile deep"><svg viewBox="0 0 64 64" width="52" height="52"><use href="#markdef"/></svg><span class="cap">on Deep</span></div>
+    <div class="tile grape"><svg viewBox="0 0 64 64" width="52" height="52"><use href="#markmono"/></svg><span class="cap">mono on Grape</span></div>
+    <div class="tile pearl"><svg viewBox="0 0 64 64" width="52" height="52" style="color:#241C36"><use href="#markmono"/></svg><span class="cap">mono on Pearl</span></div>
+    <div class="tile light"><svg viewBox="0 0 64 64" width="52" height="52"><use href="#markdef"/></svg><span class="cap">on Foam</span></div>
+  </div>
+  <p class="muted" style="margin-top:10px">Contrast: Pearl on Deep is 12.4:1, Lilac on Deep 6.9:1 — both
+  clear AA at any size. Grape on Deep is 3.1:1, so never use it for text.</p>
+</section>
+
+<hr>
+
+<!-- ========== TYPE ========== -->
+<section>
+  <h4>04 — Typography</h4>
+  <h2>Fredoka and Nunito</h2>
+  <p>Both under the <strong>SIL Open Font License 1.1</strong>, which the FSF lists as free and
+  GPL-compatible. Ship <code>OFL.txt</code> beside the <code>.ttf</code> files and register them in
+  <code>LicenseRegistry</code>. Deliberately <em>not</em> Roboto: it's Apache 2.0, which is fine with
+  GPLv3 but incompatible with GPLv2, and that would close off relicensing later.</p>
+
+  <div class="grid g2" style="margin-top:18px">
+    <div class="card">
+      <h3 style="font-size:34px">Fredoka SemiBold</h3>
+      <p>Headlines, screen titles, numbers, buttons, avatars, the wordmark. Rounded terminals do the
+      friendliness so the copy doesn't have to.</p>
+      <p style="font-family:var(--display);font-weight:400;font-size:19px;color:var(--ink);margin:0">
+        Regular 400 · Medium 500 · SemiBold 600 · Bold 700</p>
+    </div>
+    <div class="card">
+      <h3 style="font-family:Nunito;font-weight:700;font-size:30px">Nunito</h3>
+      <p>Body, list rows, settings, everything you actually read. Rounded enough to sit with Fredoka,
+      neutral enough to disappear at 14px.</p>
+      <p style="font-weight:400;font-size:15px;color:var(--ink);margin:0">Regular 400 · SemiBold 600 · Bold 700</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <table>
+      <tr><th>Role</th><th>Face</th><th>Size / line</th></tr>
+      <tr><td>Display</td><td>Fredoka 600</td><td>40 / 46</td></tr>
+      <tr><td>Screen title</td><td>Fredoka 600</td><td>23 / 28</td></tr>
+      <tr><td>Card title</td><td>Fredoka 600</td><td>17 / 24</td></tr>
+      <tr><td>Section label</td><td>Fredoka 600, 0.8px tracking, caps</td><td>12 / 16</td></tr>
+      <tr><td>Body</td><td>Nunito 600</td><td>16 / 24</td></tr>
+      <tr><td>Secondary</td><td>Nunito 400</td><td>14 / 20</td></tr>
+      <tr><td>Tags &amp; counts</td><td>Roboto Mono 400 <span class="muted">(Apache 2.0)</span></td><td>12 / 16</td></tr>
+    </table>
+    <p class="muted" style="margin:12px 0 0">Roboto Mono is only used for tag strings and API snippets —
+    Apache 2.0, so GPLv3-safe. Swap for JetBrains Mono (OFL) if you want the whole stack under one licence.</p>
+  </div>
+</section>
+
+<hr>
+
+<!-- ========== APP ASSETS ========== -->
+<section>
+  <h4>05 — App assets</h4>
+  <h2>What Android actually needs</h2>
+
+  <div class="grid g3" style="margin-top:18px">
+    <div class="tile deep">
+      <div style="width:84px;height:84px;border-radius:22px;background:var(--deep);display:grid;place-items:center;border:1px solid var(--outline-var)">
+        <svg viewBox="0 0 64 64" width="60" height="60"><use href="#markdef"/></svg></div>
+      <span class="cap">Adaptive · squircle</span>
+    </div>
+    <div class="tile deep">
+      <div style="width:84px;height:84px;border-radius:50%;background:var(--deep);display:grid;place-items:center;border:1px solid var(--outline-var)">
+        <svg viewBox="0 0 64 64" width="58" height="58"><use href="#markdef"/></svg></div>
+      <span class="cap">Adaptive · circle</span>
+    </div>
+    <div class="tile deep">
+      <div style="width:84px;height:84px;border-radius:22px;background:#CFC3E8;display:grid;place-items:center;color:#332A44">
+        <svg viewBox="0 0 64 64" width="58" height="58"><use href="#markmono"/></svg></div>
+      <span class="cap">Themed icon · Android 13+</span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <table>
+      <tr><th>Asset</th><th>Size</th><th>Notes</th></tr>
+      <tr><td>Adaptive foreground</td><td>108 × 108 dp</td><td>Art within the 66dp safe circle — launchers mask the rest</td></tr>
+      <tr><td>Adaptive background</td><td>108 × 108 dp</td><td>Flat <code>#2B2035</code>. No gradient: it survives every mask shape</td></tr>
+      <tr><td>Monochrome layer</td><td>108 × 108 dp</td><td>Required for themed icons; single path, no fills or opacity</td></tr>
+      <tr><td>Legacy mipmaps</td><td>48–192 px</td><td>mdpi through xxxhdpi, for Android 7 and below</td></tr>
+      <tr><td>Notification icon</td><td>24 × 24 dp</td><td>White silhouette on transparent — use the mono mark</td></tr>
+      <tr><td>Splash (Android 12+)</td><td>288 × 288 dp</td><td>Mark only, no wordmark; system crops to a circle</td></tr>
+      <tr><td>Play / F-Droid icon</td><td>512 × 512 px</td><td>32-bit PNG, no alpha, no pre-baked rounding</td></tr>
+      <tr><td>Feature graphic</td><td>1024 × 500 px</td><td>Keep text inside the middle 60% — it gets cropped on phones</td></tr>
+    </table>
+  </div>
+</section>
+
+<hr>
+
+<!-- ========== REPO + COMMS ========== -->
+<section>
+  <h4>06 — Repo &amp; communication</h4>
+  <h2>Canvases, drawn to size</h2>
+
+  <div style="margin-top:18px">
+    <div class="social">
+      <div class="lockup" style="z-index:1">
+        <svg viewBox="0 0 64 64" width="64" height="64"><use href="#markdef"/></svg>
+        <span class="wm wm-lg">garfin</span>
+      </div>
+      <div style="z-index:1">
+        <div style="font-family:var(--display);font-weight:500;font-size:19px;color:var(--pearl)">
+          Hand-pick what the kids can watch</div>
+        <div style="font-size:13px;color:#A99EBE;margin-top:4px">
+          Jellyfin parental controls, by tag, from your phone · GPL-3.0</div>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:8px">GitHub social preview — 1280 × 640. Settings → General → Social
+    preview. Keep the lockup in the left two-thirds; the right gets covered by link cards on some platforms.</p>
+  </div>
+
+  <div style="margin-top:26px">
+    <div class="banner">
+      <svg viewBox="0 0 64 64" width="46" height="46"><use href="#markdef"/></svg>
+      <span class="wm wm-md">garfin</span>
+      <span style="width:1px;height:26px;background:var(--outline-var)"></span>
+      <span style="font-size:13px;color:var(--outline)">parental labels for Jellyfin</span>
+    </div>
+    <p class="muted" style="margin-top:8px">README banner — 1280 × 320, centred, so it reads on both GitHub
+    themes. Export at 2× and set <code>width="640"</code> in the img tag.</p>
+  </div>
+
+  <div style="margin-top:26px">
+    <div class="feature">
+      <div style="z-index:1">
+        <div class="lockup" style="margin-bottom:10px">
+          <svg viewBox="0 0 64 64" width="52" height="52"><use href="#markdef"/></svg>
+          <span class="wm wm-md">garfin</span>
+        </div>
+        <div style="font-family:var(--display);font-weight:500;font-size:16px;color:var(--pearl);max-width:22ch;line-height:1.3">
+          Pick a child. Pick a film. Done.</div>
+      </div>
+      <div style="display:flex;gap:8px;z-index:1">
+        <div style="width:52px;aspect-ratio:2/3;border-radius:8px;background:linear-gradient(155deg,#6F5C99,#2E2545)"></div>
+        <div style="width:52px;aspect-ratio:2/3;border-radius:8px;background:linear-gradient(155deg,#8A6FA8,#33263F);margin-top:14px"></div>
+        <div style="width:52px;aspect-ratio:2/3;border-radius:8px;background:linear-gradient(155deg,#5E7C9E,#232E3D)"></div>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:8px">Store feature graphic — 1024 × 500.</p>
+  </div>
+
+  <div class="grid g4" style="margin-top:26px">
+    <div class="shot"><div class="shot-bar" style="width:50%"></div>
+      <div style="display:flex;gap:6px">
+        <span style="width:22px;height:22px;border-radius:50%;background:#2F4A3E"></span>
+        <span style="width:22px;height:22px;border-radius:50%;background:#4A3A2A"></span>
+        <span style="width:22px;height:22px;border-radius:50%;background:#3A3050"></span></div>
+      <div class="shot-grid"><i class="shot-p"></i><i class="shot-p"></i><i class="shot-p"></i>
+        <i class="shot-p"></i><i class="shot-p"></i><i class="shot-p"></i></div></div>
+    <div class="shot"><div class="shot-bar" style="width:40%"></div>
+      <div style="height:64px;border-radius:12px;background:#243A32"></div>
+      <div class="shot-bar" style="width:80%"></div><div class="shot-bar" style="width:66%"></div></div>
+    <div class="shot"><div class="shot-bar" style="width:56%"></div>
+      <div style="height:44px;border-radius:12px;background:var(--high)"></div>
+      <div style="height:44px;border-radius:12px;background:var(--sec-container)"></div>
+      <div style="height:44px;border-radius:12px;background:var(--high)"></div></div>
+    <div class="shot"><div class="shot-bar" style="width:46%"></div>
+      <div class="shot-bar" style="width:90%"></div><div class="shot-bar" style="width:72%"></div>
+      <div class="shot-bar" style="width:84%"></div><div class="shot-bar" style="width:60%"></div></div>
+  </div>
+  <p class="muted" style="margin-top:8px">Screenshots — 1080 × 2340, five of them, in this order: Library
+  with a child selected · assign sheet mid-decision · collection question · kid detail with the counts ·
+  settings. Lead with the grid, not the sign-in screen. No device frames, no marketing captions burned in:
+  F-Droid rejects the first and users distrust the second.</p>
+</section>
+
+<hr>
+
+<!-- ========== VOICE ========== -->
+<section>
+  <h4>07 — Voice</h4>
+  <h2>Plain, warm, never cute about permissions</h2>
+  <div class="dodont" style="margin-top:18px">
+    <div class="do">
+      <h4>Do</h4>
+      <ul>
+        <li>Say what happens: <em>"Paddington is on Emma's shelf"</em></li>
+        <li>Use the children's names — the app knows them</li>
+        <li>Keep verbs concrete: pick, hand, share, take back</li>
+        <li>Be plain about the licence and the lack of affiliation</li>
+      </ul>
+    </div>
+    <div class="dont">
+      <h4>Don't</h4>
+      <ul>
+        <li>Call it "safe", "protected", or "secure" — it's a shortlist, not a guarantee</li>
+        <li>Use surveillance words: monitor, track, watch over, control</li>
+        <li>Be jokey in errors, warnings, or anything about ratings</li>
+        <li>Imply Jellyfin endorses it</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3>Boilerplate</h3>
+    <p><strong>One line:</strong> Hand-pick what your kids can watch.</p>
+    <p><strong>Repo description:</strong> Hand-pick what your kids can watch. An Android app for managing
+    Jellyfin parental controls through tags.</p>
+    <p style="margin:0"><strong>Required note, kept visible:</strong> Garfin is not affiliated with,
+    endorsed by, or connected to the Jellyfin project. Jellyfin is a trademark of Jellyfin, Inc.</p>
+  </div>
+</section>
+
+<hr>
+
+<!-- ========== LICENSING ========== -->
+<section>
+  <h4>08 — Licensing the identity</h4>
+  <h2>Two different things, two different terms</h2>
+  <p>Code is GPL-3.0. Brand assets are not code, and copyleft on a logo produces an odd result: anyone
+  could ship a modified app under your mark. The usual free-software answer is to license the artwork
+  permissively for <em>use</em> while reserving the name and mark as an identifier.</p>
+  <div class="card" style="margin-top:16px">
+    <table>
+      <tr><th>What</th><th>Terms</th><th>Why</th></tr>
+      <tr><td>Source</td><td>GPL-3.0-or-later</td><td>Your choice; everything here is compatible with it</td></tr>
+      <tr><td>Logo &amp; wordmark</td><td>CC BY-SA 4.0 <em>plus</em> a short trademark note</td><td>Free to
+        reproduce when writing about Garfin; forks must rename and remake the mark</td></tr>
+      <tr><td>Fredoka, Nunito</td><td>SIL OFL 1.1</td><td>Ship <code>OFL.txt</code>; never rename the fonts</td></tr>
+      <tr><td>Roboto Mono</td><td>Apache 2.0</td><td>GPLv3-fine; swap for JetBrains Mono if you want OFL throughout</td></tr>
+      <tr><td>Material Symbols</td><td>Apache 2.0</td><td>The icons in the UI</td></tr>
+      <tr><td>Flutter / Material</td><td>BSD-3-Clause</td><td>Permissive, no conflict</td></tr>
+    </table>
+    <p style="margin:14px 0 0"><strong>Suggested wording for <code>BRANDING.md</code>:</strong>
+    The Garfin name and fish mark identify this project. The artwork is CC BY-SA 4.0 — use it freely to
+    write about, link to, or package Garfin. If you fork and distribute a modified version, please give it
+    another name and another mark, so nobody downloads yours thinking it is this one.</p>
+  </div>
+</section>
+
+<hr>
+
+<!-- ========== CHECKLIST ========== -->
+<section>
+  <h4>09 — Checklist</h4>
+  <h2>What to produce, in order</h2>
+  <div class="card" style="margin-top:16px">
+    <ul style="margin-bottom:0">
+      <li>Pick a wordmark, then convert it to outlines — never ship an SVG with a live <code>&lt;text&gt;</code> and a font reference</li>
+      <li><code>garfin-mark.svg</code>, <code>-mono.svg</code>, <code>icon-foreground.svg</code>, <code>icon-background.svg</code> <span class="muted">(included)</span></li>
+      <li><code>garfin-wordmark.svg</code> + <code>lockup-h.svg</code> + <code>lockup-v.svg</code>, outlined</li>
+      <li>PNG exports at 512, 192, 144, 96, 72, 48 for legacy mipmaps</li>
+      <li>Store icon 512 × 512, no alpha</li>
+      <li>Feature graphic 1024 × 500; social preview 1280 × 640; README banner 1280 × 320</li>
+      <li>Five screenshots at 1080 × 2340</li>
+      <li><code>BRANDING.md</code>, <code>LICENSE</code>, <code>assets/fonts/OFL.txt</code></li>
+      <li>Favicon 32 × 32 and apple-touch 180 × 180 if there's ever a site</li>
+    </ul>
+  </div>
+</section>
+
+<!-- shared symbol defs -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="bodygrad" x1="0" y1="0" x2=".6" y2="1">
+      <stop offset="0" stop-color="#EADDFF"/><stop offset="1" stop-color="#8C6ED4"/>
+    </linearGradient>
+    <g id="markdef">
+      <path d="M5 32c0-7 4-13 8.5-15.5v31C9 45 5 39 5 32Z" fill="#B69DF8"/>
+      <path d="M33 15c-2.5-7 1.5-12 8.5-12-1.5 5 .5 8.5 4 10.5Z" fill="#B69DF8"/>
+      <path d="M30 47c-2 5 1 8 6 8-1-3.5 0-5.5 2-7Z" fill="#9A7FE0"/>
+      <ellipse cx="36" cy="32" rx="24" ry="17.5" fill="url(#bodygrad)"/>
+      <circle cx="46.5" cy="26.5" r="6.2" fill="#241C36"/>
+      <circle cx="48.8" cy="24.2" r="2.2" fill="#FFFFFF"/>
+      <path d="M43 38.5q4.5 3.5 9 0" stroke="#241C36" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <circle cx="24" cy="30" r="2.6" fill="#FFFFFF" opacity=".5"/>
+      <circle cx="20" cy="36" r="1.7" fill="#FFFFFF" opacity=".35"/>
+    </g>
+    <g id="markmono" fill="currentColor">
+      <path d="M5 32c0-7 4-13 8.5-15.5v31C9 45 5 39 5 32Z"/>
+      <path d="M33 15c-2.5-7 1.5-12 8.5-12-1.5 5 .5 8.5 4 10.5Z"/>
+      <path d="M30 47c-2 5 1 8 6 8-1-3.5 0-5.5 2-7Z"/>
+      <path d="M36 14.5c13.3 0 24 7.8 24 17.5S49.3 49.5 36 49.5 12 41.7 12 32s10.7-17.5 24-17.5Zm10.5 6a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4Z"/>
+      <path d="M43 38.5q4.5 3.5 9 0" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    </g>
+  </defs>
+</svg>
+
+</div>
+</body>
+</html>
