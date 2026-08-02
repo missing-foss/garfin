@@ -9,7 +9,7 @@ Garfin is licensed under the GNU General Public License v3.0 or later.
 The full text is in [`LICENSE`](LICENSE) at the repository root.
 
     Garfin — Jellyfin parental controls by tag
-    Copyright (C) 2026  <your name>
+    Copyright (C) 2026  missing-foss
 
     This program is free software: you can redistribute it and/or modify it under the
     terms of the GNU General Public License as published by the Free Software Foundation,
@@ -21,10 +21,6 @@ The full text is in [`LICENSE`](LICENSE) at the repository root.
 
     You should have received a copy of the GNU General Public License along with this
     program. If not, see <https://www.gnu.org/licenses/>.
-
-**TODO before the first public release:** replace `<your name>` above with the copyright
-holder. It is deliberately still a placeholder — the notice is what makes the GPL
-enforceable, so it should name whoever actually holds the copyright.
 
 Brand artwork in `brand/` is licensed CC BY-SA 4.0 — see [`BRANDING.md`](BRANDING.md).
 
