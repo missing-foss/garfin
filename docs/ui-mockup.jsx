@@ -970,7 +970,7 @@ const SPEC = [
     s: "Licensing — all GPLv3-safe",
     b: [
       "Fredoka and Nunito are SIL OFL 1.1, which the FSF lists as free and GPL-compatible. Ship OFL.txt beside the .ttf files.",
-      "Roboto is Apache 2.0 — fine with GPLv3, incompatible with GPLv2. Avoiding it keeps relicensing open.",
+      "Roboto is Apache 2.0. Avoiding it keeps the bundled font stack entirely OFL — see CLAUDE.md § Licence for why GPLv2 is not a live constraint.",
       "Flutter and Material Components are BSD-3; Material Symbols are Apache 2.0. Both fine inside a GPLv3 app.",
       "The mark is inline vector paths in this file, so it carries your licence and no third-party asset terms.",
       "Jellyfin's name and fin logo stay out of the artwork; the affix in the tagline is what their trademark policy permits.",

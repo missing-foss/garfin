@@ -48,8 +48,8 @@ Development-only, not shipped in the APK: `mocktail` (MIT, 2026 Felix Angelov),
 `flutter_lints` (BSD-3-Clause, 2013 The Flutter Authors).
 
 Apache-2.0 is compatible with GPLv3 and is therefore fine for this project as
-licensed. It is **not** compatible with GPLv2 — see the note at the end of this
-file.
+licensed. See the note at the end of this file on why GPLv2 is not a
+consideration.
 
 ## Fonts — SIL Open Font License 1.1
 
@@ -65,7 +65,8 @@ across surfaces. All three are SIL OFL 1.1:
   (https://github.com/googlefonts/robotomono) — tag strings and code.
 
 Roboto Mono was relicensed upstream from Apache-2.0 to OFL-1.1, so the **entire
-font stack is OFL**. That matters for the relicensing note below.
+bundled font stack is OFL** and the fonts impose no licence constraint of their
+own.
 
 The fonts ship **unmodified**, and no Reserved Font Name has been used for any
 modified version. Each family's licence text ships in the APK alongside the
@@ -91,18 +92,34 @@ and should rename. See [`BRANDING.md`](BRANDING.md).
 `brand/garfin-design-pack.html` is covered by the same terms. The mark is drawn
 as inline vector paths, so it carries no third-party asset terms.
 
-## Note on a future relicence
+## Note on GPLv2
 
-`CLAUDE.md` states the project keeps a future relicence open, and Roboto was
-avoided for the UI face for that reason. Two things follow:
+Earlier drafts of `CLAUDE.md` said the project kept a future GPLv2 relicence
+open. **It does not, and it should not be treated as a live constraint.** This
+is recorded here because it kept resurfacing in review.
 
-- The **font stack imposes no constraint** — all three families are OFL-1.1,
-  which is compatible with both GPLv2 and GPLv3.
-- The **Dart packages do**. `dynamic_color` and `material_symbols_icons` are
-  Apache-2.0, which is GPLv3-compatible but **not GPLv2-compatible**. If the
-  relicence being kept open includes GPLv2, those two would have to be replaced
-  first, and the dependency rule in `CLAUDE.md` would need to read
-  *GPLv2-and-GPLv3-compatible* rather than *GPLv3-compatible*.
+Apache-2.0 is GPLv3-compatible but not GPLv2-compatible, and Apache-2.0 material
+already ships in the APK:
 
-This is unresolved — see issue #1. Recorded here so the constraint is visible
-at the point where dependencies are reviewed.
+- **`material_symbols_icons`** — its icon font is bundled, and its Apache-2.0
+  grant is verifiable in the app's own `assets/flutter_assets/NOTICES.Z`.
+- **`dynamic_color`** — Apache-2.0 Dart code, compiled in.
+
+Both are deliberate dependencies, so the door was closed by choice rather than
+oversight. Independently of the dependency tree, a downward relicence would
+require **every contributor's consent**: `CONTRIBUTING.md` takes contributions
+under GPL-3.0-or-later and collects no CLA or relicensing grant, so no such
+consent exists to rely on.
+
+The bundled fonts are all OFL-1.1 and impose no constraint of their own — but
+that establishes only that the *fonts* are unconstraining, not that any
+particular relicence is available.
+
+For completeness, one thing that is often assumed and is wrong: the icons font
+Flutter bundles via `uses-material-design: true`
+(`assets/flutter_assets/fonts/MaterialIcons-Regular.otf`) is **CC BY 4.0**, per
+Flutter's own `MaterialIcons_LICENSE.txt`, not Apache-2.0. The Apache-2.0
+exposure comes from the two packages named above.
+
+The operative rule is therefore simply: **every dependency must be
+GPLv3-compatible.** Refs #1.

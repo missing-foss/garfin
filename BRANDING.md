@@ -64,7 +64,9 @@ Grape on Deep is 3.1:1 — never use it for text.
 - **Roboto Mono** — tag strings and code
 
 All three are SIL OFL 1.1 — Roboto Mono was relicensed from Apache 2.0 upstream, so the whole
-stack is already OFL and no swap to JetBrains Mono is needed. The files live in `assets/fonts/`
+bundled stack is already OFL and no swap to JetBrains Mono is needed. That means the fonts
+impose no licence constraint of their own; it says nothing about which licences are available
+to the project, which `CLAUDE.md` § Licence covers. The files live in `assets/fonts/`
 alongside their licences (`OFL-Fredoka.txt`, `OFL-Nunito.txt`, `OFL-RobotoMono.txt`); register
 them in `LicenseRegistry` so they appear under Settings → About → licences.
 

@@ -36,9 +36,17 @@ they can't see yet, hand them a film, a series, or a whole collection in one tap
 
 ## Licence
 
-GPL-3.0-or-later. Every dependency you add must be compatible. **Do not add anything
-Apache-2.0-incompatible or proprietary without asking.** Apache 2.0 is GPLv3-compatible but not
-GPLv2-compatible; we deliberately avoided Roboto for the UI face to keep relicensing open.
+GPL-3.0-or-later. **Every dependency must be GPLv3-compatible.** Do not add anything
+GPLv3-incompatible or proprietary without asking.
+
+**GPLv2 compatibility is deliberately not maintained.** Apache-2.0 is GPLv3-compatible but not
+GPLv2-compatible, and the app already ships Apache-2.0 material: `material_symbols_icons`'
+icon font is in the APK (verifiable in `assets/flutter_assets/NOTICES.Z`) and `dynamic_color`
+is compiled in. That door is closed, and it was closed by a deliberate dependency choice, not
+by accident. Independently, a downward relicence would need every contributor's consent, which
+`CONTRIBUTING.md` does not collect — it takes contributions under GPL-3.0-or-later and grants
+no relicensing right. So don't reject a dependency for being GPLv2-incompatible; reject it for
+being GPLv3-incompatible.
 
 Checked and fine, as of 2026-08-02:
 
@@ -53,9 +61,10 @@ the pub.dev metadata is not always right. Full detail in `THIRD_PARTY_NOTICES.md
 | dynamic_color, material_symbols_icons | Apache-2.0 |
 | Fredoka, Nunito, **Roboto Mono** | SIL OFL 1.1 |
 
-Roboto Mono was relicensed from Apache 2.0 to OFL 1.1 upstream, so the **entire font stack is
-now OFL** — the JetBrains Mono swap that BRANDING.md used to suggest is no longer needed, and
-nothing in the font stack blocks a future GPLv2 relicence.
+Roboto Mono was relicensed from Apache 2.0 to OFL 1.1 upstream, so the **entire bundled font
+stack is now OFL** — the JetBrains Mono swap that BRANDING.md used to suggest is no longer
+needed. That means the fonts impose no licence constraint of their own; it does not mean a
+GPLv2 relicence is available, which the paragraph above explains it is not.
 
 ## Ground rules
 
