@@ -9,6 +9,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Callable so release.yml runs these exact gates rather than a copy of them.
+  # A release path that duplicates CI drifts from it, and the drift is only
+  # discovered at the moment you least want a surprise.
+  workflow_call:
 
 permissions:
   contents: read

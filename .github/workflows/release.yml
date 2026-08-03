@@ -1,0 +1,113 @@
+# SPDX-FileCopyrightText: 2026 missing-foss
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Release: fires on a bare vX.Y.Z tag.
+#
+# Garfin is a standalone product, not a Trobar client, so it follows
+# trobar-server's bare `v*` convention rather than the `<short>-v*` prefix the
+# client repos use. `protect-release-tags` is already scoped to `refs/tags/v*`.
+#
+# NO KEYSTORE IN CI. This workflow deliberately does not build a shippable
+# artifact. The signing key exists only on the maintainer's machine, and
+# android/app/build.gradle.kts pins its fingerprint — same posture as
+# trobar-android. An APK built here would be unsigned, and an unsigned APK
+# cannot be installed, so publishing one would be worse than publishing none.
+#
+# What this does instead: proves the tag is honest, runs every gate, and opens
+# a DRAFT release for the maintainer to attach the locally-signed APK to. The
+# draft is the handoff point — nothing is public until a human publishes it.
+#
+# FIRST TAG: `protect-release-tags` has no bypass, so the very first tag push
+# needs a temporary bypass or a disable. This bit garmin during its bring-up.
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing vX.Y.Z tag to re-run against. Leave blank to check the current ref only."
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Runs BEFORE the gates. A tag that disagrees with pubspec is wrong no matter
+  # how green the tests are, and finding that out first is cheaper.
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Tag must match pubspec.yaml
+        # trobar-desktop parses its tag only to name artifacts, falling back to
+        # "dev" on a mismatch — so nothing there stops a v1.2.0 tag building
+        # from a pubspec that says 1.1.0. On Android that lands harder:
+        # versionName comes from pubspec, so the advertised and installed
+        # versions disagree, and versionCode drives update eligibility.
+        run: |
+          ref="${{ inputs.tag }}"; [ -z "$ref" ] && ref="$GITHUB_REF_NAME"
+          case "$ref" in
+            v*) ;;
+            *) echo "::error::tag '$ref' does not start with 'v' — Garfin uses bare vX.Y.Z"; exit 1 ;;
+          esac
+          tag_version="${ref#v}"
+          # pubspec is `version: X.Y.Z+BUILD`; compare the X.Y.Z part only.
+          pubspec_full=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')
+          pubspec_version="${pubspec_full%%+*}"
+          echo "tag=$tag_version  pubspec=$pubspec_full"
+          if [ "$tag_version" != "$pubspec_version" ]; then
+            echo "::error::tag $ref implies version $tag_version but pubspec.yaml says $pubspec_version — bump pubspec or retag"
+            exit 1
+          fi
+          if [ -z "${pubspec_full##*+}" ] || [ "$pubspec_full" = "$pubspec_version" ]; then
+            echo "::error::pubspec version '$pubspec_full' has no +BUILD suffix; versionCode would be unset"
+            exit 1
+          fi
+
+  # The same ten gates a PR runs — called, not copied, so they cannot drift.
+  gates:
+    needs: [version-check]
+    uses: ./.github/workflows/ci.yml
+
+  draft-release:
+    needs: [version-check, gates]
+    runs-on: ubuntu-latest
+    # Only this job needs write, and only to create the draft.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Create or update the draft release
+        # `gh` in a run: step rather than a third-party release action — the org
+        # Actions policy allows GitHub-owned and verified-creator actions only.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $TAG already exists — leaving it alone"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" --draft --generate-notes \
+              --notes-start-tag "$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || echo '')"
+          fi
+          cat >> "$GITHUB_STEP_SUMMARY" <<SUMMARY
+          ### $TAG — draft release created
+
+          Tag matches \`pubspec.yaml\`, and all gates passed.
+
+          **No artifact is attached, by design.** Build and sign locally, then:
+
+          \`\`\`
+          flutter build apk --release --split-per-abi
+          gh release upload $TAG build/app/outputs/flutter-apk/*.apk
+          gh release edit $TAG --draft=false
+          \`\`\`
+
+          The signing guard in \`android/app/build.gradle.kts\` verifies the key
+          fingerprint on that build. Publish the release only once the APK is
+          attached.
+          SUMMARY
