@@ -169,10 +169,19 @@ every child's policy readable.
 parent that the library is about to go dark. But predicting the resulting count means simulating
 the server's policy evaluation locally, which is the one thing "never compute visibility
 client-side" exists to forbid — the rating cap overrides tags silently, and a wrong prediction is
-worse than none. So: current server-computed count in the preview, a structural warning when the
-diff would empty `AllowedTags` (that follows from the policy's shape, not from visibility), and
-the real count re-fetched afterwards. The after-count is also what explains a share the rating cap
-swallowed, which is otherwise indistinguishable from the app being broken.
+worse than none. So: current server-computed count in the preview, a hard warning when the removal
+would take the label off the **last item carrying it**, and the real count re-fetched afterwards.
+The after-count is also what explains a share the rating cap swallowed, which is otherwise
+indistinguishable from the app being broken.
+
+> **Correction, 2026-08-03.** This originally said the warning fires when the diff would "empty
+> `AllowedTags`", justified as following from the policy's shape. Both halves were wrong, and
+> review caught it: `AllowedTags` lives on the user policy, which ground rule 8 forbids Garfin
+> from writing, so no diff the app can produce could empty it — the rule warned about an event
+> another rule made impossible. The reachable case is the tag ceasing to match any item, which is
+> a *count of tagged items*, not the policy's shape. Still a library query rather than a
+> visibility computation, so rule 4 remains untouched — but the stated reason was wrong for the
+> case that can actually happen.
 
 **Collection writes fix forward. They do not roll back.** This reverses the earlier intent, and
 the reason is arithmetic: undoing 7 successful writes of 12 means 7 more full-object replaces —
