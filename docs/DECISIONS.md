@@ -197,6 +197,25 @@ the policy too, but `POST /Users/{id}/Policy` replaces the child's whole permiss
 restrictions. Instead the policy is the source of truth for casing — read `Kids-Emma`, write
 `Kids-Emma` — which avoids the endpoint entirely.
 
+**A child's first label is set up in Jellyfin, not Garfin — and that is a consequence, not an
+oversight.** A child is only under shortlist control because `Policy.AllowedTags` already contains
+a label; adding the first one is a policy write, so the rule above rules it out. Garfin manages an
+existing shortlist, it does not create one.
+
+This is a deliberate split rather than a gap: setting a child up is a **one-time** action, while
+tagging hundreds of titles is the repeated one Garfin exists to replace. Sending the one-time
+action to the web admin costs a parent very little, and it keeps the dangerous endpoint out of the
+app entirely. The Kids screen says so in one plain line rather than listing those users with
+nothing attached — see `docs/UI-SPEC.md`.
+
+**The narrow exception is rejected, and will be proposed again.** Someone will suggest reading the
+policy, changing only `AllowedTags`, and writing it back. That is still `POST /Users/{id}/Policy`
+and still a full-object replace: the read-modify-write shape does not make it safe, it makes it
+*look* safe, which is worse. The risk is not that we would mean to change something else — it is
+that a field absent from the DTO we read, or added by a later Jellyfin version, silently vanishes
+on the way back. `MaxParentalRating` disappearing that way removes a child's rating cap while
+every screen still reports success. Treat this as settled.
+
 **The Quick Connect secret is never persisted.** It lives for one exchange and is inert once
 traded for the access token. Writing it to secure storage would only add a
 stale-credential-after-crash case. Accepted cost: a process kill mid-pairing means a fresh code.

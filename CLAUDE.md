@@ -113,6 +113,10 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
    replace over the child's entire permission set — `EnabledFolders`, `IsAdministrator`, and
    `MaxParentalRating`, which is the actual safety control. A dropped field there does not
    corrupt metadata, it silently removes a child's restrictions. Read policy; write only items.
+   **A read-modify-write of only `AllowedTags` is not an exception** — it is the same endpoint and
+   the same full replace, and looking safer is the problem with it. The consequence, deliberate:
+   Garfin cannot give a child their *first* label, so that one-time setup happens in Jellyfin. See
+   `docs/DECISIONS.md` and the Kids screen in `docs/UI-SPEC.md`.
 9. **The app itself is gated behind device auth.** Garfin holds an admin token on a phone that
    gets handed to children by design — that is the product's normal interaction, and it is
    precisely the case device lock does not cover. Biometric/PIN on cold start and on resume
