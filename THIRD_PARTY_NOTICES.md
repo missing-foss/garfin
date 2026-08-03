@@ -80,7 +80,36 @@ The canonical text is also at [`LICENSES/OFL-1.1.txt`](LICENSES/OFL-1.1.txt).
 It is not duplicated inline here because the app already redistributes all three
 copies above; a reader of the APK has the licence in hand without this file.
 
-Flutter's Material icons (Apache-2.0) are part of the Flutter distribution.
+## Material icons font — CC BY 4.0
+
+Setting `uses-material-design: true` bundles Flutter's Material icons font at
+`assets/flutter_assets/fonts/MaterialIcons-Regular.otf` (1.6 MB). It is
+**CC BY 4.0**, not Apache-2.0.
+
+Read from the artifact Flutter actually ships, not from upstream documentation
+— `bin/cache/artifacts/material_fonts/MaterialIcons_LICENSE.txt`, whose first
+line is:
+
+```
+Attribution 4.0 International
+```
+
+It contains the canonical *Creative Commons Attribution 4.0 International Public
+License* text and **no mention of Apache** anywhere in its 18,531 bytes. The
+distinction matters: `google/material-design-icons` is Apache-2.0 *today*, and
+Flutter's copy is generated from upstream, so assuming they match is exactly the
+kind of inference that goes stale — the icons were CC BY 4.0 before the 2016
+relicence.
+
+> **This section is load-bearing.** The string `Attribution 4.0 International`
+> does not appear anywhere in the app's own bundled `NOTICES.Z`, so Flutter's
+> generated licence collection does not carry this attribution. CC BY 4.0 makes
+> attribution a **condition of the licence**, so this file is where Garfin
+> satisfies it. Don't delete it as redundant with the `LicenseRegistry` output;
+> it isn't.
+
+Copyright Google, licensed under Creative Commons Attribution 4.0 International
+(https://creativecommons.org/licenses/by/4.0/).
 
 ## Artwork
 
@@ -115,11 +144,10 @@ The bundled fonts are all OFL-1.1 and impose no constraint of their own — but
 that establishes only that the *fonts* are unconstraining, not that any
 particular relicence is available.
 
-For completeness, one thing that is often assumed and is wrong: the icons font
-Flutter bundles via `uses-material-design: true`
-(`assets/flutter_assets/fonts/MaterialIcons-Regular.otf`) is **CC BY 4.0**, per
-Flutter's own `MaterialIcons_LICENSE.txt`, not Apache-2.0. The Apache-2.0
-exposure comes from the two packages named above.
+One thing that is often assumed and is wrong: the icons font bundled by
+`uses-material-design: true` is **CC BY 4.0**, not Apache-2.0 — see the Material
+icons section above, which reads it from the shipped artifact. It is not part of
+the Apache-2.0 exposure; that comes from the two packages named above.
 
 The operative rule is therefore simply: **every dependency must be
 GPLv3-compatible.** Refs #1.
