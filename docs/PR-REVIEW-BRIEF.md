@@ -143,11 +143,18 @@ Reviewable, not cosmetic. Plain and warm, never cute about permissions.
 
 ## Licence gate
 
-GPL-3.0-or-later. **Any new dependency needs its licence checked.** MIT, BSD and Apache-2.0 are
-fine. Apache-2.0 is GPLv3-compatible but *not* GPLv2-compatible, and the project deliberately
-keeps a future relicence open — flag anything that closes that door, and block anything
-proprietary or copyleft-incompatible. A PR adding a dependency without stating its licence is
+GPL-3.0-or-later. **Any new dependency needs its licence checked.** The rule is exactly one
+thing: it must be **GPLv3-compatible**. MIT, BSD and Apache-2.0 all are. Block anything
+proprietary or GPLv3-incompatible. A PR adding a dependency without stating its licence is
 incomplete.
+
+**Do not flag a dependency for being GPLv2-incompatible.** GPLv2 compatibility is deliberately
+not maintained — Apache-2.0 material already ships in the APK, and a downward relicence would
+need every contributor's consent, which `CONTRIBUTING.md` does not collect. Older revisions of
+the docs said otherwise; `CLAUDE.md` § Licence and `THIRD_PARTY_NOTICES.md` are current.
+
+Check the licence against the package's **own shipped `LICENSE` file**, not its pub.dev page —
+that page has been wrong for this project's dependencies before.
 
 ## Definition of done
 

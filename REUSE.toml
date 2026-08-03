@@ -17,8 +17,10 @@ SPDX-License-Identifier = "BSD-3-Clause"
 
 # --- Bundled fonts, all SIL OFL 1.1 ----------------------------------------
 # Variable .ttf binaries plus the licence text each ships with. Roboto Mono was
-# relicensed from Apache-2.0 to OFL-1.1 upstream, so the whole stack is OFL and
-# nothing in it blocks a future relicence — see BRANDING.md.
+# relicensed from Apache-2.0 to OFL-1.1 upstream, so the whole bundled stack is
+# OFL and the fonts impose no licence constraint of their own — see BRANDING.md.
+# That is all this establishes: other Apache-2.0 components ship in the APK, so
+# it says nothing about which licences remain available to the project.
 [[annotations]]
 path = ["assets/fonts/Fredoka.ttf", "assets/fonts/OFL-Fredoka.txt"]
 precedence = "aggregate"

@@ -57,8 +57,8 @@ flutter:
   assets:
     - assets/fonts/
 
-  # All three families are SIL OFL 1.1 — the whole stack is OFL, so relicensing
-  # stays open. Variable fonts: the wght axis is driven by TextStyle.fontWeight.
+  # All three families are SIL OFL 1.1, so the bundled fonts impose no licence
+  # constraint of their own. Variable fonts: wght is driven by TextStyle.fontWeight.
   fonts:
     - family: Fredoka
       fonts:

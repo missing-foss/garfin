@@ -53,6 +53,21 @@ jobs:
           if grep -q "\[" lib/l10n/untranslated.txt; then
             echo "::error::untranslated FR messages:"; cat lib/l10n/untranslated.txt; exit 1
           fi
+      - name: Copy rules (docs/DECISIONS.md § Voice)
+        # Bans "safe"/"protected"/"secure" and surveillance framing in
+        # user-facing copy, per-locale so the rule survives translation rather
+        # than being an English-only style note. Scoped to lib/l10n/*.arb, which
+        # is the complete user-facing surface because every string goes through
+        # AppLocalizations.
+        run: python3 dev/check-copy.py
+      - name: No print() in app code
+        # flutter_lints' avoid_print covers this today, but a lint rule can be
+        # switched off in analysis_options.yaml and this grep survives that.
+        run: |
+          if grep -rnE '(^|[^.\w])print\s*\(' lib/ --include='*.dart' | grep -v 'lib/l10n/gen'; then
+            echo "::error::use the logger — and never log tokens, passwords or Quick Connect secrets"
+            exit 1
+          fi
       - name: Leak scan (household infra must never ship)
         run: |
           # #404: a missing terms file makes `grep -f` exit 2, the `if` below

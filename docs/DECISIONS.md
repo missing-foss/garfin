@@ -124,6 +124,12 @@ drops in without redesign. Per-child colours are generated from a hue, same reas
 on purpose: Apache 2.0 is fine with GPLv3 but incompatible with GPLv2, which would close off
 relicensing later.
 
+> **Update, 2026-08-03.** The font choice stands, but that last clause no longer holds and
+> should not be cited. GPLv2 compatibility is not maintained: `material_symbols_icons` and
+> `dynamic_color` are Apache-2.0 and already ship, and a downward relicence would need every
+> contributor's consent, which `CONTRIBUTING.md` does not collect. Avoiding Roboto keeps the
+> *font stack* unconstraining — a smaller and true claim. See `CLAUDE.md` § Licence.
+
 **The mark is a cartoon gar,** drawn as inline vector paths so it carries the project's licence
 and no third-party asset terms. No fin silhouette anywhere near Jellyfin's trademarked one.
 
