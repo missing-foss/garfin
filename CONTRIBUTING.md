@@ -59,6 +59,37 @@ pipx install reuse
   BSD and Apache-2.0 are fine. Anything proprietary or GPL-incompatible is
   not — see the licence table in [`CLAUDE.md`](CLAUDE.md).
 
+## Cutting a release (maintainers)
+
+Garfin uses bare `vX.Y.Z` tags — not the `<short>-vX.Y.Z` prefix the Trobar
+client repos use, because Garfin is a standalone product rather than a client.
+
+```bash
+# 1. bump pubspec.yaml: version: X.Y.Z+BUILD   (BUILD becomes versionCode)
+# 2. commit that through a PR like anything else
+# 3. tag and push
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+The tag triggers `release.yml`, which checks the tag matches `pubspec.yaml`,
+runs the same ten gates a PR runs, and opens a **draft** release. It attaches
+no artifact, deliberately.
+
+Then build and sign locally — the signing key never exists in CI:
+
+```bash
+flutter build apk --release --split-per-abi
+gh release upload vX.Y.Z build/app/outputs/flutter-apk/*.apk
+gh release edit vX.Y.Z --draft=false
+```
+
+The guard in `android/app/build.gradle.kts` verifies the keystore fingerprint
+during that build and refuses to proceed if it doesn't match the pinned value.
+Nothing is public until you publish the draft.
+
+**The first tag will fail to push.** `protect-release-tags` has no bypass, so
+it needs a temporary bypass or a disable for that one push.
+
 ## Licensing of contributions
 
 Code is **GPL-3.0-or-later**, like the app. Brand artwork under `brand/` is
