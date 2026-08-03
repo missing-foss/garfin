@@ -112,6 +112,28 @@ Cards for label-controlled users: avatar, name, age, cap, an allow-list/block-li
 a progress bar, and "N of M things visible". Below, a plain list of users with no shortlist set,
 including the admin.
 
+### The users with no shortlist need an explanation, not just a listing
+
+Garfin cannot give a child their first label. A child is only under shortlist control because
+`Policy.AllowedTags` already contains one, and adding the first one is a **policy** write, which
+ground rule 8 forbids. So this list is a boundary, not a to-do list — and without a word of
+explanation it reads as a dead end someone will file a bug about.
+
+Give the section a short line of copy and leave the rows **non-interactive**. A row that looks
+tappable and does nothing is worse than one that plainly isn't.
+
+The copy stays plain and short — a parent does not need to know why:
+
+> Set their shortlist up in Jellyfin first, then come back here.
+
+The *reason* belongs in this document and in `docs/DECISIONS.md`, not on screen. Explaining
+full-object replaces to a parent would be technical detail dressed as reassurance, and the Voice
+rules exist to stop that.
+
+Once a label exists on the account, everything after it happens in Garfin — which is the split
+worth being deliberate about: the one-time setup is in Jellyfin, the repeated work of tagging
+hundreds of titles is here. That is the product's premise, not a retreat from it.
+
 ## Kid detail
 
 Hero block in the child's hue: avatar, the visible count as a large number, progress, and a
