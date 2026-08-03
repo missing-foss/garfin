@@ -156,6 +156,47 @@ Plain, warm, never cute about permissions.
 
 ---
 
+## Safety model (settled 2026-08-03, from issue #1)
+
+**The app gates itself behind device auth.** Garfin holds a Jellyfin *admin* token, and the phone
+running it is the phone handed to a child — that is the product's normal interaction. Device lock
+protects a phone left on a table; it does nothing about one deliberately passed to the person the
+app restricts. Biometric/PIN on cold start and on resume after an idle timeout. Rejected: gating
+every write, which would cost the one-tap promise the product is built on while still leaving
+every child's policy readable.
+
+**Previews show the current count, never a predicted one.** A `− Frozen` line does not tell a
+parent that the library is about to go dark. But predicting the resulting count means simulating
+the server's policy evaluation locally, which is the one thing "never compute visibility
+client-side" exists to forbid — the rating cap overrides tags silently, and a wrong prediction is
+worse than none. So: current server-computed count in the preview, a structural warning when the
+diff would empty `AllowedTags` (that follows from the policy's shape, not from visibility), and
+the real count re-fetched afterwards. The after-count is also what explains a share the rating cap
+swallowed, which is otherwise indistinguishable from the app being broken.
+
+**Collection writes fix forward. They do not roll back.** This reverses the earlier intent, and
+the reason is arithmetic: undoing 7 successful writes of 12 means 7 more full-object replaces —
+seven fresh chances to trigger the metadata wipe — on items that were fine. Tag writes are
+idempotent, so retrying a failure is safe and repeatable while undoing a success is neither.
+"A half-tagged set is worse than no change" is true about the product and false about the data.
+Pre-flighting every member with a `GET` first costs nothing and catches most failures before any
+write exists to regret.
+
+**Garfin never writes a user policy.** The tempting fix for tag-casing mismatches is to normalise
+the policy too, but `POST /Users/{id}/Policy` replaces the child's whole permission set including
+`MaxParentalRating`. A dropped field there does not corrupt metadata, it removes a child's
+restrictions. Instead the policy is the source of truth for casing — read `Kids-Emma`, write
+`Kids-Emma` — which avoids the endpoint entirely.
+
+**The Quick Connect secret is never persisted.** It lives for one exchange and is inert once
+traded for the access token. Writing it to secure storage would only add a
+stale-credential-after-crash case. Accepted cost: a process kill mid-pairing means a fresh code.
+
+**No `SCORECARD_TOKEN`.** Adding a classic PAT with `repo` scope to a public repo's secrets, to
+raise a security score, is a net loss. See `SECURITY.md`.
+
+---
+
 ## Open questions
 
 - Whether to offer a migration when the tag prefix changes, or just document it

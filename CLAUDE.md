@@ -69,19 +69,42 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
 ## Ground rules
 
 1. **Never write to Jellyfin without a preview.** Every tag change shows the exact
-   additions and removals before it is applied. No write on toggle.
+   additions and removals before it is applied. No write on toggle. The preview also carries
+   the child's **current** server-computed count, and hard-warns when the diff would empty
+   their `AllowedTags` — that case makes them see *nothing*, and a bare `− tag` line does not
+   convey it. After applying, re-fetch and report the **verified** new count; that is what
+   explains a share the rating cap swallowed.
 2. **`POST /Items/{id}` replaces the whole item.** Always `GET` the full metadata object first,
    mutate only `Tags`, and post the complete object back. Dropping fields corrupts the library.
+   "The full object" is not one thing — the DTO varies by endpoint and by `Fields`. The exact
+   endpoint and field list are **derived empirically, not assumed**; see `docs/JELLYFIN-API.md`.
+   Every PR touching the write path must show a before/after round-trip diff against a real
+   server.
 3. **Allow-list and block-list are opposite verbs.** Detect the mode per user and invert every
    action. Never mix `AllowedTags` and `BlockedTags` on one account.
 4. **Never compute visibility client-side.** Fetch counts twice — once as the admin, once as
    the child — and let the server apply the policy. The rating cap silently overrides tags, and
-   guessing gets it wrong.
-5. **Collection writes are batched and roll back together.** A half-tagged set is worse than
-   no change.
+   guessing gets it wrong. This is why rule 1 previews the *current* count rather than a
+   predicted one: a predicted count would mean simulating the server's policy evaluation here,
+   which is exactly what this rule forbids.
+5. **Collection writes pre-flight, then fix forward. They do not roll back.** `GET` every
+   member before writing anything and abort if any read fails — reads are free and catch most
+   failures before a single write. If a write still fails mid-batch, retry *that item*; never
+   undo the ones that succeeded. Tag writes are idempotent, so retrying is safe and repeatable
+   while undoing is neither, and every undo is another full-object replace under rule 2 on an
+   item that was fine. Surface the exact state — "7 of 12 tagged" — and let the user choose to
+   finish or remove all. Both choices are idempotent and user-initiated.
 6. **Ask before destructive or cascading changes.** Adding a film in a collection prompts once.
    Removing never cascades.
 7. Admin account required. Refuse non-admin logins with a clear message rather than failing later.
+8. **Garfin is read-only on user policy.** Never `POST /Users/{id}/Policy`. It is a full-object
+   replace over the child's entire permission set — `EnabledFolders`, `IsAdministrator`, and
+   `MaxParentalRating`, which is the actual safety control. A dropped field there does not
+   corrupt metadata, it silently removes a child's restrictions. Read policy; write only items.
+9. **The app itself is gated behind device auth.** Garfin holds an admin token on a phone that
+   gets handed to children by design — that is the product's normal interaction, and it is
+   precisely the case device lock does not cover. Biometric/PIN on cold start and on resume
+   after an idle timeout, which is a Settings option.
 
 ## Conventions
 
@@ -119,9 +142,15 @@ Scaffolded, no features yet. `lib/main.dart` boots the themed shell and shows a 
 `lib/theme.dart` holds the seed colour and font wiring. The convention directories exist and
 are empty. Build order:
 1. Jellyfin client + auth (Quick Connect and password), admin check
-2. User list with policy parsing → Kids screen
-3. Library grid with the child selector
-4. Assign sheet with tag diff + write path
-5. Collections and cascade
-6. Settings
-7. Activity log
+2. Device unlock gate (`local_auth`) — rule 9. Early, because every later screen sits behind it
+3. User list with policy parsing → Kids screen
+4. Library grid with the child selector
+5. **Round-trip experiment** — derive the `Fields` list against a real server before any write
+   code exists. Rule 2 makes the write path unimplementable until this lands
+6. Assign sheet with tag diff, counts, and the write path
+7. Collections, pre-flight and fix-forward
+8. Settings
+9. Activity log
+
+`local_auth` is not in `pubspec.yaml` yet — it goes in with step 2, and its licence gets read
+from its own shipped `LICENSE` file, not from pub.dev, per the § Licence note above.
