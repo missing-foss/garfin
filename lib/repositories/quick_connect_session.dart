@@ -118,10 +118,21 @@ class QuickConnectSession {
 
         final approved = await _pollOnce();
         if (approved) {
+          // Read from a local rather than from `_secret!`. Today that null
+          // assertion cannot actually fire — the chain from the poll's HTTP
+          // response to this line is one microtask drain, and `dispose()` runs
+          // from an event-loop task, so it has no window to interleave. But
+          // that is an argument about Dart's scheduling rather than about this
+          // class, and one extra `await` inside `_pollOnce` would quietly
+          // invalidate it. A local makes the invariant local.
+          final secret = _secret;
+          if (secret == null || _disposed) {
+            throw const JellyfinException(JellyfinErrorKind.cancelled);
+          }
           // The trade. After this the secret is spent, and the `finally` below
           // drops it whether or not this call succeeds.
           return await _api.authenticateWithQuickConnect(
-            _secret!,
+            secret,
             cancelToken: _cancelToken,
           );
         }

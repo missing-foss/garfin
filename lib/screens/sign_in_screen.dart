@@ -91,6 +91,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
                 ErrorNotice(message: jellyfinErrorText(l10n, reason)),
                 const SizedBox(height: 16),
               ],
+              if (state.credentialsDropped) ...[
+                InfoNotice(message: l10n.noticeCredentialsDropped),
+                const SizedBox(height: 16),
+              ],
               if (state.malformedUrl) ...[
                 ErrorNotice(message: l10n.errorMalformedServerAddress),
                 const SizedBox(height: 16),

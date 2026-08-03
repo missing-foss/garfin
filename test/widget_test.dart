@@ -143,6 +143,38 @@ void main() {
     expect(find.text('Username'), findsOneWidget);
   });
 
+  testWidgets('drops a password typed into the address, and says it did',
+      (tester) async {
+    server.on('/QuickConnect/Enabled', json: false);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField).first,
+      'https://parent:hunter2@jf.example.org',
+    );
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      find.textContaining('had a username and password in it'),
+      findsOneWidget,
+    );
+    // Nowhere on screen, and nowhere in preferences.
+    for (final text in find.byType(Text).evaluate()) {
+      expect((text.widget as Text).data ?? '', isNot(contains('hunter2')));
+    }
+    expect(find.text('Connected to https://jf.example.org'), findsOneWidget);
+    for (final key in prefs.getKeys()) {
+      expect(prefs.get(key).toString(), isNot(contains('hunter2')));
+    }
+    // Nor in the request that went out.
+    for (final request in server.requests) {
+      expect(request.uri.toString(), isNot(contains('hunter2')));
+    }
+  });
+
   testWidgets('says so plainly when the server cannot be reached',
       (tester) async {
     server.on(

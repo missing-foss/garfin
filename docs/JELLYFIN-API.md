@@ -37,6 +37,27 @@ is an undocumented survivor, so it is the one that can vanish in a point release
 when asked to approve the code. A missing header there is not a 401, it is a nameless approval
 prompt.
 
+**And there is no second way to send it — so Garfin cannot sit behind a reverse proxy that does
+HTTP basic auth.** The proxy wants `Authorization: Basic …`, Jellyfin wants
+`Authorization: MediaBrowser …`, and one header cannot be both. Every alternative was tried:
+
+| Route for the device identity | 10.11.11 |
+|---|---|
+| `X-Emby-Authorization: MediaBrowser …` + `Authorization: Basic` | **400** on `AuthenticateByName`, **401** on `/Users/Me` |
+| Split `X-Emby-Client` / `X-Emby-Device-Name` / `X-Emby-Device-Id` / `X-Emby-Client-Version` | **400** |
+| No identity at all | **400** |
+| `X-Emby-Token: <token>` + `Authorization: Basic` | **200** |
+
+Only the last one works, and it is no help: it carries a token, and a token is the thing you can
+only get by signing in first — which is the call that fails. `X-Emby-Authorization` and the split
+`X-Emby-*` identity headers have been removed from this version.
+
+Consequence, and it is a *cannot* rather than a *have not*: a `user:password@` in the server
+address is dropped rather than used. It is also dropped because keeping it would write a password
+to `shared_preferences` in clear and put it on screen — but even if that were solved, sign-in
+would still fail. The address step says so instead of discarding it silently. Re-test this on a
+version bump; if an identity header returns, so does the feature.
+
 **Status codes, and what each one means to a user:**
 
 | Call | Condition | Answer |

@@ -230,6 +230,12 @@ abstract class AppLocalizations {
   /// **'Garfin can\'t reach the server right now. This is what it already knew.'**
   String get offlineNotice;
 
+  /// Shown when the typed server address contained user:password@. The credentials are dropped rather than stored, because they would otherwise be written to preferences in clear and shown on screen — and Jellyfin offers no way to pass its own identity while the Authorization header is taken by a proxy. Says what happened rather than failing silently.
+  ///
+  /// In en, this message translates to:
+  /// **'That address had a username and password in it. Garfin removed them — it can\'t sign in through a server that sits behind its own separate login.'**
+  String get noticeCredentialsDropped;
+
   /// Shown when the typed server address cannot be parsed at all, so nothing was sent anywhere.
   ///
   /// In en, this message translates to:

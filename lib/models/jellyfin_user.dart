@@ -21,9 +21,11 @@ class UserPolicy {
     required this.isDisabled,
   });
 
-  /// Ground rule 7. Garfin needs this to read every user's policy and to write
-  /// item metadata; a non-admin token fails later with a 403 that reads like a
-  /// bug, so sign-in refuses it at the door instead.
+  /// Ground rule 7, and the field the whole of sign-in turns on.
+  ///
+  /// Measured on 10.11.11: a non-admin token does **not** fail later. It reads
+  /// every user's policy with a 200. So nothing downstream will catch a wrong
+  /// account — see `AuthRepository` and `docs/JELLYFIN-API.md` § Measured.
   final bool isAdministrator;
 
   final bool isDisabled;

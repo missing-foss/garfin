@@ -45,6 +45,8 @@
 
   "offlineNotice": "Garfin n'arrive pas à joindre le serveur pour le moment. Voici ce qu'il savait déjà.",
 
+  "noticeCredentialsDropped": "Cette adresse contenait un nom d'utilisateur et un mot de passe. Garfin les a retirés : il ne peut pas se connecter à travers un serveur placé derrière son propre accès.",
+
   "errorMalformedServerAddress": "Cela ne ressemble pas à une adresse web. Essayez plutôt http://jellyfin.local:8096",
 
   "errorUnreachable": "Garfin n'a pas pu joindre {server}. Vérifiez l'adresse, et que ce téléphone est sur le même réseau.",

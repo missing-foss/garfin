@@ -21,8 +21,11 @@ enum JellyfinErrorKind {
   /// 401. Credentials wrong, or a stored token the server no longer honours.
   unauthorized,
 
-  /// 403. Authenticated but not allowed — normally the non-admin case, which
-  /// sign-in is supposed to catch first (ground rule 7).
+  /// 403. Authenticated but not allowed.
+  ///
+  /// Rarer than it sounds: measured on 10.11.11, a non-admin token is *not*
+  /// refused with a 403 on the reads Garfin does, which is why ground rule 7 is
+  /// enforced at sign-in rather than left to surface here.
   forbidden,
 
   /// 404. Usually a URL that reaches *something* which is not Jellyfin.

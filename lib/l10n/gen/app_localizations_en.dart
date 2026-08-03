@@ -83,6 +83,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Garfin can\'t reach the server right now. This is what it already knew.';
 
   @override
+  String get noticeCredentialsDropped =>
+      'That address had a username and password in it. Garfin removed them — it can\'t sign in through a server that sits behind its own separate login.';
+
+  @override
   String get errorMalformedServerAddress =>
       'That doesn\'t look like a web address. Try something like http://jellyfin.local:8096';
 

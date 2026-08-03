@@ -123,6 +123,11 @@
     "description": "Banner shown when a stored session could not be confirmed because the server is unreachable. The app stays usable with what it has cached."
   },
 
+  "noticeCredentialsDropped": "That address had a username and password in it. Garfin removed them — it can't sign in through a server that sits behind its own separate login.",
+  "@noticeCredentialsDropped": {
+    "description": "Shown when the typed server address contained user:password@. The credentials are dropped rather than stored, because they would otherwise be written to preferences in clear and shown on screen — and Jellyfin offers no way to pass its own identity while the Authorization header is taken by a proxy. Says what happened rather than failing silently."
+  },
+
   "errorMalformedServerAddress": "That doesn't look like a web address. Try something like http://jellyfin.local:8096",
   "@errorMalformedServerAddress": {
     "description": "Shown when the typed server address cannot be parsed at all, so nothing was sent anywhere."

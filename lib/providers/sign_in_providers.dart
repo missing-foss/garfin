@@ -18,6 +18,7 @@ class SignInState {
     this.busy = false,
     this.error,
     this.malformedUrl = false,
+    this.credentialsDropped = false,
   });
 
   /// Set once an address has been accepted *and* answered. Null means the
@@ -36,12 +37,20 @@ class SignInState {
   /// The address could not be parsed at all, so nothing was sent anywhere.
   final bool malformedUrl;
 
+  /// The address carried `user:password@`, and Garfin dropped it.
+  ///
+  /// Surfaced rather than silently discarded: a parent who typed proxy
+  /// credentials deliberately deserves to be told they are gone, and why, on
+  /// the screen where they typed them.
+  final bool credentialsDropped;
+
   SignInState copyWith({
     String? serverUrl,
     bool? quickConnectAvailable,
     bool? busy,
     JellyfinException? error,
     bool? malformedUrl,
+    bool? credentialsDropped,
     bool clearError = false,
     bool clearServerUrl = false,
   }) =>
@@ -52,6 +61,7 @@ class SignInState {
         busy: busy ?? this.busy,
         error: clearError ? null : (error ?? this.error),
         malformedUrl: malformedUrl ?? this.malformedUrl,
+        credentialsDropped: credentialsDropped ?? this.credentialsDropped,
       );
 }
 
@@ -77,13 +87,24 @@ class SignInController extends Notifier<SignInState> {
   /// anonymous and needed anyway, so a wrong address fails here — on the screen
   /// where the address is — instead of inside a sign-in attempt.
   Future<void> useServer(String input) async {
+    // Read before normalising, because normalising is what removes them.
+    final droppedCredentials = addressCarriesCredentials(input);
     final normalized = normalizeServerUrl(input);
     if (normalized == null) {
-      state = state.copyWith(malformedUrl: true, clearError: true);
+      state = state.copyWith(
+        malformedUrl: true,
+        credentialsDropped: droppedCredentials,
+        clearError: true,
+      );
       return;
     }
 
-    state = state.copyWith(busy: true, malformedUrl: false, clearError: true);
+    state = state.copyWith(
+      busy: true,
+      malformedUrl: false,
+      credentialsDropped: droppedCredentials,
+      clearError: true,
+    );
     try {
       final enabled =
           await ref.read(authRepositoryProvider).quickConnectEnabled(normalized);

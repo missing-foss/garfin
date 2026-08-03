@@ -32,6 +32,28 @@ void main() {
     expect(redactSecrets('Pw=hunter2'), 'Pw=REDACTED');
   });
 
+  test('strips the secret out of a response body, not just a query string', () {
+    // The shape a leak would actually have: measured on 10.11.11, the response
+    // to `GET /QuickConnect/Connect` carries the live secret as JSON. A pattern
+    // that only knew about `secret=` would pass this through whole.
+    expect(
+      redactSecrets(
+        '{"Authenticated":false,"Secret":"DA4C1F204EB7","Code":"793600"}',
+      ),
+      '{"Authenticated":false,"Secret":"REDACTED","Code":"793600"}',
+    );
+  });
+
+  test('leaves a neighbouring field alone', () {
+    // The six-digit code is not a credential — it is inert without the secret,
+    // and it is meant to be read off a screen. Redacting it would make a log
+    // useless for diagnosing a pairing without making anything safer.
+    expect(
+      redactSecrets('{"Code":"793600"}'),
+      '{"Code":"793600"}',
+    );
+  });
+
   test('leaves ordinary text alone', () {
     const message = 'jellyfin call failed: /Users/Me (HTTP 401)';
     expect(redactSecrets(message), message);

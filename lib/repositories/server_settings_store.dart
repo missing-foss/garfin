@@ -74,11 +74,41 @@ String? normalizeServerUrl(String input) {
   // argument as "keep this" and so cannot drop a query or a fragment. Neither
   // is ever part of a Jellyfin base URL, and carrying one would append it to
   // every request path.
+  //
+  // `userInfo` is dropped for a harder reason: it is a **password**, and this
+  // string is persisted to `shared_preferences` in clear, written back into a
+  // visible text field, and interpolated into on-screen error text. Every one
+  // of those is somewhere a credential must never go. See
+  // [addressCarriesCredentials] for what the screen does about it.
   return Uri(
     scheme: uri.scheme,
-    userInfo: uri.userInfo.isEmpty ? null : uri.userInfo,
     host: uri.host,
     port: uri.hasPort ? uri.port : null,
     path: uri.path.replaceAll(RegExp(r'/+$'), ''),
   ).toString();
+}
+
+/// Whether the typed address carried `user:password@`, so the screen can say
+/// the credentials were dropped instead of silently discarding them.
+///
+/// **Garfin cannot sign in through a reverse proxy that does HTTP basic auth,**
+/// and this is why it says so rather than trying. Measured against Jellyfin
+/// 10.11.11 (2026-08-03): the proxy wants `Authorization: Basic …` and Jellyfin
+/// wants `Authorization: MediaBrowser …`, one header cannot be both, and every
+/// alternative route for the device identity has been removed —
+/// `X-Emby-Authorization` answers 400/401, the split `X-Emby-Client` /
+/// `X-Emby-Device-Id` / `X-Emby-Device-Name` / `X-Emby-Client-Version` headers
+/// answer 400, and sending no identity answers 400. Only `X-Emby-Token` still
+/// works, and that is useless here: it carries a token you can only obtain by
+/// signing in first.
+///
+/// So there is nothing to implement, not merely something unimplemented.
+/// Details in `docs/JELLYFIN-API.md` § Measured.
+bool addressCarriesCredentials(String input) {
+  var text = input.trim();
+  if (text.isEmpty) return false;
+  if (!RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://').hasMatch(text)) {
+    text = 'http://$text';
+  }
+  return Uri.tryParse(text)?.userInfo.isNotEmpty ?? false;
 }

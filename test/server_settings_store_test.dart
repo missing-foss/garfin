@@ -40,6 +40,41 @@ void main() {
     expect(normalizeServerUrl('http://host:8096/?a=1#x'), 'http://host:8096');
   });
 
+  group('credentials in the address', () {
+    test('are dropped, never carried into the stored URL', () {
+      // They would otherwise be persisted to `shared_preferences` in clear,
+      // written back into a visible text field, and interpolated into on-screen
+      // error text. The access token is handled carefully everywhere else; this
+      // was the one path that wasn't.
+      expect(
+        normalizeServerUrl('https://parent:hunter2@jf.example.org'),
+        'https://jf.example.org',
+      );
+      expect(
+        normalizeServerUrl('http://parent@host:8096/jellyfin/'),
+        'http://host:8096/jellyfin',
+      );
+      expect(
+        normalizeServerUrl('https://parent:hunter2@jf.example.org'),
+        isNot(contains('hunter2')),
+      );
+    });
+
+    test('are reported, so the loss is not silent', () {
+      // Garfin cannot sign in through a proxy that does basic auth — Jellyfin
+      // needs the `Authorization` header for itself and 10.11.11 removed every
+      // alternative. Saying so beats a parent wondering why their working
+      // address stopped working.
+      expect(
+        addressCarriesCredentials('https://parent:hunter2@jf.example.org'),
+        isTrue,
+      );
+      expect(addressCarriesCredentials('parent@host:8096'), isTrue);
+      expect(addressCarriesCredentials('http://host:8096'), isFalse);
+      expect(addressCarriesCredentials(''), isFalse);
+    });
+  });
+
   test('trims surrounding whitespace', () {
     expect(normalizeServerUrl('  http://host:8096  '), 'http://host:8096');
   });

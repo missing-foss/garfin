@@ -43,10 +43,20 @@ void configureLogging({Level level = Level.INFO}) {
 /// rather than passing them on. Two independent guards, because a leaked
 /// credential is not something to protect with one.
 String redactSecrets(String input) => input.replaceAllMapped(
+      // Groups: 1 the quote around the name (or none), 2 the name,
+      // 3 the separator, 4 the quote around the value (or none).
+      //
+      // Both separators matter. `=` catches the query-string form,
+      // `?secret=…`, which is how the secret goes *out*. `:` catches the JSON
+      // form, which is how it comes *back*: measured on 10.11.11, the response
+      // body of that same endpoint is
+      // `{"Authenticated":false,"Secret":"DA4C…","Code":"793600"}`. A pattern
+      // that only knew about `=` would pass a logged response body through
+      // untouched, which is the shape a leak would actually have.
       RegExp(
-        r'\b(secret|api_key|apikey|x-emby-token|pw|password)=([^&\s"'
-        r"'`)\]}]*)",
+        r'''(?<![\w-])(["']?)(secret|api_key|apikey|x-emby-token|pw|password)'''
+        r'''\1\s*([=:])\s*(["']?)[^&\s,"'`)\]}]*\4''',
         caseSensitive: false,
       ),
-      (m) => '${m[1]}=REDACTED',
+      (m) => '${m[1]}${m[2]}${m[1]}${m[3]}${m[4]}REDACTED${m[4]}',
     );
