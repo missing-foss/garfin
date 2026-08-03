@@ -44,26 +44,52 @@ class JellyfinApi {
 
   /// Starts a pairing and returns the six-digit code plus the secret.
   ///
+  /// **POST, not GET.** `docs/JELLYFIN-API.md` and issue #17 both say
+  /// `GET /QuickConnect/Initiate`, and measured against 10.11.11 the GET does
+  /// still answer 200 — but the server's own `/api-docs/openapi.json` lists
+  /// **only** `post` for this route. GET is an undocumented survivor, so it is
+  /// the one that can disappear in a point release. POST is the contract.
+  ///
+  /// The `Authorization` header matters here even though the call is anonymous:
+  /// measured, the server echoes `DeviceId`, `DeviceName`, `AppName` and
+  /// `AppVersion` straight back out of it, which is what the user sees when
+  /// they are asked to approve the code.
+  ///
   /// The caller owns the secret's lifetime and must not persist it — see
   /// [QuickConnectInitiation] and `QuickConnectSession`, which is what actually
   /// holds it.
   Future<QuickConnectInitiation> initiateQuickConnect({
     CancelToken? cancelToken,
   }) =>
-      _call(() async {
-        final response = await _dio.get<dynamic>(
-          '/QuickConnect/Initiate',
-          cancelToken: cancelToken,
-        );
-        return QuickConnectInitiation.fromJson(_asMap(response.data));
-      });
+      _call(
+        () async {
+          final response = await _dio.post<dynamic>(
+            '/QuickConnect/Initiate',
+            cancelToken: cancelToken,
+          );
+          return QuickConnectInitiation.fromJson(_asMap(response.data));
+        },
+        // A 401 here is not "wrong credentials" — measured, the server answers
+        // 401 "Quick connect is disabled" when the feature is off. That happens
+        // when it is switched off between the `Enabled` probe and this call, and
+        // telling the user their password was wrong would send them off fixing
+        // the wrong thing. A missing route means the same to them: no Quick
+        // Connect on this server, use the password tab.
+        remap: const {
+          JellyfinErrorKind.unauthorized:
+              JellyfinErrorKind.quickConnectUnavailable,
+          JellyfinErrorKind.notFound:
+              JellyfinErrorKind.quickConnectUnavailable,
+        },
+      );
 
   /// One poll of the pairing's state.
   ///
-  /// A 404 here means the server has forgotten this secret — the code expired,
-  /// or Quick Connect was switched off mid-pairing. That is
-  /// [JellyfinErrorKind.quickConnectExpired] and not a generic not-found,
-  /// because the honest answer to the user is "ask for a new code".
+  /// Measured on 10.11.11: an unknown secret answers `404 "Unknown secret"`,
+  /// and the feature being switched off mid-pairing answers
+  /// `401 "Quick connect is disabled"`. Those are different sentences to the
+  /// user — "ask for a new code" against "use a password instead" — so they map
+  /// to different kinds rather than to a generic failure.
   Future<QuickConnectStatus> quickConnectStatus(
     String secret, {
     CancelToken? cancelToken,
@@ -77,7 +103,11 @@ class JellyfinApi {
           );
           return QuickConnectStatus.fromJson(_asMap(response.data));
         },
-        onNotFound: JellyfinErrorKind.quickConnectExpired,
+        remap: const {
+          JellyfinErrorKind.notFound: JellyfinErrorKind.quickConnectExpired,
+          JellyfinErrorKind.unauthorized:
+              JellyfinErrorKind.quickConnectUnavailable,
+        },
       );
 
   /// Trades an approved secret for an access token.
@@ -94,7 +124,15 @@ class JellyfinApi {
           );
           return AuthenticationResult.fromJson(_asMap(response.data));
         },
-        onNotFound: JellyfinErrorKind.quickConnectExpired,
+        // Measured: trading a secret that has not been approved yet answers
+        // 404. That should not happen — the poll gates this call — but if the
+        // pairing is raced or the secret has aged out, "ask for a new code" is
+        // the right thing to say.
+        remap: const {
+          JellyfinErrorKind.notFound: JellyfinErrorKind.quickConnectExpired,
+          JellyfinErrorKind.unauthorized:
+              JellyfinErrorKind.quickConnectUnavailable,
+        },
       );
 
   /// The password fallback.
@@ -123,20 +161,26 @@ class JellyfinApi {
         return JellyfinUser.fromJson(_asMap(response.data));
       });
 
+  /// Runs one call, converting dio's exception into Garfin's.
+  ///
+  /// [remap] lets an endpoint say what a status code means *there*. The same
+  /// 401 is "wrong password" on `AuthenticateByName` and "Quick Connect is
+  /// switched off" on the Quick Connect routes, and the user needs to be told
+  /// the second one, not the first.
   Future<T> _call<T>(
     Future<T> Function() body, {
-    JellyfinErrorKind? onNotFound,
+    Map<JellyfinErrorKind, JellyfinErrorKind>? remap,
   }) async {
     try {
       return await body();
     } on DioException catch (error) {
       final mapped = JellyfinException.fromDio(error);
-      if (onNotFound != null && mapped.kind == JellyfinErrorKind.notFound) {
-        return Future.error(
-          JellyfinException(onNotFound, message: mapped.message),
-        );
-      }
-      return Future.error(mapped);
+      final remapped = remap?[mapped.kind];
+      return Future.error(
+        remapped == null
+            ? mapped
+            : JellyfinException(remapped, message: mapped.message),
+      );
     }
   }
 

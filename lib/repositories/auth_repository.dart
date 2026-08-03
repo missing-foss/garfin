@@ -16,9 +16,15 @@ import 'token_store.dart';
 ///
 /// **Ground rule 7 lives here.** An account that is not a Jellyfin
 /// administrator is refused at sign-in, and its token is never written down.
-/// The alternative — letting it through and finding out on the first
-/// `GET /Users` — surfaces as a 403 halfway into the Kids screen, which reads
-/// as a bug in Garfin rather than as the wrong account.
+///
+/// The usual justification for that rule is "otherwise it fails later with a
+/// 403". Measured against 10.11.11 (2026-08-03), that is not what happens, and
+/// the truth is a stronger argument for the rule rather than a weaker one: a
+/// non-admin account is issued a perfectly good token, and `GET /Users` with it
+/// answers **200 with every user's `Policy` populated**. So Garfin would sail
+/// through sign-in, build the whole Kids screen, and only discover the problem
+/// at the first write. There is no 403 to catch — which is exactly why the
+/// check has to be here, at the door, rather than left to surface on its own.
 class AuthRepository {
   /// Collaborators are private: nothing outside this class should be able to
   /// reach the token store directly and write a token that has not been through

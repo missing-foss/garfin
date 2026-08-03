@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-/// What `GET /QuickConnect/Initiate` hands back: the six digits the user types
+import 'dto_json.dart';
+
+/// What `POST /QuickConnect/Initiate` hands back: the six digits the user types
 /// into Jellyfin, and the secret Garfin trades for an access token.
 ///
 /// **The secret is never written to disk** — not to `flutter_secure_storage`,
@@ -26,8 +28,8 @@ class QuickConnectInitiation {
 
   factory QuickConnectInitiation.fromJson(Map<String, dynamic> json) =>
       QuickConnectInitiation(
-        code: json['Code'] as String? ?? '',
-        secret: json['Secret'] as String? ?? '',
+        code: readString(json, 'Code') ?? '',
+        secret: readString(json, 'Secret') ?? '',
       );
 
   @override
@@ -41,5 +43,5 @@ class QuickConnectStatus {
   final bool authenticated;
 
   factory QuickConnectStatus.fromJson(Map<String, dynamic> json) =>
-      QuickConnectStatus(authenticated: json['Authenticated'] == true);
+      QuickConnectStatus(authenticated: readBool(json, 'Authenticated'));
 }

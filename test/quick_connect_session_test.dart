@@ -232,6 +232,48 @@ void main() {
     expect(result.user.name, 'Alex');
   });
 
+  test('starts the pairing with a POST, which is the documented route',
+      () async {
+    // Measured on 10.11.11: the server's own openapi.json lists only `post` for
+    // /QuickConnect/Initiate. The GET this project's docs used to specify still
+    // answers 200 today, which is precisely why a wrong method here would not
+    // show up until the version that finally removes it.
+    final server = FakeJellyfinServer()
+      ..on('/QuickConnect/Initiate',
+          json: {'Code': '123456', 'Secret': secret})
+      ..on('/QuickConnect/Connect', json: {'Authenticated': true})
+      ..on('/Users/AuthenticateWithQuickConnect', json: authResultJson());
+
+    await sessionFor(server).run();
+
+    final initiate = server.requests
+        .firstWhere((r) => r.path == '/QuickConnect/Initiate');
+    expect(initiate.method, 'POST');
+  });
+
+  test('Quick Connect being switched off mid-pairing says so, not "wrong '
+      'password"', () async {
+    // Measured: every /QuickConnect/* route answers 401 "Quick connect is
+    // disabled" when the feature is off. Left as a plain 401 the user would be
+    // told their password was wrong, and would go and change a password that
+    // was never involved.
+    final server = FakeJellyfinServer()
+      ..on('/QuickConnect/Initiate',
+          json: {'Code': '123456', 'Secret': secret})
+      ..on('/QuickConnect/Connect', json: <String, dynamic>{}, status: 401);
+
+    await expectLater(
+      sessionFor(server).run(),
+      throwsA(
+        isA<JellyfinException>().having(
+          (e) => e.kind,
+          'kind',
+          JellyfinErrorKind.quickConnectUnavailable,
+        ),
+      ),
+    );
+  });
+
   test('a rejected poll does end the pairing', () async {
     final server = FakeJellyfinServer()
       ..on('/QuickConnect/Initiate',

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'dto_json.dart';
 import 'jellyfin_user.dart';
 
 /// What `POST /Users/AuthenticateByName` and
@@ -22,18 +23,22 @@ class AuthenticationResult {
   final JellyfinUser user;
   final String serverId;
 
+  /// Measured on 10.11.11: the response carries exactly
+  /// `AccessToken`, `ServerId`, `SessionInfo` and `User`. `SessionInfo` is not
+  /// modelled — Garfin has no use for it, and an unused field is one more thing
+  /// to keep true across a version bump.
   factory AuthenticationResult.fromJson(Map<String, dynamic> json) {
-    final user = json['User'];
+    final user = readMap(json, 'User');
     return AuthenticationResult(
-      accessToken: json['AccessToken'] as String? ?? '',
-      serverId: json['ServerId'] as String? ?? '',
-      user: user is Map<String, dynamic>
-          ? JellyfinUser.fromJson(user)
-          : const JellyfinUser(
+      accessToken: readString(json, 'AccessToken') ?? '',
+      serverId: readString(json, 'ServerId') ?? '',
+      user: user == null
+          ? const JellyfinUser(
               id: '',
               name: '',
               policy: UserPolicy(isAdministrator: false, isDisabled: false),
-            ),
+            )
+          : JellyfinUser.fromJson(user),
     );
   }
 

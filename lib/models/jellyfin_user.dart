@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'dto_json.dart';
+
 /// The slice of Jellyfin's user DTO that sign-in needs.
 ///
 /// Deliberately not the whole policy. The shortlist fields — `AllowedTags`,
@@ -29,8 +31,8 @@ class UserPolicy {
   factory UserPolicy.fromJson(Map<String, dynamic> json) => UserPolicy(
         // Absent means false. A server version that stops sending the field is
         // not a reason to assume administrator.
-        isAdministrator: json['IsAdministrator'] == true,
-        isDisabled: json['IsDisabled'] == true,
+        isAdministrator: readBool(json, 'IsAdministrator'),
+        isDisabled: readBool(json, 'IsDisabled'),
       );
 }
 
@@ -46,15 +48,15 @@ class JellyfinUser {
   final UserPolicy policy;
 
   factory JellyfinUser.fromJson(Map<String, dynamic> json) {
-    final policy = json['Policy'];
+    final policy = readMap(json, 'Policy');
     return JellyfinUser(
-      id: json['Id'] as String? ?? '',
-      name: json['Name'] as String? ?? '',
-      policy: policy is Map<String, dynamic>
-          ? UserPolicy.fromJson(policy)
+      id: readString(json, 'Id') ?? '',
+      name: readString(json, 'Name') ?? '',
+      policy: policy == null
           // No policy in the response means nothing can be asserted about
           // administrator rights, so assert the restrictive one.
-          : const UserPolicy(isAdministrator: false, isDisabled: false),
+          ? const UserPolicy(isAdministrator: false, isDisabled: false)
+          : UserPolicy.fromJson(policy),
     );
   }
 }
