@@ -152,17 +152,18 @@ Analytics are off (`flutter --disable-analytics`, `FLUTTER_SUPPRESS_ANALYTICS=tr
 
 Scaffolded, no features yet. `lib/main.dart` boots the themed shell and shows a placeholder;
 `lib/theme.dart` holds the seed colour and font wiring. The convention directories exist and
-are empty. Build order:
+are empty. Tracked in the build-order epic; phases get their own issue when they are next.
+
+- [x] **Round-trip experiment** — done. The write path's read strategy is measured, not assumed:
+      `GET /Users/{uid}/Items/{id}`, no `Fields` needed. See `docs/JELLYFIN-API.md`
 1. Jellyfin client + auth (Quick Connect and password), admin check
 2. Device unlock gate (`local_auth`) — rule 9. Early, because every later screen sits behind it
 3. User list with policy parsing → Kids screen
 4. Library grid with the child selector
-5. **Round-trip experiment** — derive the `Fields` list against a real server before any write
-   code exists. Rule 2 makes the write path unimplementable until this lands
-6. Assign sheet with tag diff, counts, and the write path
-7. Collections, pre-flight and fix-forward
-8. Settings
-9. Activity log
+5. Assign sheet with tag diff, counts, and the write path
+6. Collections, pre-flight and fix-forward
+7. Settings
+8. Activity log
 
 `local_auth` is not in `pubspec.yaml` yet — it goes in with step 2, and its licence gets read
 from its own shipped `LICENSE` file, not from pub.dev, per the § Licence note above.
