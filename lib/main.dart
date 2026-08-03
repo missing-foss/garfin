@@ -3,15 +3,43 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'l10n/gen/app_localizations.dart';
+import 'logging.dart';
+import 'providers/app_providers.dart';
+import 'repositories/device_identity.dart';
+import 'screens/app_root.dart';
 import 'theme.dart';
 
-void main() {
-  runApp(const ProviderScope(child: GarfinApp()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Quieter in release: Garfin holds a Jellyfin admin token, and the less that
+  // reaches a device log the smaller the surface. `redactSecrets` scrubs what
+  // does get through either way.
+  configureLogging(level: kReleaseMode ? Level.WARNING : Level.INFO);
+
+  // Both need async setup before the first frame, so they are resolved here and
+  // injected. See the note on `sharedPreferencesProvider` for why those
+  // providers throw rather than building an instance of their own.
+  final prefs = await SharedPreferences.getInstance();
+  final identity = await DeviceIdentity.load(prefs);
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        deviceIdentityProvider.overrideWithValue(identity),
+      ],
+      child: const GarfinApp(),
+    ),
+  );
 }
 
 class GarfinApp extends StatelessWidget {
@@ -40,39 +68,9 @@ class GarfinApp extends StatelessWidget {
           darkTheme: garfinTheme(dark),
           // Dark-first: the app is used in the evening, on a sofa.
           themeMode: ThemeMode.dark,
-          home: const _NotBuiltYet(),
+          home: const AppRoot(),
         );
       },
-    );
-  }
-}
-
-/// Placeholder until the sign-in screen lands. Replace, do not build on.
-class _NotBuiltYet extends StatelessWidget {
-  const _NotBuiltYet();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(l10n.appTitle, style: theme.textTheme.displaySmall),
-              const SizedBox(height: 8),
-              Text(
-                l10n.notBuiltYetBody,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

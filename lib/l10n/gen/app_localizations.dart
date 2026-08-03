@@ -104,11 +104,197 @@ abstract class AppLocalizations {
   /// **'Garfin'**
   String get appTitle;
 
-  /// Placeholder on the temporary home screen, shown until the sign-in screen exists. Plain and warm, never cute about permissions.
+  /// Title of the sign-in screen.
   ///
   /// In en, this message translates to:
-  /// **'Nothing to pick from yet — sign-in comes first.'**
-  String get notBuiltYetBody;
+  /// **'Sign in'**
+  String get signInTitle;
+
+  /// Heading for the first sign-in step, where the Jellyfin server address is typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Which server?'**
+  String get serverStepTitle;
+
+  /// Label on the text field for the Jellyfin server URL.
+  ///
+  /// In en, this message translates to:
+  /// **'Server address'**
+  String get serverAddressLabel;
+
+  /// Placeholder inside the server address field. An example URL rather than a sentence — leave it as-is unless the example itself should differ in this locale.
+  ///
+  /// In en, this message translates to:
+  /// **'http://jellyfin.local:8096'**
+  String get serverAddressHint;
+
+  /// Helper text under the server address field.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin remembers this, so you only type it once.'**
+  String get serverAddressHelp;
+
+  /// Button that accepts the typed server address and moves on to the sign-in method.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueLabel;
+
+  /// Button that goes back to the server address step.
+  ///
+  /// In en, this message translates to:
+  /// **'Change server'**
+  String get changeServerLabel;
+
+  /// Tab label. Quick Connect is Jellyfin's own feature name — keep it untranslated so it matches what the user sees inside Jellyfin.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Connect'**
+  String get signInMethodQuickConnect;
+
+  /// Tab label for the username-and-password fallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get signInMethodPassword;
+
+  /// Shown between opening the Quick Connect tab and the six-digit code arriving.
+  ///
+  /// In en, this message translates to:
+  /// **'Asking the server for a code…'**
+  String get quickConnectStarting;
+
+  /// Instructions shown above the six-digit Quick Connect code.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Jellyfin on any device, go to Quick Connect, and enter this code.'**
+  String get quickConnectHowTo;
+
+  /// Shown beside the indeterminate progress bar while Garfin polls for approval.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the code to be approved…'**
+  String get quickConnectWaiting;
+
+  /// Button that starts a fresh Quick Connect pairing after one expired or failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Get a new code'**
+  String get quickConnectNewCode;
+
+  /// Label on the username field of the password sign-in form.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get usernameLabel;
+
+  /// Label on the password field of the password sign-in form.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get passwordLabel;
+
+  /// Button that submits the username and password.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signInAction;
+
+  /// Names the Jellyfin account Garfin is using.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in as {name}'**
+  String signedInAs(String name);
+
+  /// Names the Jellyfin server address Garfin is talking to.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to {server}'**
+  String connectedTo(String server);
+
+  /// Button that forgets the account and the access token.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get signOutAction;
+
+  /// Body of the temporary home screen shown after signing in, until the Library screen exists.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in is done. The Kids and Library screens come next.'**
+  String get homeNextUpBody;
+
+  /// Banner shown when a stored session could not be confirmed because the server is unreachable. The app stays usable with what it has cached.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin can\'t reach the server right now. This is what it already knew.'**
+  String get offlineNotice;
+
+  /// Shown when the typed server address cannot be parsed at all, so nothing was sent anywhere.
+  ///
+  /// In en, this message translates to:
+  /// **'That doesn\'t look like a web address. Try something like http://jellyfin.local:8096'**
+  String get errorMalformedServerAddress;
+
+  /// Shown when no answer came back from the server at all.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin couldn\'t reach {server}. Check the address, and that this phone is on the same network.'**
+  String errorUnreachable(String server);
+
+  /// Shown when a request timed out.
+  ///
+  /// In en, this message translates to:
+  /// **'The server didn\'t answer in time. Try again.'**
+  String get errorTimeout;
+
+  /// Shown for HTTP 401 during sign-in.
+  ///
+  /// In en, this message translates to:
+  /// **'That username or password didn\'t match.'**
+  String get errorUnauthorized;
+
+  /// Shown for HTTP 403.
+  ///
+  /// In en, this message translates to:
+  /// **'That account isn\'t allowed to do this on the server.'**
+  String get errorForbidden;
+
+  /// Shown for HTTP 404 — usually a URL pointing at some other service.
+  ///
+  /// In en, this message translates to:
+  /// **'Something answered at that address, but it wasn\'t Jellyfin.'**
+  String get errorNotFound;
+
+  /// Shown for HTTP 5xx, or a response that could not be read.
+  ///
+  /// In en, this message translates to:
+  /// **'The server ran into a problem. Try again in a moment.'**
+  String get errorServer;
+
+  /// Shown when a Quick Connect code was never approved inside the polling window.
+  ///
+  /// In en, this message translates to:
+  /// **'That code ran out. Ask for a new one.'**
+  String get errorQuickConnectExpired;
+
+  /// Shown when the server reports Quick Connect as disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Connect is switched off on this server. Use a password instead.'**
+  String get errorQuickConnectUnavailable;
+
+  /// Shown when an account authenticated but is not a Jellyfin administrator. Ground rule 7 — the refusal happens at sign-in, and the wording says which account was refused and what to do instead.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} isn\'t an administrator on this server. Garfin reads and edits every account\'s shortlist, so it needs an admin account. Sign in with one.'**
+  String errorNotAdministrator(String name);
+
+  /// Shown when a request was cancelled — the screen was closed, or the user backed out.
+  ///
+  /// In en, this message translates to:
+  /// **'That was stopped before it finished.'**
+  String get errorCancelled;
 }
 
 class _AppLocalizationsDelegate
