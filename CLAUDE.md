@@ -70,9 +70,13 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
 
 1. **Never write to Jellyfin without a preview.** Every tag change shows the exact
    additions and removals before it is applied. No write on toggle. The preview also carries
-   the child's **current** server-computed count, and hard-warns when the diff would empty
-   their `AllowedTags` — that case makes them see *nothing*, and a bare `− tag` line does not
-   convey it. After applying, re-fetch and report the **verified** new count; that is what
+   the child's **current** server-computed count, and hard-warns when the removal would strip
+   the child's tag from the **last item still carrying it** — their `AllowedTags` would then
+   match nothing and they would see *nothing*, not everything, and a bare `− tag` line does not
+   convey that. Note this is a **count of tagged items**, not a policy field and not a
+   visibility computation: rule 8 means Garfin cannot alter `AllowedTags` itself, so the
+   policy entry survives and simply stops matching. Rule 4 is untouched — no rating cap is
+   involved. After applying, re-fetch and report the **verified** new count; that is what
    explains a share the rating cap swallowed.
 2. **`POST /Items/{id}` replaces the whole item.** Always `GET` the full metadata object first,
    mutate only `Tags`, and post the complete object back. Dropping fields corrupts the library.

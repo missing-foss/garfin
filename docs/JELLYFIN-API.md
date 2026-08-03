@@ -155,4 +155,11 @@ Keep a small concurrency limit (3–4) so a big collection doesn't flood the ser
   US ladder; read `GET /Localization/ParentalRatings`.
 - Items with no `OfficialRating` are treated as unrated and may be hidden by a cap. Surface that
   rather than letting a title vanish mysteriously.
-- Deleting a user's last allowed tag makes them see nothing, not everything. Warn.
+- A user whose `AllowedTags` matches nothing sees **nothing**, not everything. Two distinct routes
+  reach that state, and only one is Garfin's:
+  - Deleting the tag from `Policy.AllowedTags` — a policy write, which **Garfin never does**
+    (ground rule 8). This is the Jellyfin behaviour to be aware of, not an action to guard.
+  - Removing the tag from the **last item carrying it**. `AllowedTags` is untouched and still
+    lists the label; it simply matches zero items. This one Garfin *can* cause, and it is the
+    case rule 1 must warn about. Detecting it is a count of tagged items — a library query, not
+    a visibility computation, so rule 4 does not apply.

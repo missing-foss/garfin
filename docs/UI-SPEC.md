@@ -58,10 +58,14 @@ The preview shows the count as it stands, not a prediction. Predicting the resul
 simulating the server's policy evaluation, including the rating cap, which ground rule 4 forbids
 precisely because it goes wrong silently.
 
-**One case gets a hard warning, not a diff line.** If removing a label would empty a child's
-`AllowedTags`, they will see *nothing* — not everything. That is derivable from the policy's
-shape rather than from visibility, so it is safe to state outright, and it must be impossible to
-apply without having read it.
+**One case gets a hard warning, not a diff line.** If this removal would take the child's label
+off the **last item still carrying it**, they will see *nothing* — not everything. Their
+`AllowedTags` still lists the label; it just stops matching anything.
+
+Garfin cannot empty `AllowedTags` itself — ground rule 8 means it never writes user policy — so
+the trigger is a **count of items carrying the tag**, reached zero. That is a library query, not
+a visibility computation, so ground rule 4 is not in play: no rating cap enters into it. It must
+be impossible to apply without having read the warning.
 
 If a single film belongs to a collection and labels were added, an **AlertDialog** asks whether to
 keep the set together, listing the other members with their ratings. "Just this one" / "All N".
