@@ -32,18 +32,33 @@ class FakeDeviceUnlock implements DeviceUnlock {
   /// instantly skips straight past it.
   bool autoAnswer = true;
 
+  /// Thrown instead of answering, if set.
+  ///
+  /// The real `canBeEnforced()` reaches the platform through pigeon, which
+  /// raises `PlatformException` when the channel is unavailable — so "the
+  /// capability check blew up" is a state the gate has to survive, and nothing
+  /// could produce it before this.
+  Object? throwOnCanBeEnforced;
+  Object? throwOnAuthenticate;
+
   int prompts = 0;
   String? lastReason;
 
   Completer<UnlockOutcome>? _pending;
 
   @override
-  Future<bool> canBeEnforced() async => enforceable;
+  Future<bool> canBeEnforced() async {
+    final failure = throwOnCanBeEnforced;
+    if (failure != null) throw failure;
+    return enforceable;
+  }
 
   @override
   Future<UnlockOutcome> authenticate({required String reason}) {
     prompts++;
     lastReason = reason;
+    final failure = throwOnAuthenticate;
+    if (failure != null) throw failure;
     if (autoAnswer) return Future<UnlockOutcome>.value(outcome);
     final completer = Completer<UnlockOutcome>();
     _pending = completer;

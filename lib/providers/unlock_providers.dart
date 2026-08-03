@@ -104,19 +104,44 @@ class LockController extends Notifier<UnlockState> {
     if (state.phase == LockPhase.unlocking) return;
     state = const UnlockState(phase: LockPhase.unlocking);
 
-    if (!await _unlock.canBeEnforced()) {
+    final UnlockOutcome outcome;
+    try {
+      if (!await _unlock.canBeEnforced()) {
+        if (!ref.mounted) return;
+        // A lock Garfin cannot enforce must not become a lock-out.
+        log.info('device has no credential set; the gate cannot be enforced');
+        state = UnlockState(
+          phase: _cannotEnforceAcknowledged
+              ? LockPhase.unlocked
+              : LockPhase.cannotEnforce,
+        );
+        return;
+      }
+      outcome = await _unlock.authenticate(reason: reason);
+    } on Object catch (error, stack) {
+      // **This catch is the difference between a gate and a lock-out.**
+      //
+      // `canBeEnforced()` reaches the platform through pigeon, which raises
+      // `PlatformException` when the channel is unavailable. Without this, that
+      // escapes an un-awaited call in `LockScreen`, `phase` never leaves
+      // `unlocking`, and the Unlock button is disabled in exactly that phase —
+      // leaving the user on a lock screen with no working control, no message,
+      // and the same outcome on every relaunch.
+      //
+      // Landing on `locked` with `error` is the honest state: the button is
+      // live, `unlockError` explains it, and Garfin is *not* claiming to know
+      // whether this phone has a credential. That last part matters — the
+      // `cannotEnforce` path waves the user through and remembers doing so, and
+      // a transient channel error must never be mistaken for it.
       if (!ref.mounted) return;
-      // A lock Garfin cannot enforce must not become a lock-out.
-      log.info('device has no credential set; the gate cannot be enforced');
-      state = UnlockState(
-        phase: _cannotEnforceAcknowledged
-            ? LockPhase.unlocked
-            : LockPhase.cannotEnforce,
+      log.warning('unlock attempt failed: ${error.runtimeType}', error, stack);
+      state = const UnlockState(
+        phase: LockPhase.locked,
+        lastFailure: UnlockOutcome.error,
       );
       return;
     }
 
-    final outcome = await _unlock.authenticate(reason: reason);
     if (!ref.mounted) return;
 
     switch (outcome) {

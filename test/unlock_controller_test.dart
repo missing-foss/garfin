@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/providers/app_providers.dart';
@@ -85,6 +86,61 @@ void main() {
       // One prompt, not a retry loop: re-prompting automatically is how a user
       // gets locked out of their own phone by a rate limiter.
       expect(device.prompts, 1);
+    });
+  });
+
+  group('the platform channel failing must not become a lock-out', () {
+    test('a throw from the capability check leaves the gate usable', () async {
+      final container = await containerWith(<String, Object>{});
+      // What pigeon raises when the channel is unavailable. It is not a
+      // `LocalAuthException`, which is why the old catch clause never fired.
+      device.throwOnCanBeEnforced = PlatformException(
+        code: 'channel-error',
+        message: 'Unable to establish connection on channel.',
+      );
+
+      await container
+          .read(lockControllerProvider.notifier)
+          .unlock(reason: 'Unlock Garfin');
+
+      final state = container.read(lockControllerProvider);
+      // Not stuck in `unlocking` — that phase disables the Unlock button, so
+      // the user would be left on a lock screen with no working control, no
+      // message, and the same result on every relaunch.
+      expect(state.phase, LockPhase.locked);
+      expect(state.lastFailure, UnlockOutcome.error);
+    });
+
+    test('an error is not mistaken for "this phone has no credential"',
+        () async {
+      final container = await containerWith(<String, Object>{});
+      final controller = container.read(lockControllerProvider.notifier);
+      device.throwOnCanBeEnforced = PlatformException(code: 'channel-error');
+
+      await controller.unlock(reason: 'Unlock Garfin');
+      expect(container.read(lockControllerProvider).phase, LockPhase.locked);
+
+      // The channel recovers. A phone that does have a PIN must still be asked
+      // — the error must not have set the acknowledged-cannot-enforce flag and
+      // waved it through for the rest of the session.
+      device.throwOnCanBeEnforced = null;
+      await controller.unlock(reason: 'Unlock Garfin');
+
+      expect(container.read(lockControllerProvider).phase, LockPhase.unlocked);
+      expect(device.prompts, 1, reason: 'the retry actually prompted');
+    });
+
+    test('a throw from the prompt itself is an error, not a refusal', () async {
+      final container = await containerWith(<String, Object>{});
+      device.throwOnAuthenticate = PlatformException(code: 'channel-error');
+
+      await container
+          .read(lockControllerProvider.notifier)
+          .unlock(reason: 'Unlock Garfin');
+
+      final state = container.read(lockControllerProvider);
+      expect(state.phase, LockPhase.locked);
+      expect(state.lastFailure, UnlockOutcome.error);
     });
   });
 

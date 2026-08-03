@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
@@ -147,6 +148,33 @@ void main() {
 
     expect(find.text('behind the gate'), findsOneWidget);
     expect(device.prompts, 2);
+  });
+
+  testWidgets('a platform-channel failure leaves a working Unlock button',
+      (tester) async {
+    // The failure this whole feature must never produce: a lock screen with no
+    // working control. `canBeEnforced()` reaches the platform through pigeon,
+    // which raises PlatformException rather than LocalAuthException.
+    device.throwOnCanBeEnforced =
+        PlatformException(code: 'channel-error', message: 'no channel');
+
+    await tester.pumpWidget(await gatedApp());
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text("The phone couldn't ask for that just now. Try again."),
+      findsOneWidget,
+    );
+    final button = tester.widget<FilledButton>(find.byType(FilledButton));
+    expect(button.onPressed, isNotNull,
+        reason: 'a disabled button here is a permanent lock-out');
+
+    // And the button works once the channel comes back.
+    device.throwOnCanBeEnforced = null;
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('behind the gate'), findsOneWidget);
   });
 
   testWidgets('a phone with no PIN is told plainly and let through',

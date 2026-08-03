@@ -103,6 +103,15 @@ Limits worth stating plainly:
 - The app stays mounted behind the gate so a relock does not discard what the user was in the
   middle of. It is covered by an opaque screen, made untouchable, and hidden from screen readers,
   but it is not unmounted.
+- **The recents thumbnail is not covered, and screenshots are not restricted.** `FLAG_SECURE` is
+  not set. The gate locks on *resume*, never on the way out, so Android captures its task snapshot
+  while Garfin is still showing unlocked content — someone who is handed the phone can read the
+  last screen off the task switcher without ever meeting the lock screen. Today that screen is a
+  placeholder, but the Kids screen, the library grid and per-child policy are the screens this
+  gate exists for, and they arrive at steps 3–5. **Decide this before they do.** Setting
+  `FLAG_SECURE` is the usual answer and costs the parent their own screenshots and casting;
+  covering on `paused` is racy against when the snapshot is taken. Argued from documented Android
+  behaviour, not measured — there is no device here to measure it on.
 
 **Verified (2026-08-03), in tests:** cold start locks; a wrong attempt keeps the gate up and does
 not retry on its own; resume after longer than the timeout relocks and resume inside it does not;

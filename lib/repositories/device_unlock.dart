@@ -55,18 +55,26 @@ class LocalDeviceUnlock implements DeviceUnlock {
 
   final LocalAuthentication _auth;
 
+  /// Whether the phone has anything to ask for.
+  ///
+  /// True when there is a biometric enrolled *or* a device credential set. Read
+  /// from `local_auth_android`: `isDeviceSupported()` is
+  /// `isDeviceSecure() || canAuthenticateWithBiometrics()`.
+  ///
+  /// **Deliberately does not catch.** It used to catch `LocalAuthException` and
+  /// answer `false`, which was wrong twice over. First, that clause was dead
+  /// code: `isDeviceSupported()` goes through pigeon, whose
+  /// `_extractReplyValueOrThrow` throws `PlatformException`, and
+  /// `LocalAuthException implements Exception` rather than extending it — so
+  /// nothing was ever caught. Second, and worse, catching it *correctly* would
+  /// have been the bug: answering `false` means "this phone has no credential",
+  /// which sends the gate down the let-them-through path. A channel error is
+  /// "I could not find out", and those two must not be the same answer.
+  ///
+  /// So it throws, and `LockController.unlock` turns that into a locked gate
+  /// with a working button.
   @override
-  Future<bool> canBeEnforced() async {
-    try {
-      // True when there is a biometric enrolled *or* a device credential set.
-      // Read from `local_auth_android`: `isDeviceSupported()` is
-      // `isDeviceSecure() || canAuthenticateWithBiometrics()`.
-      return await _auth.isDeviceSupported();
-    } on LocalAuthException catch (error) {
-      log.warning('could not read device unlock capability: ${error.code.name}');
-      return false;
-    }
-  }
+  Future<bool> canBeEnforced() => _auth.isDeviceSupported();
 
   /// One prompt: biometric where there is one, device credential otherwise.
   ///
@@ -102,6 +110,13 @@ class LocalDeviceUnlock implements DeviceUnlock {
       return ok ? UnlockOutcome.unlocked : UnlockOutcome.failed;
     } on LocalAuthException catch (error) {
       return mapExceptionCode(error.code);
+    } on Object catch (error) {
+      // Everything else the platform channel can raise — a `PlatformException`
+      // from a failed pigeon call, most likely. Not the user's doing, and not
+      // evidence about whether the phone has a credential, so it becomes an
+      // error the gate can show and offer a retry for.
+      log.warning('device unlock failed: ${error.runtimeType}');
+      return UnlockOutcome.error;
     }
   }
 

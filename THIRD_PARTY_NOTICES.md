@@ -45,6 +45,13 @@ Direct dependencies. Transitive dependencies are covered by the Flutter
 | `dynamic_color` | Apache-2.0 | Google LLC |
 | `material_symbols_icons` | Apache-2.0 | Google LLC (icons), package author |
 
+`local_auth` pulls in `local_auth_android`, and `pubspec.lock` also resolves
+`local_auth_darwin` and `local_auth_windows`. All four carry the **same**
+`LICENSE` file as `local_auth` itself — byte-identical, BSD-3-Clause, Copyright
+2013 The Flutter Authors. The darwin and windows federated plugins are **not
+redistributed in the APK**: Garfin is Android-only, so they are listed here for
+completeness rather than as components this file is attributing.
+
 Development-only, not shipped in the APK: `mocktail` (MIT, 2026 Felix Angelov),
 `flutter_lints` (BSD-3-Clause, 2013 The Flutter Authors).
 
