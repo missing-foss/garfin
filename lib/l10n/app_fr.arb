@@ -67,5 +67,41 @@
 
   "errorNotAdministrator": "{name} n'est pas administrateur sur ce serveur. Garfin lit et modifie la liste de chaque compte, il lui faut donc un compte administrateur. Connectez-vous avec un tel compte.",
 
-  "errorCancelled": "L'opération a été interrompue avant la fin."
+  "errorCancelled": "L'opération a été interrompue avant la fin.",
+
+  "unlockPromptReason": "Déverrouiller Garfin",
+
+  "unlockTitle": "Garfin est verrouillé",
+
+  "unlockBody": "Garfin se connecte à Jellyfin en tant qu'administrateur : il demande qui vous êtes avant de s'ouvrir.",
+
+  "unlockAction": "Déverrouiller",
+
+  "unlockFailed": "Cela ne correspond pas. Réessayez.",
+
+  "unlockCancelled": "Annulé. Touchez Déverrouiller quand vous voulez.",
+
+  "unlockTooManyTries": "Trop d'essais. Patientez un instant, puis réessayez.",
+
+  "unlockUsePinInstead": "Trop d'essais avec l'empreinte. Utilisez le code ou le schéma de l'appareil.",
+
+  "unlockError": "Le téléphone n'a pas pu le demander pour le moment. Réessayez.",
+
+  "unlockCannotEnforce": "Ce téléphone n'a ni code, ni schéma, ni empreinte : Garfin ne peut donc rien demander. Configurez-en un dans les réglages du téléphone si vous voulez que Garfin le demande.",
+
+  "unlockContinue": "Continuer",
+
+  "settingsUnlockTitle": "Verrouillage",
+
+  "settingsUnlockRequire": "Demander à l'ouverture de Garfin",
+
+  "settingsUnlockRequireSubtitle": "Garfin garde une connexion administrateur à votre serveur Jellyfin.",
+
+  "settingsUnlockTimeout": "Redemander après",
+
+  "settingsUnlockTimeoutSubtitle": "Combien de temps Garfin peut rester en arrière-plan avant de redemander.",
+
+  "unlockTimeoutImmediate": "Immédiatement",
+
+  "unlockTimeoutMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}"
 }

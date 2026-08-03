@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- USE_BIOMETRIC and USE_FINGERPRINT are deliberately not declared here.
+         local_auth_android's own manifest declares them and the merger brings
+         them in; verified in
+         build/app/intermediates/merged_manifests/debug/.../AndroidManifest.xml.
+         Repeating them would be a second place to keep in step with the plugin
+         for no gain. -->
     <application
         android:label="garfin"
         android:name="${applicationName}"

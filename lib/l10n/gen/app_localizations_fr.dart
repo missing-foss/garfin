@@ -129,4 +129,74 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get errorCancelled => 'L\'opération a été interrompue avant la fin.';
+
+  @override
+  String get unlockPromptReason => 'Déverrouiller Garfin';
+
+  @override
+  String get unlockTitle => 'Garfin est verrouillé';
+
+  @override
+  String get unlockBody =>
+      'Garfin se connecte à Jellyfin en tant qu\'administrateur : il demande qui vous êtes avant de s\'ouvrir.';
+
+  @override
+  String get unlockAction => 'Déverrouiller';
+
+  @override
+  String get unlockFailed => 'Cela ne correspond pas. Réessayez.';
+
+  @override
+  String get unlockCancelled =>
+      'Annulé. Touchez Déverrouiller quand vous voulez.';
+
+  @override
+  String get unlockTooManyTries =>
+      'Trop d\'essais. Patientez un instant, puis réessayez.';
+
+  @override
+  String get unlockUsePinInstead =>
+      'Trop d\'essais avec l\'empreinte. Utilisez le code ou le schéma de l\'appareil.';
+
+  @override
+  String get unlockError =>
+      'Le téléphone n\'a pas pu le demander pour le moment. Réessayez.';
+
+  @override
+  String get unlockCannotEnforce =>
+      'Ce téléphone n\'a ni code, ni schéma, ni empreinte : Garfin ne peut donc rien demander. Configurez-en un dans les réglages du téléphone si vous voulez que Garfin le demande.';
+
+  @override
+  String get unlockContinue => 'Continuer';
+
+  @override
+  String get settingsUnlockTitle => 'Verrouillage';
+
+  @override
+  String get settingsUnlockRequire => 'Demander à l\'ouverture de Garfin';
+
+  @override
+  String get settingsUnlockRequireSubtitle =>
+      'Garfin garde une connexion administrateur à votre serveur Jellyfin.';
+
+  @override
+  String get settingsUnlockTimeout => 'Redemander après';
+
+  @override
+  String get settingsUnlockTimeoutSubtitle =>
+      'Combien de temps Garfin peut rester en arrière-plan avant de redemander.';
+
+  @override
+  String get unlockTimeoutImmediate => 'Immédiatement';
+
+  @override
+  String unlockTimeoutMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count minutes',
+      one: '1 minute',
+    );
+    return '$_temp0';
+  }
 }

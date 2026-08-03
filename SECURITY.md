@@ -81,8 +81,16 @@ is also the phone handed to a child to watch something — that is the product's
 interaction, not an edge case, and it is exactly the situation device lock does not cover.
 
 So the app gates itself: biometric, falling back to device PIN/pattern, on cold start and on
-resume after an idle timeout (default 2 minutes, configurable in Settings). Below API 28 there is
-no `BiometricPrompt`, so 26–27 use device credential directly.
+resume after an idle timeout (default 2 minutes, configurable in Settings).
+
+On the API 26–27 case: the original wording here said those versions "use device credential
+directly" because the platform's `BiometricPrompt` arrived in API 28. That is true of the platform
+class but not of the mechanism — `local_auth_android` uses **androidx**'s `BiometricPrompt`, which
+has its own compatibility path below 28. What Garfin actually does is ask the device what it can
+do rather than what version it is: `biometricOnly: false`, and the plugin resolves that to a
+device-credential prompt when there is no usable biometric. On a 26–27 phone with only a PIN the
+outcome is the one described; the branch also covers a modern phone whose fingerprint reader is
+broken or unenrolled, which a version check would miss.
 
 Limits worth stating plainly:
 
@@ -90,12 +98,23 @@ Limits worth stating plainly:
   who has the device *and* its PIN.
 - A device with no credential set cannot be gated at all. Garfin says so rather than locking the
   user out of their own app.
-- The token remains in `flutter_secure_storage` either way; the gate protects the *session*, not
+- The token remains in `flutter_secure_storage` either way; the gate covers the *session*, not
   the storage.
+- The app stays mounted behind the gate so a relock does not discard what the user was in the
+  middle of. It is covered by an opaque screen, made untouchable, and hidden from screen readers,
+  but it is not unmounted.
 
-**Not yet verified:** none of this is implemented. It is a design commitment recorded here, and
-it needs testing against a real device — including that backgrounding actually triggers re-auth,
-which is the case that matters.
+**Verified (2026-08-03), in tests:** cold start locks; a wrong attempt keeps the gate up and does
+not retry on its own; resume after longer than the timeout relocks and resume inside it does not;
+a device reporting no credential is told and let through rather than locked out; the gate is
+absent when the setting is off. The lifecycle wiring is driven through the real
+`inactive → hidden → paused` sequence, and the gate deliberately ignores `inactive`, because the
+unlock prompt itself makes the app inactive.
+
+**Not yet verified:** any of it on a real handset. There is no emulator image installed and no
+Android device attached here, so the biometric and device-credential prompts themselves have
+never been shown. **Backgrounding and resuming on a real device is still the case that matters**
+and is still untested — as is API 26–27, where no such handset was available.
 
 ## Repository security posture
 

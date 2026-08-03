@@ -41,6 +41,7 @@ Direct dependencies. Transitive dependencies are covered by the Flutter
 | `shared_preferences` | BSD-3-Clause | 2013 The Flutter Authors |
 | `flutter_secure_storage` | BSD-3-Clause | 2017 German Saprykin |
 | `logging`, `intl` | BSD-3-Clause | 2013 the Dart project authors |
+| `local_auth` | BSD-3-Clause | 2013 The Flutter Authors |
 | `dynamic_color` | Apache-2.0 | Google LLC |
 | `material_symbols_icons` | Apache-2.0 | Google LLC (icons), package author |
 
