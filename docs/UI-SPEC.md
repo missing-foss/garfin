@@ -10,11 +10,25 @@ Screen by screen. `docs/ui-mockup.jsx` is the clickable version — reference on
 
 Bottom navigation, four destinations: **Library · Kids · Activity · Settings**.
 
+## Unlock
+
+Before anything else, on cold start and on resume after the idle timeout: biometric, falling back
+to device PIN/pattern. Garfin holds an admin token on a phone that gets handed to children as its
+normal mode of use, so device lock alone doesn't cover the case the app itself creates.
+
+Below API 28 there is no `BiometricPrompt`, so 26–27 go straight to device credential. If the
+device has no credential set at all, say so plainly and let the user continue — a lock Garfin
+cannot enforce shouldn't become a lock-out.
+
 ## Sign in
 
 Server URL (remembered), then Quick Connect (default) or password. Quick Connect shows a
 six-digit code and an indeterminate progress bar while polling. Non-admin accounts are refused
 with an explanation, not a generic error.
+
+Backgrounding during Quick Connect is normal — authorising the code means opening a signed-in
+Jellyfin session. If the process is killed, pairing restarts with a fresh code; the secret is
+never persisted to survive it.
 
 ## Library — the landing screen
 
@@ -34,13 +48,31 @@ Cover, title, metadata. For a collection: a note that labels land on all N films
 film in a collection: a softer note naming the set.
 
 One row per label-controlled child, the selected one first. Rows above the child's rating cap are
-flagged. Toggling updates a **tag diff** — the exact additions and removals — which is the only
-place a write is previewed. Apply, or Cancel.
+flagged. Each row carries that child's **current** visible count — "Emma sees 24 of 400" —
+fetched from the server, never computed here.
+
+Toggling updates a **tag diff** — the exact additions and removals — which is the only place a
+write is previewed. Apply, or Cancel.
+
+The preview shows the count as it stands, not a prediction. Predicting the result would mean
+simulating the server's policy evaluation, including the rating cap, which ground rule 4 forbids
+precisely because it goes wrong silently.
+
+**One case gets a hard warning, not a diff line.** If removing a label would empty a child's
+`AllowedTags`, they will see *nothing* — not everything. That is derivable from the policy's
+shape rather than from visibility, so it is safe to state outright, and it must be impossible to
+apply without having read it.
 
 If a single film belongs to a collection and labels were added, an **AlertDialog** asks whether to
 keep the set together, listing the other members with their ratings. "Just this one" / "All N".
 
-Result: a Snackbar with Undo.
+Result: a Snackbar with Undo, carrying the **re-fetched** count — "Emma now sees 25 of 400".
+That is the server's answer after the write, so it is also what explains a share the rating cap
+swallowed: the tag landed, the number didn't move, and the app says so rather than looking broken.
+
+If a collection write partly fails, the sheet reports the exact state — "7 of 12 tagged" — and
+offers *finish the rest* or *remove all*. It never silently undoes what succeeded; see ground
+rule 5.
 
 ## Kids
 
@@ -62,6 +94,9 @@ time, and the tag that changed. Recent entries offer Undo.
 
 ## Settings
 
+- **Unlock** — require biometric/PIN (on by default), and the idle timeout before Garfin asks
+  again on resume. Default 2 minutes. Long enough not to nag while the parent is picking, short
+  enough that handing the phone over expires the session in practice.
 - **Server** — host, signed-in user, sign out, refresh cache
 - **Labels** — prefix on/off, the prefix itself, cascade to episodes, cascade to collection
   members, collection prompt behaviour, refresh metadata after write

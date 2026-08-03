@@ -74,6 +74,44 @@ above is a design commitment rather than an audited fact. It needs confirming
 against the real implementation — including that no token reaches
 `shared_preferences`, a logger, or a crash path — before release.
 
+## Device access
+
+Garfin signs in as a Jellyfin **admin** and holds that token on the device. The phone running it
+is also the phone handed to a child to watch something — that is the product's normal
+interaction, not an edge case, and it is exactly the situation device lock does not cover.
+
+So the app gates itself: biometric, falling back to device PIN/pattern, on cold start and on
+resume after an idle timeout (default 2 minutes, configurable in Settings). Below API 28 there is
+no `BiometricPrompt`, so 26–27 use device credential directly.
+
+Limits worth stating plainly:
+
+- This raises the cost of picking up an unlocked phone. It is **not** a defence against someone
+  who has the device *and* its PIN.
+- A device with no credential set cannot be gated at all. Garfin says so rather than locking the
+  user out of their own app.
+- The token remains in `flutter_secure_storage` either way; the gate protects the *session*, not
+  the storage.
+
+**Not yet verified:** none of this is implemented. It is a design commitment recorded here, and
+it needs testing against a real device — including that backgrounding actually triggers re-auth,
+which is the case that matters.
+
+## Repository security posture
+
+Branch protection is implemented as **rulesets** (`protect-main`, `protect-release-tags`), with
+required status checks and no bypass, rather than classic branch protection.
+
+**There is deliberately no `SCORECARD_TOKEN`.** The documented setup asks for a classic PAT with
+`repo` scope — read *and write* over every repository its owner can reach — stored in a public
+repo's secrets, in order to raise a security score. That trade is not worth making: if it leaked,
+the blast radius is the whole organisation, and what it buys is a number. Scorecard runs and
+publishes results without it; the Branch-Protection check scores low or unscored as a result.
+The SAST check is capped regardless, because CodeQL does not support Dart — which is why
+`flutter analyze` is treated as load-bearing static analysis here rather than a formality.
+
+This is a considered decision, not an oversight.
+
 ## Release signing
 
 Release builds are signed locally with Garfin's own canonical key; no keystore
