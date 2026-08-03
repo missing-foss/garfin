@@ -78,6 +78,34 @@ If a collection write partly fails, the sheet reports the exact state — "7 of 
 offers *finish the rest* or *remove all*. It never silently undoes what succeeded; see ground
 rule 5.
 
+### How Undo works — everywhere it appears
+
+**Undo is a new forward write, never a restore.** Fresh `GET /Users/{adminId}/Items/{itemId}`,
+remove the specific tag Garfin added, post the full object back. It reverses the *effect*, not
+the object. **Garfin never re-posts a previously captured item body.**
+
+Restoring a snapshot is the intuitive reading and the dangerous one. Two reasons, and the second
+is not recoverable:
+
+- The item may have changed since — a Jellyfin metadata refresh, an edit in the web admin, a
+  second Garfin session. Re-posting a stale body silently discards all of it.
+- A body that isn't a faithful full single-item read is rejected with 400 **and leaves the item's
+  detail endpoints returning 400 afterwards**, while list views keep showing correct data. The
+  only known repair wipes every Garfin label on that item. See `docs/JELLYFIN-API.md`. Undo — the
+  feature whose entire purpose is making a mistake recoverable — would become the one that makes
+  it unrecoverable in place.
+
+Consequences that follow from Undo being a forward write:
+
+- **`Tags` is shared with the metadata provider**, so remove only the one label. Never restore a
+  captured `Tags` array either: provider keywords may have changed underneath it.
+- **It stays safe however long has passed**, which is what lets the Activity log offer Undo on
+  old entries. A restore would grow more dangerous with age; a forward write does not.
+- **It is idempotent.** If the label is already gone — removed by hand, or by a second session —
+  Undo succeeds and says so, rather than erroring.
+- **If the fresh `GET` fails, stop and surface it.** That is the signal the item is already in
+  the broken state above, and pressing on would neither help nor be honest about it.
+
 ## Kids
 
 Cards for label-controlled users: avatar, name, age, cap, an allow-list/block-list chip, the tags,
@@ -94,7 +122,8 @@ Extended FAB: "Add titles".
 ## Activity
 
 Reverse-chronological list of every label write: item, "Handed to / Taken from {child}", relative
-time, and the tag that changed. Recent entries offer Undo.
+time, and the tag that changed. Recent entries offer Undo — a forward write, per the assign
+sheet's *How Undo works* above, which is why an entry stays safely undoable however old it is.
 
 ## Settings
 
