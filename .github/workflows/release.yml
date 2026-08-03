@@ -18,8 +18,10 @@
 # a DRAFT release for the maintainer to attach the locally-signed APK to. The
 # draft is the handoff point — nothing is public until a human publishes it.
 #
-# FIRST TAG: `protect-release-tags` has no bypass, so the very first tag push
-# needs a temporary bypass or a disable. This bit garmin during its bring-up.
+# TAG PUSHES: `protect-release-tags` restricts tag creation, and carries
+# `Repository admin → Always allow` so an admin can create release tags. That
+# bypass is what makes this workflow reachable at all — don't remove it while
+# tidying rulesets.
 name: release
 on:
   push:

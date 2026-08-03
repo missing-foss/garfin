@@ -99,8 +99,16 @@ which is the case that matters.
 
 ## Repository security posture
 
-Branch protection is implemented as **rulesets** (`protect-main`, `protect-release-tags`), with
-required status checks and no bypass, rather than classic branch protection.
+Branch protection is implemented as **rulesets** (`protect-main`, `protect-release-tags`) rather
+than classic branch protection. `protect-main` requires a pull request and two status checks
+(`test`, `require-label`); `protect-release-tags` restricts tag creation, deletion and
+force-update.
+
+Both carry `Repository admin → Always allow` as a bypass. That is deliberate and load-bearing for
+tags — without it no release tag could be created — but it should be read honestly: **a repository
+admin can push past either ruleset.** The protection is against mistakes and against non-admin
+contributors, not against a compromised admin account. Anyone modelling the threat here should
+assume admin access defeats it.
 
 **There is deliberately no `SCORECARD_TOKEN`.** The documented setup asks for a classic PAT with
 `repo` scope — read *and write* over every repository its owner can reach — stored in a public

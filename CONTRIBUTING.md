@@ -87,8 +87,11 @@ The guard in `android/app/build.gradle.kts` verifies the keystore fingerprint
 during that build and refuses to proceed if it doesn't match the pinned value.
 Nothing is public until you publish the draft.
 
-**The first tag will fail to push.** `protect-release-tags` has no bypass, so
-it needs a temporary bypass or a disable for that one push.
+**Don't remove `protect-release-tags`' bypass while tidying rulesets.** The
+ruleset restricts tag *creation*, and carries `Repository admin → Always allow`
+so releases are possible at all. Without it no tag could be pushed, including
+the first one — the bypass is what makes the release process work, not an
+oversight left over from bring-up.
 
 ## Licensing of contributions
 
