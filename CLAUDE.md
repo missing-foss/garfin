@@ -98,6 +98,14 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
    while undoing is neither, and every undo is another full-object replace under rule 2 on an
    item that was fine. Surface the exact state — "7 of 12 tagged" — and let the user choose to
    finish or remove all. Both choices are idempotent and user-initiated.
+
+   **The user-facing Undo is a new forward write, never a restore**, and is not an exception to
+   this rule — it is the same thing. Fresh `GET`, remove the specific tag Garfin added, post the
+   full object back. It reverses the *effect*, not the object. **Garfin never re-posts a
+   previously captured item body.** A button labelled Undo alongside a rule saying "never undo"
+   looks contradictory until you see that both are idempotent forward writes; that is exactly
+   what makes them safe. What this rule forbids is *silent, automatic* rollback of a batch, not
+   an explicit user-initiated reversal.
 6. **Ask before destructive or cascading changes.** Adding a film in a collection prompts once.
    Removing never cascades.
 7. Admin account required. Refuse non-admin logins with a clear message rather than failing later.

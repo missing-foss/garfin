@@ -103,6 +103,11 @@ Verified round-trip on 10.11.11: posting the full 52-field object back with one 
 204 and changes exactly two fields — `Tags` and `Etag`. `Overview`, `ProviderIds`, `ImageTags`,
 `Genres`, `Studios` and `People` all survive untouched.
 
+**Every write starts with its own fresh `GET`. Never re-post a body captured earlier** — not from
+the grid, not from a cache, and not from a snapshot taken so a user-facing Undo could restore it.
+Undo is a forward write: fresh `GET`, remove the tag, post back. See `docs/UI-SPEC.md` §
+*How Undo works*, and ground rule 5.
+
 `POST /Items/{id}` **replaces the entire item**. If you post a partial object you will wipe
 fields — overviews, provider IDs, images metadata. Always round-trip the full object.
 
