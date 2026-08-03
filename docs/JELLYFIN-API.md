@@ -113,7 +113,17 @@ does not request everything returns a trimmed object, and posting *that* back is
 wipe described above — with no error, no undo, and success reported.
 
 **Derived empirically against Jellyfin 10.11.11**, 2026-08-03 — a throwaway instance in Docker
-with one TMDB-matched film. Numbers below are measured, not inferred. Re-run on a version bump.
+with one TMDB-matched film. Numbers below are measured, not inferred, and independently
+reproduced on a second instance. Re-run on a version bump.
+
+> **Which of these are contract, and which are just what 10.11.11 happens to do.** The field
+> counts and the safe full-object round-trip are stable behaviour to build on. The **400 rather
+> than a silent accept**, and the **bricked detail endpoint** that follows it, are *observed*
+> behaviour, not documented API contract — a future version could revert to silently accepting a
+> trimmed object and wiping fields, which is what this file assumed before the experiment.
+> **Design so that either behaviour is survivable:** never post an object that did not come from
+> a single-item `GET`, regardless of what the server does when you get it wrong. The guarantee to
+> rely on is the one you enforce, not the one the server currently happens to provide.
 
 | Read strategy | Fields returned |
 |---|---|
@@ -191,6 +201,20 @@ just created — the app undoing its own work, silently.
 against a live server: stand up Jellyfin in Docker, snapshot the item's full JSON, write one tag
 through the code under review, and diff. Prove it, don't assert it. This method has caught silent
 no-ops-reporting-success before.
+
+> **Protocol — follow this exactly, it is not boilerplate.** A developer machine may already be
+> running a real Jellyfin, and Jellyfin's default port is the first thing a container tries to
+> bind. During the original experiment the test container failed to bind, and the health check
+> that followed silently answered from the **live server instead** — an experiment about
+> destructive writes, one wrong URL away from a real family library.
+>
+> 1. Pick a port by *testing* that it is free, don't assume one. Bind it to `127.0.0.1` only.
+> 2. Before writing anything, assert the target is a fresh throwaway:
+>    `GET /System/Info/Public` must report `"StartupWizardCompleted": false`.
+> 3. Tear the container **and its volumes** down afterwards.
+>
+> Step 2 is the one that actually saves you: it fails closed against every way of ending up
+> pointed at the wrong server, including the one nobody predicted.
 
 Optional, slower, makes the change visible immediately:
 
