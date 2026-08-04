@@ -154,13 +154,15 @@ Analytics are off (`flutter --disable-analytics`, `FLUTTER_SUPPRESS_ANALYTICS=tr
 
 ## Status
 
-Scaffolded, no features yet. `lib/main.dart` boots the themed shell and shows a placeholder;
-`lib/theme.dart` holds the seed colour and font wiring. The convention directories exist and
-are empty. Tracked in the build-order epic; phases get their own issue when they are next.
+Sign-in works. `lib/main.dart` resolves `SharedPreferences` and the device identity, then hands
+off to `lib/screens/app_root.dart`, which shows the sign-in screen or the (placeholder) home
+depending on whether a session restores. `lib/repositories/` holds the Jellyfin client, the auth
+repository and the Quick Connect pairing; `lib/providers/` wires them into Riverpod. Tracked in
+the build-order epic; phases get their own issue when they are next.
 
 - [x] **Round-trip experiment** — done. The write path's read strategy is measured, not assumed:
       `GET /Users/{uid}/Items/{id}`, no `Fields` needed. See `docs/JELLYFIN-API.md`
-1. Jellyfin client + auth (Quick Connect and password), admin check
+1. [x] Jellyfin client + auth (Quick Connect and password), admin check
 2. Device unlock gate (`local_auth`) — rule 9. Early, because every later screen sits behind it
 3. User list with policy parsing → Kids screen
 4. Library grid with the child selector

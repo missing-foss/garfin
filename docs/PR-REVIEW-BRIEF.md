@@ -99,8 +99,11 @@ once, listing the other members. Removing a label **never** cascades.
 *Smells:* one `cascade` flag applied identically to the add and remove paths. Silent cascading
 unshares make behaviour unpredictable and must be rejected.
 
-**7. Admin account required.** Non-admin sign-in is refused at the door with a clear message, not
-allowed through to fail later on a 403.
+**7. Admin account required.** Non-admin sign-in is refused at the door with a clear message.
+Not, as this brief used to say, "rather than failing later on a 403" — measured on 10.11.11 there
+is no later failure to rely on: a non-admin token authenticates fine and reads every user's policy
+with a 200. The app would look like it worked until the first write. See
+[`docs/JELLYFIN-API.md`](JELLYFIN-API.md) § Measured.
 
 **8. Secrets.** The access token goes in `flutter_secure_storage`, never `shared_preferences`.
 No `print` anywhere — use the logger. Never log tokens, passwords, or Quick Connect secrets; the

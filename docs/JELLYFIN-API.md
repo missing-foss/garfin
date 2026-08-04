@@ -11,7 +11,7 @@ Everything Garfin needs, plus the parts that will bite. Verify against the serve
 
 ## Auth
 
-    GET  /QuickConnect/Initiate                  -> { Code, Secret }
+    POST /QuickConnect/Initiate                  -> { Code, Secret }
     GET  /QuickConnect/Connect?secret={Secret}   -> poll until Authenticated == true
     POST /Users/AuthenticateWithQuickConnect     { Secret }  -> AccessToken, User
     POST /Users/AuthenticateByName               { Username, Pw }   (fallback)
@@ -22,6 +22,78 @@ Every subsequent request carries:
 
 Quick Connect must be enabled server-side; if `GET /QuickConnect/Enabled` is false, hide the tab
 rather than failing on Initiate. Poll with a backoff and a timeout — do not hammer.
+
+### Measured against 10.11.11, 2026-08-03
+
+Same protocol as the write-path experiment below: throwaway container, loopback-only,
+`StartupWizardCompleted: false` asserted before anything was written, torn down with its volumes.
+
+**`Initiate` is a POST.** This file used to say `GET`, and the GET *does* still answer 200 on
+10.11.11 — but the server's own `/api-docs/openapi.json` lists only `post` for that route. The GET
+is an undocumented survivor, so it is the one that can vanish in a point release. Use POST.
+
+**The `Authorization` header is required on the anonymous calls.** `Initiate` echoes `DeviceId`,
+`DeviceName`, `AppName` and `AppVersion` straight back out of it, and that is what the user sees
+when asked to approve the code. A missing header there is not a 401, it is a nameless approval
+prompt.
+
+**And there is no second way to send it — so Garfin cannot sit behind a reverse proxy that does
+HTTP basic auth.** The proxy wants `Authorization: Basic …`, Jellyfin wants
+`Authorization: MediaBrowser …`, and one header cannot be both. Every alternative was tried:
+
+| Route for the device identity | 10.11.11 |
+|---|---|
+| `X-Emby-Authorization: MediaBrowser …` + `Authorization: Basic` | **400** on `AuthenticateByName`, **401** on `/Users/Me` |
+| Split `X-Emby-Client` / `X-Emby-Device-Name` / `X-Emby-Device-Id` / `X-Emby-Client-Version` | **400** |
+| No identity at all | **400** |
+| `X-Emby-Token: <token>` + `Authorization: Basic` | **200** |
+
+Only the last one works, and it is no help: it carries a token, and a token is the thing you can
+only get by signing in first — which is the call that fails. `X-Emby-Authorization` and the split
+`X-Emby-*` identity headers have been removed from this version.
+
+Consequence, and it is a *cannot* rather than a *have not*: a `user:password@` in the server
+address is dropped rather than used. It is also dropped because keeping it would write a password
+to `shared_preferences` in clear and put it on screen — but even if that were solved, sign-in
+would still fail. The address step says so instead of discarding it silently. Re-test this on a
+version bump; if an identity header returns, so does the feature.
+
+**Status codes, and what each one means to a user:**
+
+| Call | Condition | Answer |
+|---|---|---|
+| `POST /Users/AuthenticateByName` | wrong password | `401` |
+| `GET /Users/Me` | token no longer valid | `401` |
+| `GET /QuickConnect/Connect` | unknown or aged-out secret | `404 "Unknown secret"` |
+| `POST /Users/AuthenticateWithQuickConnect` | secret not approved yet | `404` |
+| any `/QuickConnect/*` | feature switched off | `401 "Quick connect is disabled"` |
+
+That last row is the trap: a 401 from a Quick Connect route means *the feature is off*, not *your
+credentials are wrong*. Mapping it to a credentials message sends the user off fixing a password
+that was never the problem. Quick Connect is **on by default** on 10.11.11
+(`QuickConnectAvailable: true`), so the off-path is easy to never see in testing.
+
+**`AuthenticationResult` carries exactly `AccessToken`, `ServerId`, `SessionInfo`, `User`.**
+
+**A non-admin is not stopped by the server.** Signing in as a non-administrator succeeds and
+returns a working token, and `GET /Users` with that token answers **200 with every user's `Policy`
+populated** — including `IsAdministrator` and the shortlist fields. There is no 403 waiting to
+catch the mistake: Garfin would build the entire Kids screen from a child's token and only fail at
+the first write. Ground rule 7's check at sign-in is therefore not a nicety that saves a confusing
+error later, it is the *only* thing standing between a wrong account and a working-looking app.
+
+**Casing is content-negotiated, and it is not stable during startup.** `Accept: application/json`
+gets PascalCase; `application/json; profile="CamelCase"` gets camelCase. But polling
+`/System/Info/Public` across a container restart returned **camelCase with HTTP 200** for roughly
+the first second, then a `503` loading page, then PascalCase steady state. A parser keyed on exact
+field names reads that early reply as an object with everything missing — for
+`AuthenticationResult` that is an empty token and a `Policy` that looks like "not an
+administrator", i.e. a sign-in refused for the wrong reason on a server that had just rebooted.
+Read DTO fields case-insensitively (`lib/models/dto_json.dart`).
+
+**The server answers `503` while it is loading**, sometimes as an HTML page and sometimes as the
+plain text `Jellyfin Server is loading. Please try again shortly.` — so a JSON parser has to
+survive a non-JSON body on a failed call.
 
 **The `Secret` lives in memory only. It is never written to disk** — not to
 `flutter_secure_storage`, not anywhere. It is a credential for the length of one exchange and is
@@ -36,8 +108,10 @@ to work around.
 The `AccessToken` is the opposite case — long-lived, must survive restarts, and belongs in
 `flutter_secure_storage`.
 
-**Admin check:** the authenticated user's `Policy.IsAdministrator` must be true. Reading other
-users' policies and writing item metadata both require it. Refuse at sign-in with a clear message.
+**Admin check:** the authenticated user's `Policy.IsAdministrator` must be true. Refuse at sign-in
+with a clear message. Note the measured correction above: on 10.11.11 reading other users'
+policies does **not** require it — a non-admin token reads them all with a 200 — so nothing
+downstream will catch a wrong account for you.
 
 ## Users and policy
 

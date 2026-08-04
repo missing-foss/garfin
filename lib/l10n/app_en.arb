@@ -6,8 +6,192 @@
     "description": "The app's name. A proper noun — left untranslated in every locale."
   },
 
-  "notBuiltYetBody": "Nothing to pick from yet — sign-in comes first.",
-  "@notBuiltYetBody": {
-    "description": "Placeholder on the temporary home screen, shown until the sign-in screen exists. Plain and warm, never cute about permissions."
+  "signInTitle": "Sign in",
+  "@signInTitle": {
+    "description": "Title of the sign-in screen."
+  },
+
+  "serverStepTitle": "Which server?",
+  "@serverStepTitle": {
+    "description": "Heading for the first sign-in step, where the Jellyfin server address is typed."
+  },
+
+  "serverAddressLabel": "Server address",
+  "@serverAddressLabel": {
+    "description": "Label on the text field for the Jellyfin server URL."
+  },
+
+  "serverAddressHint": "http://jellyfin.local:8096",
+  "@serverAddressHint": {
+    "description": "Placeholder inside the server address field. An example URL rather than a sentence — leave it as-is unless the example itself should differ in this locale."
+  },
+
+  "serverAddressHelp": "Garfin remembers this, so you only type it once.",
+  "@serverAddressHelp": {
+    "description": "Helper text under the server address field."
+  },
+
+  "continueLabel": "Continue",
+  "@continueLabel": {
+    "description": "Button that accepts the typed server address and moves on to the sign-in method."
+  },
+
+  "changeServerLabel": "Change server",
+  "@changeServerLabel": {
+    "description": "Button that goes back to the server address step."
+  },
+
+  "signInMethodQuickConnect": "Quick Connect",
+  "@signInMethodQuickConnect": {
+    "description": "Tab label. Quick Connect is Jellyfin's own feature name — keep it untranslated so it matches what the user sees inside Jellyfin."
+  },
+
+  "signInMethodPassword": "Password",
+  "@signInMethodPassword": {
+    "description": "Tab label for the username-and-password fallback."
+  },
+
+  "quickConnectStarting": "Asking the server for a code…",
+  "@quickConnectStarting": {
+    "description": "Shown between opening the Quick Connect tab and the six-digit code arriving."
+  },
+
+  "quickConnectHowTo": "Open Jellyfin on any device, go to Quick Connect, and enter this code.",
+  "@quickConnectHowTo": {
+    "description": "Instructions shown above the six-digit Quick Connect code."
+  },
+
+  "quickConnectWaiting": "Waiting for the code to be approved…",
+  "@quickConnectWaiting": {
+    "description": "Shown beside the indeterminate progress bar while Garfin polls for approval."
+  },
+
+  "quickConnectNewCode": "Get a new code",
+  "@quickConnectNewCode": {
+    "description": "Button that starts a fresh Quick Connect pairing after one expired or failed."
+  },
+
+  "usernameLabel": "Username",
+  "@usernameLabel": {
+    "description": "Label on the username field of the password sign-in form."
+  },
+
+  "passwordLabel": "Password",
+  "@passwordLabel": {
+    "description": "Label on the password field of the password sign-in form."
+  },
+
+  "signInAction": "Sign in",
+  "@signInAction": {
+    "description": "Button that submits the username and password."
+  },
+
+  "signedInAs": "Signed in as {name}",
+  "@signedInAs": {
+    "description": "Names the Jellyfin account Garfin is using.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Alex"
+      }
+    }
+  },
+
+  "connectedTo": "Connected to {server}",
+  "@connectedTo": {
+    "description": "Names the Jellyfin server address Garfin is talking to.",
+    "placeholders": {
+      "server": {
+        "type": "String",
+        "example": "http://jellyfin.local:8096"
+      }
+    }
+  },
+
+  "signOutAction": "Sign out",
+  "@signOutAction": {
+    "description": "Button that forgets the account and the access token."
+  },
+
+  "homeNextUpBody": "Sign-in is done. The Kids and Library screens come next.",
+  "@homeNextUpBody": {
+    "description": "Body of the temporary home screen shown after signing in, until the Library screen exists."
+  },
+
+  "offlineNotice": "Garfin can't reach the server right now. This is what it already knew.",
+  "@offlineNotice": {
+    "description": "Banner shown when a stored session could not be confirmed because the server is unreachable. The app stays usable with what it has cached."
+  },
+
+  "noticeCredentialsDropped": "That address had a username and password in it. Garfin removed them — it can't sign in through a server that sits behind its own separate login.",
+  "@noticeCredentialsDropped": {
+    "description": "Shown when the typed server address contained user:password@. The credentials are dropped rather than stored, because they would otherwise be written to preferences in clear and shown on screen — and Jellyfin offers no way to pass its own identity while the Authorization header is taken by a proxy. Says what happened rather than failing silently."
+  },
+
+  "errorMalformedServerAddress": "That doesn't look like a web address. Try something like http://jellyfin.local:8096",
+  "@errorMalformedServerAddress": {
+    "description": "Shown when the typed server address cannot be parsed at all, so nothing was sent anywhere."
+  },
+
+  "errorUnreachable": "Garfin couldn't reach {server}. Check the address, and that this phone is on the same network.",
+  "@errorUnreachable": {
+    "description": "Shown when no answer came back from the server at all.",
+    "placeholders": {
+      "server": {
+        "type": "String",
+        "example": "http://jellyfin.local:8096"
+      }
+    }
+  },
+
+  "errorTimeout": "The server didn't answer in time. Try again.",
+  "@errorTimeout": {
+    "description": "Shown when a request timed out."
+  },
+
+  "errorUnauthorized": "That username or password didn't match.",
+  "@errorUnauthorized": {
+    "description": "Shown for HTTP 401 during sign-in."
+  },
+
+  "errorForbidden": "That account isn't allowed to do this on the server.",
+  "@errorForbidden": {
+    "description": "Shown for HTTP 403."
+  },
+
+  "errorNotFound": "Something answered at that address, but it wasn't Jellyfin.",
+  "@errorNotFound": {
+    "description": "Shown for HTTP 404 — usually a URL pointing at some other service."
+  },
+
+  "errorServer": "The server ran into a problem. Try again in a moment.",
+  "@errorServer": {
+    "description": "Shown for HTTP 5xx, or a response that could not be read."
+  },
+
+  "errorQuickConnectExpired": "That code ran out. Ask for a new one.",
+  "@errorQuickConnectExpired": {
+    "description": "Shown when a Quick Connect code was never approved inside the polling window."
+  },
+
+  "errorQuickConnectUnavailable": "Quick Connect is switched off on this server. Use a password instead.",
+  "@errorQuickConnectUnavailable": {
+    "description": "Shown when the server reports Quick Connect as disabled."
+  },
+
+  "errorNotAdministrator": "{name} isn't an administrator on this server. Garfin reads and edits every account's shortlist, so it needs an admin account. Sign in with one.",
+  "@errorNotAdministrator": {
+    "description": "Shown when an account authenticated but is not a Jellyfin administrator. Ground rule 7 — the refusal happens at sign-in, and the wording says which account was refused and what to do instead.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Emma"
+      }
+    }
+  },
+
+  "errorCancelled": "That was stopped before it finished.",
+  "@errorCancelled": {
+    "description": "Shown when a request was cancelled — the screen was closed, or the user backed out."
   }
 }
