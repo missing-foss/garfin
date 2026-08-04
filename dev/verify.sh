@@ -23,6 +23,36 @@ step "build debug APK"
 # break. Delete if this stops being a mobile target.
 flutter build apk --debug && echo ok || fail=1
 
+step "build release APK (#30)"
+# Not redundant with the debug build. INTERNET is declared only in Flutter's
+# debug/profile manifests, so a release build once shipped with no network
+# access while every gate was green. Debug and release also differ in manifest
+# merging, signing, minification and icon tree-shaking.
+if flutter build apk --release; then
+  apk=build/app/outputs/flutter-apk/app-release.apk
+  aapt2=$(ls "${ANDROID_HOME:-$HOME/sdk/android}"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+  if [ -z "$apk" ] || [ ! -f "$apk" ]; then
+    echo "RELEASE: no APK produced"; fail=1
+  elif [ -z "$aapt2" ]; then
+    # Unlike CI, a contributor may genuinely not have build-tools on PATH.
+    echo "SKIP (aapt2 not found) — CI still checks the APK's permissions"
+  # Captured, not piped into `grep -q`. This script runs under `set -o
+  # pipefail`, and `grep -q` exits on its first match, so aapt2 takes SIGPIPE
+  # and the pipeline reports failure on a *successful* match. It fails closed,
+  # which is the safe direction, but it fails on a perfectly good APK.
+  elif printf '%s' "$("$aapt2" dump badging "$apk" 2>/dev/null)" \
+       | grep -q "uses-permission: name='android.permission.INTERNET'"; then
+    echo ok
+  else
+    echo "RELEASE: the APK declares no INTERNET permission"; fail=1
+  fi
+  # Deliberately no "must be unsigned" check here: that is a property of CI,
+  # where the key must never exist. A maintainer with the real keystore should
+  # get a signed APK from this and must not be told it is a failure.
+else
+  echo "RELEASE: build failed"; fail=1
+fi
+
 step "translations (FR ARB complete, #32)"
 # gen-l10n validates placeholder/ICU parity (it errors on a mismatch) and writes
 # every untranslated key to the untranslated-messages-file set in l10n.yaml. The

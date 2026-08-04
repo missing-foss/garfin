@@ -46,6 +46,35 @@ jobs:
       # only once you're confident analyze+test cover what you need.
       - name: Build debug APK
         run: flutter build apk --debug
+      # THE RELEASE BUILD IS NOT REDUNDANT WITH THE DEBUG ONE (#30). Flutter's
+      # scaffold declares `android.permission.INTERNET` only in the debug and
+      # profile manifests, for hot reload — so Garfin shipped a release build
+      # with no network access at all while every gate here was green over it,
+      # because every gate built debug. Debug and release also differ in
+      # manifest merging, signing, minification, icon tree-shaking and asset
+      # packing. Whatever replaces this step must still build release.
+      - name: Build release APK
+        run: flutter build apk --release
+      - name: Release APK is correct where it differs from debug
+        run: |
+          apk=build/app/outputs/flutter-apk/app-release.apk
+          [ -f "$apk" ] || { echo "::error::no release APK was produced"; exit 1; }
+
+          # Fail closed if the tool is missing rather than passing having
+          # checked nothing — the #404 lesson from the leak scan below.
+          aapt2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+          [ -n "$aapt2" ] || { echo "::error::aapt2 not found; cannot inspect the APK"; exit 1; }
+
+          # The permission that actually shipped missing.
+          "$aapt2" dump badging "$apk"             | grep -q "uses-permission: name='android.permission.INTERNET'"             || { echo "::error::release APK declares no INTERNET permission"; exit 1; }
+
+          # The signing key never exists in CI, by design (CONTRIBUTING.md), and
+          # build.gradle.kts promises an *unsigned* release rather than a silent
+          # debug-key sign. A signed artifact here means that promise broke.
+          if unzip -l "$apk" | grep -qE "META-INF/.*\.(RSA|EC|DSA)"; then
+            echo "::error::release APK is signed — CI must never have a signing key"
+            exit 1
+          fi
       - name: Translations (FR ARB complete, #32)
         # gen-l10n validates placeholder/ICU parity (errors on a mismatch) and
         # lists untranslated keys in the untranslated-messages-file; a "[" in it

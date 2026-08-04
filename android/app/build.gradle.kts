@@ -87,7 +87,22 @@ android {
             // No keystore present (CI, or a contributor without one) means an
             // unsigned-for-release build rather than a silent debug-key sign,
             // which is what Flutter's scaffold does by default.
-            signingConfig = signingConfigs.getByName("release")
+            //
+            // The condition is what makes that true. Assigned unconditionally,
+            // Gradle's `validateSigningRelease` runs against a `storeFile` that
+            // does not exist and the build fails outright:
+            //
+            //     Execution failed for task ':app:validateSigningRelease'.
+            //     > Keystore file '…/release.keystore' not found for signing
+            //       config 'release'.
+            //
+            // So the comment above described an intent the code did not
+            // implement, and nobody could build a release APK without first
+            // generating the canonical keystore (#20) — including CI, which
+            // is why nothing here ever built release. See #29, #30.
+            val releaseSigning = signingConfigs.getByName("release")
+            signingConfig =
+                if (releaseSigning.storeFile?.exists() == true) releaseSigning else null
         }
     }
 }
