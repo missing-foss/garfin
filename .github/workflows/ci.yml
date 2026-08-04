@@ -65,13 +65,31 @@ jobs:
           aapt2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
           [ -n "$aapt2" ] || { echo "::error::aapt2 not found; cannot inspect the APK"; exit 1; }
 
-          # The permission that actually shipped missing.
-          "$aapt2" dump badging "$apk"             | grep -q "uses-permission: name='android.permission.INTERNET'"             || { echo "::error::release APK declares no INTERNET permission"; exit 1; }
+          # BOTH checks capture their input before grepping it, and neither may
+          # be "simplified" back into `producer | grep -q`. That shape is safe
+          # only while this workflow has no `shell: bash` and no `defaults:`
+          # block, because GitHub's default `bash -e {0}` leaves `pipefail` off.
+          # Adding either — a routine hardening change — turns `pipefail` on,
+          # and `grep -q` exits at its first match, so the producer takes
+          # SIGPIPE and the pipeline reports failure on a *successful* match.
+          #
+          # Measured, and the two checks below fail in opposite directions:
+          #   INTERNET  (`|| exit 1`)  -> reports missing though present. Noisy,
+          #                              but safe. This is how it was caught in
+          #                              dev/verify.sh, which does set pipefail.
+          #   signature (`if …; then`) -> reports absent though present.
+          #                              FAIL-OPEN: a signed APK sails through
+          #                              the gate whose only job is catching one.
+          badging=$("$aapt2" dump badging "$apk")
+          printf '%s' "$badging" \
+            | grep -q "uses-permission: name='android.permission.INTERNET'" \
+            || { echo "::error::release APK declares no INTERNET permission"; exit 1; }
 
           # The signing key never exists in CI, by design (CONTRIBUTING.md), and
           # build.gradle.kts promises an *unsigned* release rather than a silent
           # debug-key sign. A signed artifact here means that promise broke.
-          if unzip -l "$apk" | grep -qE "META-INF/.*\.(RSA|EC|DSA)"; then
+          listing=$(unzip -l "$apk")
+          if printf '%s' "$listing" | grep -qE "META-INF/.*\.(RSA|EC|DSA)"; then
             echo "::error::release APK is signed — CI must never have a signing key"
             exit 1
           fi

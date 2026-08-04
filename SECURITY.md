@@ -207,3 +207,19 @@ updated.
 
 The fingerprint is not a secret and will be published here once the first signed
 release is cut, so anyone can verify a downloaded APK against it.
+
+**Until #20 lands, a successful `flutter build apk --release` does not mean
+"ready to publish."** Two things are not yet true of it:
+
+- **The canonical key does not exist.** With no keystore the build now succeeds
+  and produces an *unsigned* APK (#29) — deliberately, so CI and contributors
+  can build release at all, which is what #30 needs. An unsigned APK cannot be
+  installed as an update and must not be distributed.
+- **The fingerprint guard is inert.** `expected` in `build.gradle.kts` is still
+  `""`, so a wrong or rotated key only logs a warning rather than failing the
+  build. The safeguard is wired up and untriggered, not enforcing.
+
+Release builds became newly *easy* to produce in #29/#30, which is why this is
+written down: the thing that used to stop an unpublishable artifact existing was
+that the build refused to run at all. A misconfigured keystore — a password set
+with no keystore behind it — does still fail loudly, by design.
