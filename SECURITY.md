@@ -74,27 +74,20 @@ unencrypted traffic app-wide and buys nothing, so it was removed. There is a
 comment in `AndroidManifest.xml` saying so, because the next person hitting an
 unreachable server will reach for it first.
 
-None of which changes the underlying exposure: traffic to an `http://` server is
-unencrypted on the user's network, **including the access token in the
-`Authorization` header of every request**. That is the same exposure as reaching
-Jellyfin's own web UI over HTTP, which is how most self-hosted installs are
-already used, and an `https://` address is never downgraded. The point here is
-only that the app does not need to weaken a platform default to have it.
-
-What it costs, stated plainly:
+None of which changes the underlying exposure, which is about accepting `http://`
+addresses at all rather than about any manifest setting:
 
 - Traffic to a server the user gave as `http://` is **unencrypted on their
   network**, including the access token in the `Authorization` header of every
   request. On a home LAN that is the same exposure as using Jellyfin's own web
   UI over HTTP, which is how most self-hosted installs are already reached.
-- A user whose server is on HTTPS still gets HTTPS. This permits cleartext, it
-  does not prefer it, and nothing downgrades an `https://` address.
-- It cannot be narrowed to the LAN. `domain-config` matches by hostname, and the
-  only hostname involved is typed at runtime, so there is nothing to enumerate
-  at build time.
+- A user whose server is on HTTPS still gets HTTPS. Nothing downgrades an
+  `https://` address.
 
 The alternative — refusing HTTP — would mean Garfin does not work for most of
 the people it is for, so this is a deliberate trade rather than an oversight.
+The point of the section above is only that the trade costs nothing *extra*: the
+app does not have to weaken a platform default to make it.
 
 ## Data at rest
 

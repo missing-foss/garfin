@@ -44,7 +44,7 @@ void main() {
     // access and every release build has none — and `dev/verify.sh` and CI
     // both build *debug*, so nothing here could catch it. It took a real
     // device and three wrong diagnoses.
-    expect(manifest, contains('android.permission.INTERNET'));
+    expect(effective, contains('android.permission.INTERNET'));
   });
 
   test('local network access is declared', () {
@@ -52,10 +52,7 @@ void main() {
     // on top of INTERNET, and without it the connection fails with no prompt.
     // Garfin exists to talk to a server on the user's own network, so this is
     // the one permission it cannot do without.
-    expect(
-      manifest,
-      contains('android.permission.LOCAL_NETWORK_ACCESS'),
-    );
+    expect(effective, contains('android.permission.LOCAL_NETWORK_ACCESS'));
   });
 
   test('MainActivity is a FragmentActivity, as local_auth requires', () {

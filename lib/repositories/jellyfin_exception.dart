@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -146,8 +148,29 @@ class JellyfinException implements Exception {
     final cause = error.error;
     if (cause != null) {
       buffer.write(' · ${cause.runtimeType}');
-      final text = cause.toString();
-      if (text.isNotEmpty) buffer.write(': $text');
+      // The **type** of every cause, but the *text* of only these three.
+      //
+      // `DioException.error` is an arbitrary object, and one of the things it
+      // can be is a `FormatException` from a response body that failed to
+      // parse — whose `toString()` embeds up to 75 characters of that body.
+      // Measured: a proxy's HTML error page comes out as
+      //
+      //     FormatException: Unexpected character (at character 1)
+      //     <html><body><h1>502 Bad Gateway</h1><p>nginx: upstream …
+      //
+      // which is server text on screen, and an internal hostname with it. This
+      // class promises not to do that, so it has to be enforced rather than
+      // intended.
+      //
+      // These three are ours rather than the server's, and they are the only
+      // ones carrying an `errno` — which is the entire reason this field
+      // exists. Anything else contributes its type and stops there:
+      // `unknown · FormatException` still tells the four causes apart.
+      if (cause is SocketException ||
+          cause is OSError ||
+          cause is HandshakeException) {
+        buffer.write(': $cause');
+      }
     }
     // Bounded, so a pathological message cannot fill the screen.
     final described = redactSecrets(buffer.toString());
