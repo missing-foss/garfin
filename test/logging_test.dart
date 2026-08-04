@@ -2,8 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/logging.dart';
+import 'package:garfin/repositories/jellyfin_exception.dart';
 
 /// The Quick Connect exchange puts the secret in a query string, so anything
 /// that prints a request URI prints a live credential. This is the backstop for
@@ -91,6 +96,91 @@ void main() {
       redactSecrets('{"AccessTokenExpiry":"2026-08-04"}'),
       '{"AccessTokenExpiry":"2026-08-04"}',
     );
+  });
+
+  test('the on-screen diagnostic names the errno, and is scrubbed', () {
+    // The reason this exists: "Garfin couldn't reach your server" is the same
+    // sentence for four different problems, and the errno is what tells them
+    // apart — 13 is the platform refusing the socket, 111 is nothing
+    // listening, 113 is the wrong network.
+    final described = JellyfinException.describeCause(
+      DioException(
+        requestOptions: RequestOptions(path: '/QuickConnect/Enabled'),
+        type: DioExceptionType.connectionError,
+        error: const SocketException(
+          'Connection failed',
+          osError: OSError('Permission denied', 13),
+        ),
+      ),
+    );
+
+    expect(described, startsWith('connectionError · SocketException'));
+    expect(described, contains('errno = 13'));
+  });
+
+  test('the diagnostic never puts server text on the screen', () {
+    // `DioException.error` is an arbitrary object. When a response body fails
+    // to parse it is a `FormatException`, whose `toString()` embeds up to 75
+    // characters of that body — measured, a proxy's HTML error page complete
+    // with an internal hostname. The class promises not to show server text,
+    // so only socket-level causes contribute their message.
+    const page = '<html><body><h1>502 Bad Gateway</h1>'
+        '<p>nginx: upstream jellyfin.internal refused</p></body></html>';
+    late final FormatException parseFailure;
+    try {
+      jsonDecode(page);
+      fail('expected the page not to parse as JSON');
+    } on FormatException catch (e) {
+      parseFailure = e;
+    }
+
+    final described = JellyfinException.describeCause(
+      DioException(
+        requestOptions: RequestOptions(path: '/Users/AuthenticateByName'),
+        type: DioExceptionType.unknown,
+        error: parseFailure,
+      ),
+    );
+
+    expect(described, 'unknown · FormatException');
+    expect(described, isNot(contains('502')));
+    expect(described, isNot(contains('jellyfin.internal')));
+    expect(described, isNot(contains('<html>')));
+  });
+
+  test('but socket-level causes still carry their errno', () {
+    // The whitelist must not throw away the thing the field exists for.
+    final described = JellyfinException.describeCause(
+      DioException(
+        requestOptions: RequestOptions(path: '/QuickConnect/Enabled'),
+        type: DioExceptionType.connectionError,
+        error: const SocketException(
+          'Connection failed',
+          osError: OSError('No route to host', 113),
+        ),
+      ),
+    );
+
+    expect(described, contains('errno = 113'));
+  });
+
+  test('the diagnostic cannot carry a credential onto the screen', () {
+    // Belt and braces: the whitelist above is what keeps server text out, and
+    // this is what keeps a credential out of the text that *is* allowed
+    // through. A `SocketException` carries the address it failed on, so the
+    // allowed path is not automatically a safe one.
+    final described = JellyfinException.describeCause(
+      DioException(
+        requestOptions: RequestOptions(path: '/QuickConnect/Connect'),
+        type: DioExceptionType.connectionError,
+        error: const SocketException(
+          'Connection failed on /QuickConnect/Connect?secret=DA4C1F204EB7',
+        ),
+      ),
+    );
+
+    expect(described, contains('secret=REDACTED'));
+    expect(described, isNot(contains('DA4C1F204EB7')));
   });
 
   test('leaves ordinary text alone', () {

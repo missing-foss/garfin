@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/gen/app_localizations.dart';
 import '../repositories/jellyfin_exception.dart';
+import '../theme.dart';
 
 /// Turns a [JellyfinException] into one plain sentence in the user's language.
 ///
@@ -36,13 +37,24 @@ String jellyfinErrorText(AppLocalizations l10n, JellyfinException error) =>
 /// An inline error block. Not a SnackBar: sign-in errors need to stay on screen
 /// while the user fixes the thing they are about.
 class ErrorNotice extends StatelessWidget {
-  const ErrorNotice({super.key, required this.message});
+  const ErrorNotice({super.key, required this.message, this.diagnostic});
 
   final String message;
+
+  /// The client-side cause, shown small underneath.
+  ///
+  /// Untranslated on purpose. It is an `errno` and an exception type, not
+  /// prose — the audience is whoever is working out why a self-hosted server
+  /// will not answer, and translating `Connection refused` would make it harder
+  /// to search for, not easier to read. The sentence above it carries the
+  /// meaning and *is* translated.
+  final String? diagnostic;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final detail = diagnostic;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -50,10 +62,25 @@ class ErrorNotice extends StatelessWidget {
         color: theme.colorScheme.errorContainer,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        message,
-        style: theme.textTheme.bodyMedium
-            ?.copyWith(color: theme.colorScheme.onErrorContainer),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            message,
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: theme.colorScheme.onErrorContainer),
+          ),
+          if (detail != null && detail.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SelectableText(
+              detail,
+              style: tagTextStyle.copyWith(
+                fontSize: 11,
+                color: theme.colorScheme.onErrorContainer.withValues(alpha: .7),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

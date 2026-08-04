@@ -37,7 +37,10 @@ class QuickConnectPanel extends StatelessWidget {
       QuickConnectFailed(:final error) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ErrorNotice(message: jellyfinErrorText(l10n, error)),
+            ErrorNotice(
+              message: jellyfinErrorText(l10n, error),
+              diagnostic: error.diagnostic,
+            ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: onRetry,

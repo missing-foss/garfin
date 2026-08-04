@@ -1,4 +1,41 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Do NOT reach for `usesCleartextTraffic` or a networkSecurityConfig
+         when plain HTTP appears not to work. It was tried while diagnosing
+         exactly that, and measured on GrapheneOS / Android 17: `http://` to a
+         LAN Jellyfin works **without** either. Android's cleartext policy is
+         enforced by the Java HTTP stacks, and dio talks over `dart:io` sockets,
+         which never consult it. Adding one permits unencrypted traffic app-wide
+         and buys nothing. The real cause was the missing INTERNET permission
+         below. See SECURITY.md.
+
+         Garfin talks to the user's Jellyfin server, so it needs this in the
+         MAIN manifest. Flutter's scaffold declares INTERNET only in the debug
+         and profile manifests, for hot reload — which means a *release* build
+         has no network access at all, while every debug build works fine.
+
+         That is exactly how it shipped and how it was found: `dev/verify.sh`
+         and CI both build a debug APK, so no gate here could ever have caught
+         it. `test/android_config_test.dart` asserts it now. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Android 16 previewed Local Network Protection and later releases
+         enforce it: reaching a private-range address needs this permission on
+         top of INTERNET, and without it a connection to a LAN server fails with
+         no prompt and no explanation. Garfin's entire purpose is talking to a
+         Jellyfin on the user's own network, so it is not optional.
+
+         Declared unconditionally. Older Android ignores a permission it does
+         not know, and hardened distributions (GrapheneOS) surface it in the
+         app's permission screen so it can be granted by hand. -->
+    <!-- Declared, but NOT verified to be load-bearing. Sign-in works on
+         GrapheneOS / Android 17 with it present; no control build was run
+         without it, so whether that release enforces Local Network Protection
+         is unknown. Kept because it is a request for access rather than a
+         relaxation of one — harmless if the platform ignores it, and required
+         the moment enforcement lands. Drop it if it is ever shown to be
+         unnecessary and stays that way. -->
+    <uses-permission android:name="android.permission.LOCAL_NETWORK_ACCESS" />
+
     <!-- USE_BIOMETRIC and USE_FINGERPRINT are deliberately not declared here.
          local_auth_android's own manifest declares them and the merger brings
          them in; verified in
