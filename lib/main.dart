@@ -16,6 +16,7 @@ import 'providers/app_providers.dart';
 import 'repositories/device_identity.dart';
 import 'screens/app_root.dart';
 import 'theme.dart';
+import 'widgets/unlock_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,7 +69,11 @@ class GarfinApp extends StatelessWidget {
           darkTheme: garfinTheme(dark),
           // Dark-first: the app is used in the evening, on a sofa.
           themeMode: ThemeMode.dark,
-          home: const AppRoot(),
+          // Ground rule 9. Above `AppRoot` rather than inside it, so the gate
+          // covers sign-in too — `docs/UI-SPEC.md` puts Unlock "before anything
+          // else", and a gate that only covered the signed-in screens would
+          // leave the server address and the account name readable.
+          home: const UnlockGate(child: AppRoot()),
         );
       },
     );

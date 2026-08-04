@@ -26,7 +26,12 @@ void main() {
   setUp(() async {
     server = FakeJellyfinServer();
     FlutterSecureStorage.setMockInitialValues(<String, String>{});
-    SharedPreferences.setMockInitialValues(<String, Object>{});
+    // The unlock gate wraps the whole app, so it would otherwise cover every
+    // one of these. It has its own tests in `unlock_gate_test.dart`; these are
+    // about sign-in.
+    SharedPreferences.setMockInitialValues(
+      <String, Object>{'unlock_required': false},
+    );
     prefs = await SharedPreferences.getInstance();
   });
 

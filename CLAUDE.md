@@ -48,7 +48,7 @@ by accident. Independently, a downward relicence would need every contributor's 
 no relicensing right. So don't reject a dependency for being GPLv2-incompatible; reject it for
 being GPLv3-incompatible.
 
-Checked and fine, as of 2026-08-02:
+Checked and fine, as of 2026-08-03:
 
 Read from each package's own shipped `LICENSE` file, not from its pub.dev page —
 the pub.dev metadata is not always right. Full detail in `THIRD_PARTY_NOTICES.md`.
@@ -58,6 +58,7 @@ the pub.dev metadata is not always right. Full detail in `THIRD_PARTY_NOTICES.md
 | Flutter/Material | BSD-3-Clause |
 | dio, flutter_riverpod, cached_network_image, mocktail | MIT |
 | shared_preferences, flutter_secure_storage, logging, intl, flutter_lints | BSD-3-Clause |
+| **local_auth** (with `_android`, `_platform_interface`, and the unshipped `_darwin` / `_windows`) | BSD-3-Clause |
 | dynamic_color, material_symbols_icons | Apache-2.0 |
 | Fredoka, Nunito, **Roboto Mono** | SIL OFL 1.1 |
 
@@ -154,16 +155,17 @@ Analytics are off (`flutter --disable-analytics`, `FLUTTER_SUPPRESS_ANALYTICS=tr
 
 ## Status
 
-Sign-in works. `lib/main.dart` resolves `SharedPreferences` and the device identity, then hands
-off to `lib/screens/app_root.dart`, which shows the sign-in screen or the (placeholder) home
-depending on whether a session restores. `lib/repositories/` holds the Jellyfin client, the auth
-repository and the Quick Connect pairing; `lib/providers/` wires them into Riverpod. Tracked in
-the build-order epic; phases get their own issue when they are next.
+Sign-in works, behind the device unlock gate. `lib/main.dart` resolves `SharedPreferences` and the
+device identity, then hands off to `UnlockGate` wrapping `lib/screens/app_root.dart`, which shows
+the sign-in screen or the (placeholder) home depending on whether a session restores.
+`lib/repositories/` holds the Jellyfin client, the auth repository, the Quick Connect pairing and
+the device-unlock wrapper; `lib/providers/` wires them into Riverpod. Tracked in the build-order
+epic; phases get their own issue when they are next.
 
 - [x] **Round-trip experiment** — done. The write path's read strategy is measured, not assumed:
       `GET /Users/{uid}/Items/{id}`, no `Fields` needed. See `docs/JELLYFIN-API.md`
 1. [x] Jellyfin client + auth (Quick Connect and password), admin check
-2. Device unlock gate (`local_auth`) — rule 9. Early, because every later screen sits behind it
+2. [x] Device unlock gate (`local_auth`) — rule 9. Early, because every later screen sits behind it
 3. User list with policy parsing → Kids screen
 4. Library grid with the child selector
 5. Assign sheet with tag diff, counts, and the write path
@@ -171,5 +173,11 @@ the build-order epic; phases get their own issue when they are next.
 7. Settings
 8. Activity log
 
-`local_auth` is not in `pubspec.yaml` yet — it goes in with step 2, and its licence gets read
-from its own shipped `LICENSE` file, not from pub.dev, per the § Licence note above.
+`local_auth` landed with step 2. Its licence was read from the package's own shipped `LICENSE`
+file rather than from pub.dev, per the § Licence note above: **BSD-3-Clause**, Copyright 2013 The
+Flutter Authors, identical text across `local_auth`, `local_auth_android` and
+`local_auth_platform_interface`.
+
+`MainActivity` extends `FlutterFragmentActivity`, not `FlutterActivity` — `local_auth` shows an
+androidx `BiometricPrompt`, which is a Fragment. Getting that wrong does not crash: the plugin
+answers `NOT_FRAGMENT_ACTIVITY` and the gate silently never appears.

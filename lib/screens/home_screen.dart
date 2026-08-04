@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/gen/app_localizations.dart';
 import '../providers/auth_providers.dart';
 import '../widgets/error_notice.dart';
+import 'unlock_settings_screen.dart';
 
 /// Where a signed-in session lands until the Library screen exists.
 ///
@@ -30,6 +31,17 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(l10n.appTitle),
         actions: [
+          // Until the Settings screen exists (build order step 7), this is how
+          // the Unlock section is reached. It moves there when it does.
+          IconButton(
+            tooltip: l10n.settingsUnlockTitle,
+            icon: const Icon(Icons.lock_outline),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const UnlockSettingsScreen(),
+              ),
+            ),
+          ),
           TextButton(
             onPressed: () =>
                 ref.read(authControllerProvider.notifier).signOut(),

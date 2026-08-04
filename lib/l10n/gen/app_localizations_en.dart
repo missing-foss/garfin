@@ -128,4 +128,74 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorCancelled => 'That was stopped before it finished.';
+
+  @override
+  String get unlockPromptReason => 'Unlock Garfin';
+
+  @override
+  String get unlockTitle => 'Garfin is locked';
+
+  @override
+  String get unlockBody =>
+      'Garfin signs in to Jellyfin as an admin, so it asks who you are before it opens.';
+
+  @override
+  String get unlockAction => 'Unlock';
+
+  @override
+  String get unlockFailed => 'That didn\'t match. Try again.';
+
+  @override
+  String get unlockCancelled =>
+      'That was cancelled. Tap Unlock when you\'re ready.';
+
+  @override
+  String get unlockTooManyTries =>
+      'Too many tries. Wait a moment, then try again.';
+
+  @override
+  String get unlockUsePinInstead =>
+      'Too many fingerprint tries. Use your device PIN or pattern.';
+
+  @override
+  String get unlockError =>
+      'The phone couldn\'t ask for that just now. Try again.';
+
+  @override
+  String get unlockCannotEnforce =>
+      'This phone has no PIN, pattern or fingerprint set, so Garfin can\'t ask for one. Set one up in the phone\'s settings if you\'d like Garfin to ask.';
+
+  @override
+  String get unlockContinue => 'Continue';
+
+  @override
+  String get settingsUnlockTitle => 'Unlock';
+
+  @override
+  String get settingsUnlockRequire => 'Ask when Garfin opens';
+
+  @override
+  String get settingsUnlockRequireSubtitle =>
+      'Garfin holds an admin sign-in to your Jellyfin server.';
+
+  @override
+  String get settingsUnlockTimeout => 'Ask again after';
+
+  @override
+  String get settingsUnlockTimeoutSubtitle =>
+      'How long Garfin can sit in the background before it asks again.';
+
+  @override
+  String get unlockTimeoutImmediate => 'Straight away';
+
+  @override
+  String unlockTimeoutMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count minutes',
+      one: '1 minute',
+    );
+    return '$_temp0';
+  }
 }

@@ -301,6 +301,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'That was stopped before it finished.'**
   String get errorCancelled;
+
+  /// Shown by the phone's own biometric/PIN dialog, not by Garfin. Keep it very short — the system gives it one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock Garfin'**
+  String get unlockPromptReason;
+
+  /// Heading on the lock screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin is locked'**
+  String get unlockTitle;
+
+  /// Says why the lock exists, in one sentence. Claims nothing about what it prevents — see docs/DECISIONS.md § Voice and SECURITY.md.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin signs in to Jellyfin as an admin, so it asks who you are before it opens.'**
+  String get unlockBody;
+
+  /// Button that asks the phone for a fingerprint or a PIN.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get unlockAction;
+
+  /// Shown when the fingerprint or PIN was wrong.
+  ///
+  /// In en, this message translates to:
+  /// **'That didn\'t match. Try again.'**
+  String get unlockFailed;
+
+  /// Shown when the user dismissed the phone's unlock dialog, or the system took it away.
+  ///
+  /// In en, this message translates to:
+  /// **'That was cancelled. Tap Unlock when you\'re ready.'**
+  String get unlockCancelled;
+
+  /// Shown when the device has rate-limited unlock attempts and waiting clears it.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many tries. Wait a moment, then try again.'**
+  String get unlockTooManyTries;
+
+  /// Shown when biometrics are locked until a device credential is used.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many fingerprint tries. Use your device PIN or pattern.'**
+  String get unlockUsePinInstead;
+
+  /// Shown when the unlock attempt failed for a device-level reason that is nothing the user did.
+  ///
+  /// In en, this message translates to:
+  /// **'The phone couldn\'t ask for that just now. Try again.'**
+  String get unlockError;
+
+  /// Shown when the device has no credential at all. Garfin cannot enforce a lock the phone does not have, and must not turn that into a lock-out — so this explains and lets the user through.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone has no PIN, pattern or fingerprint set, so Garfin can\'t ask for one. Set one up in the phone\'s settings if you\'d like Garfin to ask.'**
+  String get unlockCannotEnforce;
+
+  /// Button that dismisses the 'this phone has no PIN' notice and opens the app.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get unlockContinue;
+
+  /// Title of the Unlock section of Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get settingsUnlockTitle;
+
+  /// Switch that turns the unlock gate on and off.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask when Garfin opens'**
+  String get settingsUnlockRequire;
+
+  /// Why the switch is on by default. States a fact rather than making a promise.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin holds an admin sign-in to your Jellyfin server.'**
+  String get settingsUnlockRequireSubtitle;
+
+  /// Heading for the idle-timeout choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask again after'**
+  String get settingsUnlockTimeout;
+
+  /// Explains what the idle timeout measures.
+  ///
+  /// In en, this message translates to:
+  /// **'How long Garfin can sit in the background before it asks again.'**
+  String get settingsUnlockTimeoutSubtitle;
+
+  /// The zero-length idle timeout: ask every time Garfin comes back to the foreground.
+  ///
+  /// In en, this message translates to:
+  /// **'Straight away'**
+  String get unlockTimeoutImmediate;
+
+  /// An idle timeout of a whole number of minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 minute} other{{count} minutes}}'**
+  String unlockTimeoutMinutes(int count);
 }
 
 class _AppLocalizationsDelegate
