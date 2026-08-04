@@ -2,8 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/logging.dart';
+import 'package:garfin/repositories/jellyfin_exception.dart';
 
 /// The Quick Connect exchange puts the secret in a query string, so anything
 /// that prints a request URI prints a live credential. This is the backstop for
@@ -91,6 +95,39 @@ void main() {
       redactSecrets('{"AccessTokenExpiry":"2026-08-04"}'),
       '{"AccessTokenExpiry":"2026-08-04"}',
     );
+  });
+
+  test('the on-screen diagnostic names the errno, and is scrubbed', () {
+    // The reason this exists: "Garfin couldn't reach your server" is the same
+    // sentence for four different problems, and the errno is what tells them
+    // apart — 13 is the platform refusing the socket, 111 is nothing
+    // listening, 113 is the wrong network.
+    final described = JellyfinException.describeCause(
+      DioException(
+        requestOptions: RequestOptions(path: '/QuickConnect/Enabled'),
+        type: DioExceptionType.connectionError,
+        error: const SocketException(
+          'Connection failed',
+          osError: OSError('Permission denied', 13),
+        ),
+      ),
+    );
+
+    expect(described, startsWith('connectionError · SocketException'));
+    expect(described, contains('errno = 13'));
+  });
+
+  test('the diagnostic cannot carry a credential onto the screen', () {
+    final described = JellyfinException.describeCause(
+      DioException(
+        requestOptions: RequestOptions(path: '/QuickConnect/Connect'),
+        type: DioExceptionType.unknown,
+        error: 'failed on ?secret=DA4C1F204EB7',
+      ),
+    );
+
+    expect(described, contains('secret=REDACTED'));
+    expect(described, isNot(contains('DA4C1F204EB7')));
   });
 
   test('leaves ordinary text alone', () {

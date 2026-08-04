@@ -88,7 +88,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (reason != null) ...[
-                ErrorNotice(message: jellyfinErrorText(l10n, reason)),
+                ErrorNotice(
+                  message: jellyfinErrorText(l10n, reason),
+                  diagnostic: reason.diagnostic,
+                ),
                 const SizedBox(height: 16),
               ],
               if (state.credentialsDropped) ...[
@@ -100,7 +103,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
                 const SizedBox(height: 16),
               ],
               if (state.error != null) ...[
-                ErrorNotice(message: jellyfinErrorText(l10n, state.error!)),
+                ErrorNotice(
+                  message: jellyfinErrorText(l10n, state.error!),
+                  diagnostic: state.error!.diagnostic,
+                ),
                 const SizedBox(height: 16),
               ],
               if (state.serverUrl == null)

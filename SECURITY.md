@@ -53,6 +53,49 @@ server.
 codebase yet. This claim needs re-verifying, by packet capture, once the
 Jellyfin client lands.
 
+### Cleartext HTTP needs no exemption, and must not be given one
+
+Garfin talks to a Jellyfin on the user's own LAN, which usually has no
+certificate, so the address step resolves a scheme-less entry to `http://`. The
+obvious worry is Android's cleartext policy: since API 28 the default is
+`cleartextTrafficPermitted="false"`, and `targetSdk` is 36.
+
+**It does not apply. Measured on GrapheneOS / Android 17, 2026-08-04**, with a
+control build: `http://192.168.x.x:8096` connects and Quick Connect completes
+with **no** `usesCleartextTraffic` and **no** `networkSecurityConfig` anywhere
+in the manifest. The policy is enforced by the Java HTTP stacks — `libcore`,
+OkHttp, WebView, Cronet — and dio talks over `dart:io` sockets, which never
+consult it.
+
+This is recorded because the wrong version is more intuitive than the right one.
+A cleartext exemption was added during that same diagnosis, on the assumption it
+was the cause, and the control build is what proved it inert. It permits
+unencrypted traffic app-wide and buys nothing, so it was removed. There is a
+comment in `AndroidManifest.xml` saying so, because the next person hitting an
+unreachable server will reach for it first.
+
+None of which changes the underlying exposure: traffic to an `http://` server is
+unencrypted on the user's network, **including the access token in the
+`Authorization` header of every request**. That is the same exposure as reaching
+Jellyfin's own web UI over HTTP, which is how most self-hosted installs are
+already used, and an `https://` address is never downgraded. The point here is
+only that the app does not need to weaken a platform default to have it.
+
+What it costs, stated plainly:
+
+- Traffic to a server the user gave as `http://` is **unencrypted on their
+  network**, including the access token in the `Authorization` header of every
+  request. On a home LAN that is the same exposure as using Jellyfin's own web
+  UI over HTTP, which is how most self-hosted installs are already reached.
+- A user whose server is on HTTPS still gets HTTPS. This permits cleartext, it
+  does not prefer it, and nothing downgrades an `https://` address.
+- It cannot be narrowed to the LAN. `domain-config` matches by hostname, and the
+  only hostname involved is typed at runtime, so there is nothing to enumerate
+  at build time.
+
+The alternative — refusing HTTP — would mean Garfin does not work for most of
+the people it is for, so this is a deliberate trade rather than an oversight.
+
 ## Data at rest
 
 The Jellyfin **access token goes in `flutter_secure_storage`**, which wraps
@@ -120,10 +163,23 @@ absent when the setting is off. The lifecycle wiring is driven through the real
 `inactive → hidden → paused` sequence, and the gate deliberately ignores `inactive`, because the
 unlock prompt itself makes the app inactive.
 
-**Not yet verified:** any of it on a real handset. There is no emulator image installed and no
-Android device attached here, so the biometric and device-credential prompts themselves have
-never been shown. **Backgrounding and resuming on a real device is still the case that matters**
-and is still untested — as is API 26–27, where no such handset was available.
+**Verified on a real device (2026-08-04)** — GrapheneOS, Android 17, arm64, release build:
+biometric unlock on cold start works; **backgrounding and resuming past the idle timeout re-locks**
+— which is the case this file named as the one that matters, and the one no test here could
+reach; and switching the timeout to *Straight away* in Settings → Unlock takes effect. Sign-in
+over Quick Connect against a real Jellyfin succeeded on the same build.
+
+**Still not verified:** API 26–27, where no such handset was available, so the device-credential
+path is still argued from `local_auth_android`'s source rather than observed. The
+no-credential-at-all case likewise — it needs a phone with no PIN, pattern or biometric set.
+
+**A warning from how the above was reached.** The first two release builds could not reach any
+server at all, because Flutter's scaffold declares `android.permission.INTERNET` **only in the
+debug and profile manifests**, for hot reload. `dev/verify.sh` and CI both build a *debug* APK, so
+every gate in this repo passed while the one build type users actually install had no network
+access. Assertions on the main manifest now live in `test/android_config_test.dart`. The general
+lesson is worth keeping: **a gate that only exercises the debug build cannot make claims about the
+release build**, and several claims in this file are of exactly that kind.
 
 ## Repository security posture
 
