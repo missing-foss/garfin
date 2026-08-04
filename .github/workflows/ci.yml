@@ -46,6 +46,61 @@ jobs:
       # only once you're confident analyze+test cover what you need.
       - name: Build debug APK
         run: flutter build apk --debug
+      # THE RELEASE BUILD IS NOT REDUNDANT WITH THE DEBUG ONE (#30). Flutter's
+      # scaffold declares `android.permission.INTERNET` only in the debug and
+      # profile manifests, for hot reload — so Garfin shipped a release build
+      # with no network access at all while every gate here was green over it,
+      # because every gate built debug. Debug and release also differ in
+      # manifest merging, signing, minification, icon tree-shaking and asset
+      # packing. Whatever replaces this step must still build release.
+      - name: Build release APK
+        run: flutter build apk --release
+      - name: Release APK is correct where it differs from debug
+        run: |
+          apk=build/app/outputs/flutter-apk/app-release.apk
+          [ -f "$apk" ] || { echo "::error::no release APK was produced"; exit 1; }
+
+          # Fail closed if the tool is missing rather than passing having
+          # checked nothing — the #404 lesson from the leak scan below.
+          aapt2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+          [ -n "$aapt2" ] || { echo "::error::aapt2 not found; cannot inspect the APK"; exit 1; }
+
+          # NEITHER CHECK BELOW MAY BE PUT BEHIND A PIPE. Not `producer | grep`,
+          # and not `printf '%s' "$captured" | grep` either — capturing first
+          # does not fix this, it only raises the threshold to the pipe buffer.
+          #
+          # `grep -q` exits at its first match, so whatever is still writing
+          # takes SIGPIPE, and under `pipefail` the pipeline then reports
+          # failure on a *successful* match. GitHub's default `bash -e {0}`
+          # leaves `pipefail` off today — adding `shell: bash` or a `defaults:`
+          # block, a routine hardening change, turns it on.
+          #
+          # Measured under pipefail, match emitted first:
+          #    64 KB payload -> pipe + grep -q: 0    (works, by luck of size)
+          #   128 KB payload -> pipe + grep -q: 141  (SIGPIPE)
+          #   any size       -> [[ ... ]]:      0    (no subprocess to break)
+          #
+          # `unzip -l` on this APK is ~22 KB over 433 entries today, so a piped
+          # version would pass — until the APK grows past roughly 1,300 entries.
+          # The two checks also fail in OPPOSITE directions, which is why the
+          # second matters most: INTERNET (`|| exit 1`) would report missing
+          # though present — noisy but safe, and how this was first caught in
+          # dev/verify.sh, which does set pipefail. The signature check
+          # (`if ...; then`) would report absent though present: FAIL-OPEN, a
+          # signed APK sailing through the gate whose only job is catching one.
+          badging=$("$aapt2" dump badging "$apk")
+          [[ $badging == *"uses-permission: name='android.permission.INTERNET'"* ]] \
+            || { echo "::error::release APK declares no INTERNET permission"; exit 1; }
+
+          # The signing key never exists in CI, by design (CONTRIBUTING.md), and
+          # build.gradle.kts promises an *unsigned* release rather than a silent
+          # debug-key sign. A signed artifact here means that promise broke.
+          listing=$(unzip -l "$apk")
+          signature_re='META-INF/.*\.(RSA|EC|DSA)'
+          if [[ $listing =~ $signature_re ]]; then
+            echo "::error::release APK is signed — CI must never have a signing key"
+            exit 1
+          fi
       - name: Translations (FR ARB complete, #32)
         # gen-l10n validates placeholder/ICU parity (errors on a mismatch) and
         # lists untranslated keys in the untranslated-messages-file; a "[" in it

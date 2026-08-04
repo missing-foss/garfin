@@ -87,7 +87,48 @@ android {
             // No keystore present (CI, or a contributor without one) means an
             // unsigned-for-release build rather than a silent debug-key sign,
             // which is what Flutter's scaffold does by default.
-            signingConfig = signingConfigs.getByName("release")
+            //
+            // The condition is what makes that true. Assigned unconditionally,
+            // Gradle's `validateSigningRelease` runs against a `storeFile` that
+            // does not exist and the build fails outright:
+            //
+            //     Execution failed for task ':app:validateSigningRelease'.
+            //     > Keystore file '…/release.keystore' not found for signing
+            //       config 'release'.
+            //
+            // So the comment above described an intent the code did not
+            // implement, and nobody could build a release APK without first
+            // generating the canonical keystore (#20) — including CI, which
+            // is why nothing here ever built release. See #29, #30.
+            val releaseSigning = signingConfigs.getByName("release")
+            val keystorePresent = releaseSigning.storeFile?.exists() == true
+
+            // File presence alone is not enough to decide this. It says whether
+            // a keystore IS there, never whether one was MEANT to be — and the
+            // difference is a release that silently ships unsigned.
+            //
+            // A maintainer exporting GARFIN_KEYSTORE_PASSWORD with a typo in
+            // GARFIN_KEYSTORE, or on an unmounted volume, or on a runner whose
+            // secret did not materialise, would otherwise get: a successful
+            // build, an unsigned APK, the fingerprint safeguard above skipped
+            // (it is guarded on the same `exists()`), and — because Flutter
+            // copies the artifact onward — not even a `-unsigned` in the
+            // filename to notice. Before #29 that case failed loudly.
+            //
+            // A non-empty password is the file's own definition of "a real
+            // release build"; the safeguard block above already uses it. So an
+            // intent to sign with nothing to sign with is a configuration
+            // error, not an unsigned build.
+            if (!keystorePresent &&
+                !System.getenv("GARFIN_KEYSTORE_PASSWORD").isNullOrEmpty()) {
+                throw GradleException(
+                    "GARFIN_KEYSTORE_PASSWORD is set but no keystore exists at " +
+                    "${releaseSigning.storeFile}. Refusing to build an unsigned " +
+                    "release silently — fix the path, or unset the password to " +
+                    "build unsigned on purpose.")
+            }
+
+            signingConfig = if (keystorePresent) releaseSigning else null
         }
     }
 }
