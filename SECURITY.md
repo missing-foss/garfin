@@ -55,11 +55,23 @@ which stopped being true when the client landed in #24.
 
 Every HTTP call goes through one place. `JellyfinApiFactory.create` holds the
 only `Dio(` constructor in `lib/`, its `baseUrl` is the address the user typed,
-and every request path is relative to it. There is no second client and no
-hardcoded host: the only URL literals in `lib/` are two occurrences of
-`'http://$text'` in `server_settings_store.dart`, which prefix a scheme onto
-what the user entered rather than naming a destination. `cached_network_image`
-is a declared dependency and is not yet used by any screen — zero references.
+and every request path is relative to it. There is no second client, and **no
+URL literal anywhere in `lib/` names a destination**:
+
+- `server_settings_store.dart` has two occurrences of `'http://$text'`, which
+  prefix a scheme onto what the user entered.
+- `lib/l10n/app_en.arb`, `app_fr.arb` and their generated output contain
+  `http://jellyfin.local:8096` as the hint text under the address field and as
+  ARB placeholder examples. It is shown to the user and never contacted.
+
+`cached_network_image` is a declared dependency and is not yet used by any
+screen — zero references.
+
+The scoping matters more than it looks. An earlier draft said "the only URL
+literals in `lib/` are two occurrences…", which was written specifically to
+avoid overclaiming and still didn't survive its own grep, because the l10n
+files were never in it. Claim what is true — nothing names a destination — not
+what is merely tidy.
 
 **Still not verified:** that this is what happens on the wire. A packet capture
 is outstanding (#19) and is the only thing that can close it, since "no other
@@ -120,13 +132,37 @@ logger must never receive tokens, passwords or Quick Connect secrets.
 **Verified against the implementation (2026-08-04, #19).** Two ways, because a
 static reading and a behavioural one fail differently.
 
-*Statically*, every write in `lib/` was enumerated. `shared_preferences` is
-written at seven call sites, all in `server_settings_store.dart` and
-`unlock_settings_store.dart`, and the values are: a bool, an int of seconds, the
-server URL, the user id and the user name. `flutter_secure_storage` is written
-at exactly one, `token_store.dart`, under one key, with the access token. The
-logger is called at seven sites, and every one interpolates an enum name, a
-runtime type or a duration — never a value from a credential-bearing object.
+*Statically*, every write in `lib/` was enumerated — **eight `shared_preferences`
+call sites across three files**, which is the complete list:
+
+| File | Sites | Stored |
+|---|---|---|
+| `server_settings_store.dart` | 5 | server URL, user id, user name (and their removal on sign-out) |
+| `unlock_settings_store.dart` | 2 | whether the unlock gate is required (bool), the idle timeout (int seconds) |
+| `device_identity.dart` | 1 | `device_id` — see below |
+
+`flutter_secure_storage` is written at exactly one site, `token_store.dart`,
+under one key, with the access token. The logger is called at seven sites, and
+every one interpolates an enum name, a runtime type or a duration — never a
+value from a credential-bearing object.
+
+**`device_id` is a persistent random identifier, and belongs in this list.** It
+is 128 bits of `Random.secure()`, generated on first launch and stored in
+plaintext preferences. It is deliberately *not* a credential — it authenticates
+nothing — but "not a credential" and "not worth disclosing in a privacy
+posture" are different claims, and this is the one stored value that is a stable
+handle for an installation. What it does: Jellyfin keys a session on `DeviceId`,
+so a stable one is what stops every launch registering a new device on the
+user's own dashboard. Where it goes: the `Authorization` header, to that server
+and nowhere else. It is not derived from any hardware identifier, is not shared
+between apps, and does not survive an uninstall, because preferences do not.
+
+An earlier version of this paragraph said "seven call sites, all in
+`server_settings_store.dart` and `unlock_settings_store.dart`" and omitted
+`device_identity.dart`. The count came from grepping one field name rather than
+the API, which is exactly the way an enumeration stops being exhaustive while
+still reading as one. The behavioural test was never affected — it sweeps
+`prefs.getKeys()`, so it already covered `device_id`.
 
 *Behaviourally*, `test/credential_containment_test.dart` runs both real sign-in
 paths — password and Quick Connect, including the tolerated-failure poll that
