@@ -35,7 +35,6 @@ dependencies:
 
   # Material You on Android 12+; degrades to the seed scheme below it.
   dynamic_color: ^1.8.1
-  material_symbols_icons: ^4.2960.0
 
   # Posters. Cache key must include the item's ImageTag so a changed poster invalidates.
   cached_network_image: ^3.4.1

@@ -125,10 +125,16 @@ on purpose: Apache 2.0 is fine with GPLv3 but incompatible with GPLv2, which wou
 relicensing later.
 
 > **Update, 2026-08-03.** The font choice stands, but that last clause no longer holds and
-> should not be cited. GPLv2 compatibility is not maintained: `material_symbols_icons` and
-> `dynamic_color` are Apache-2.0 and already ship, and a downward relicence would need every
-> contributor's consent, which `CONTRIBUTING.md` does not collect. Avoiding Roboto keeps the
-> *font stack* unconstraining — a smaller and true claim. See `CLAUDE.md` § Licence.
+> should not be cited. GPLv2 compatibility is not maintained: `dynamic_color` is Apache-2.0 and
+> already ships, and a downward relicence would need every contributor's consent, which
+> `CONTRIBUTING.md` does not collect. Avoiding Roboto keeps the *font stack* unconstraining — a
+> smaller and true claim. See `CLAUDE.md` § Licence.
+>
+> **Amended 2026-08-04 (#28).** This originally cited `material_symbols_icons` alongside
+> `dynamic_color`. That package has been removed — nothing imported it and it was adding 33 MB of
+> icon fonts to every APK. The conclusion is unchanged, and deliberately never rested on it:
+> `dynamic_color` carries the Apache-2.0 exposure on its own, and the contributor-consent point
+> is independent of the dependency tree entirely.
 
 **The mark is a cartoon gar,** drawn as inline vector paths so it carries the project's licence
 and no third-party asset terms. No fin silhouette anywhere near Jellyfin's trademarked one.
