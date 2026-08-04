@@ -43,7 +43,6 @@ Direct dependencies. Transitive dependencies are covered by the Flutter
 | `logging`, `intl` | BSD-3-Clause | 2013 the Dart project authors |
 | `local_auth` | BSD-3-Clause | 2013 The Flutter Authors |
 | `dynamic_color` | Apache-2.0 | Google LLC |
-| `material_symbols_icons` | Apache-2.0 | Google LLC (icons), package author |
 
 `local_auth` pulls in `local_auth_android`, and `pubspec.lock` also resolves
 `local_auth_darwin` and `local_auth_windows`. All four carry the **same**
@@ -114,7 +113,11 @@ relicence.
 > generated licence collection does not carry this attribution. CC BY 4.0 makes
 > attribution a **condition of the licence**, so this file is where Garfin
 > satisfies it. Don't delete it as redundant with the `LicenseRegistry` output;
-> it isn't.
+> it isn't. Re-confirmed against a rebuilt release APK on 2026-08-04.
+>
+> It is also now the project's **only** icon-font attribution, since
+> `material_symbols_icons` was removed in #28. A tidy-up that swept both as
+> "icon font stuff" would drop a licence condition, not a redundancy.
 
 Copyright Google, licensed under Creative Commons Attribution 4.0 International
 (https://creativecommons.org/licenses/by/4.0/).
@@ -138,9 +141,12 @@ is recorded here because it kept resurfacing in review.
 Apache-2.0 is GPLv3-compatible but not GPLv2-compatible, and Apache-2.0 material
 already ships in the APK:
 
-- **`material_symbols_icons`** — its icon font is bundled, and its Apache-2.0
-  grant is verifiable in the app's own `assets/flutter_assets/NOTICES.Z`.
-- **`dynamic_color`** — Apache-2.0 Dart code, compiled in.
+- **`dynamic_color`** — Apache-2.0 Dart code, compiled in, and its grant is
+  verifiable in the app's own `assets/flutter_assets/NOTICES.Z`. Re-checked
+  against a rebuilt release APK on 2026-08-04, when `material_symbols_icons`
+  was removed (#28) and this bullet inherited the evidence the other one used
+  to carry: the decompressed notices contain a `dynamic_color` entry followed
+  by the Apache License 2.0 text.
 
 Both are deliberate dependencies, so the door was closed by choice rather than
 oversight. Independently of the dependency tree, a downward relicence would

@@ -40,10 +40,9 @@ GPL-3.0-or-later. **Every dependency must be GPLv3-compatible.** Do not add anyt
 GPLv3-incompatible or proprietary without asking.
 
 **GPLv2 compatibility is deliberately not maintained.** Apache-2.0 is GPLv3-compatible but not
-GPLv2-compatible, and the app already ships Apache-2.0 material: `material_symbols_icons`'
-icon font is in the APK (verifiable in `assets/flutter_assets/NOTICES.Z`) and `dynamic_color`
-is compiled in. That door is closed, and it was closed by a deliberate dependency choice, not
-by accident. Independently, a downward relicence would need every contributor's consent, which
+GPLv2-compatible, and the app already ships Apache-2.0 material: `dynamic_color` is compiled in,
+and its Apache-2.0 grant is verifiable in the app's own `assets/flutter_assets/NOTICES.Z`. That
+door is closed, and it was closed by a deliberate dependency choice, not by accident. Independently, a downward relicence would need every contributor's consent, which
 `CONTRIBUTING.md` does not collect — it takes contributions under GPL-3.0-or-later and grants
 no relicensing right. So don't reject a dependency for being GPLv2-incompatible; reject it for
 being GPLv3-incompatible.
@@ -59,7 +58,7 @@ the pub.dev metadata is not always right. Full detail in `THIRD_PARTY_NOTICES.md
 | dio, flutter_riverpod, cached_network_image, mocktail | MIT |
 | shared_preferences, flutter_secure_storage, logging, intl, flutter_lints | BSD-3-Clause |
 | **local_auth** (with `_android`, `_platform_interface`, and the unshipped `_darwin` / `_windows`) | BSD-3-Clause |
-| dynamic_color, material_symbols_icons | Apache-2.0 |
+| dynamic_color | Apache-2.0 |
 | Fredoka, Nunito, **Roboto Mono** | SIL OFL 1.1 |
 
 Roboto Mono was relicensed from Apache 2.0 to OFL 1.1 upstream, so the **entire bundled font
