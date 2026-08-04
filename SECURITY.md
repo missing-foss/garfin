@@ -45,9 +45,21 @@ shipped in the APK, and the two must not be conflated. Disable it locally with
 ## What Garfin talks to
 
 **Exactly one host: the Jellyfin server the user signs in to.** There is no
-Garfin backend, no account system, and no third-party service. Server URL,
-credentials and library data never leave the user's own device and their own
-server.
+Garfin backend, no account system, and no third-party service. Nothing Garfin
+*sends* goes anywhere but that server.
+
+**One qualification, and it is the platform's rather than the app's.** Nothing
+in `android/` declares `allowBackup`, `dataExtractionRules`,
+`fullBackupContent` or a `backupAgent`, so Android's default `allowBackup="true"`
+applies and `shared_preferences` is eligible for **Auto Backup** and
+**device-to-device transfer**. That means the server URL, the signed-in user's
+id and name, the unlock settings and `device_id` can be uploaded to the user's
+own cloud account and restored onto a different phone. It is their account and
+recent Android encrypts those backups with a key derived from the device
+credential — so this is a qualification, not a refutation. But it is
+platform-mediated egress, and the verification below cannot see it: that reading
+is scoped to the app's own HTTP. See #35 for the decision about whether to turn
+it off.
 
 **Verified statically (2026-08-04).** The earlier version of this line said the
 claim held "trivially, by absence — there is no HTTP call in the codebase yet",
@@ -155,7 +167,11 @@ handle for an installation. What it does: Jellyfin keys a session on `DeviceId`,
 so a stable one is what stops every launch registering a new device on the
 user's own dashboard. Where it goes: the `Authorization` header, to that server
 and nowhere else. It is not derived from any hardware identifier, is not shared
-between apps, and does not survive an uninstall, because preferences do not.
+between apps. It is **not** reliably per-installation, though: preferences are
+covered by Android's default backup (above), so a restore can carry the same id
+onto a reinstall or onto a new phone. An earlier version of this paragraph said
+it "does not survive an uninstall", which is what preferences do in the absence
+of backup and not what happens by default.
 
 An earlier version of this paragraph said "seven call sites, all in
 `server_settings_store.dart` and `unlock_settings_store.dart`" and omitted

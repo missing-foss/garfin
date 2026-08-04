@@ -42,10 +42,16 @@ import 'support/fake_jellyfin_server.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  // Distinctive enough that a substring match means something.
-  const token = 'ACCESSTOKEN-zq83kf17hd0193ba';
-  const password = 'PASSWORD-hunter2-9f31c7';
-  const secret = 'QCSECRET-DA4C1F204EB7A91C';
+  // Distinctive enough that a substring match means something, and
+  // deliberately low-entropy english rather than realistic-looking credentials.
+  // The first version used `QCSECRET-DA4C1F204EB7A91C`, which tripped gitleaks'
+  // `generic-api-key` rule in CI — a high-entropy literal assigned to something
+  // named `secret` is exactly what a secret scanner is for. A file whose whole
+  // purpose is proving credentials do not escape should not need the scanner
+  // silenced to live in the tree.
+  const token = 'sentinel-access-token-must-never-be-stored-or-logged';
+  const password = 'sentinel-password-must-never-be-stored-or-logged';
+  const secret = 'sentinel-quick-connect-secret-must-never-touch-disk';
   const credentials = {token, password, secret};
 
   const identity = DeviceIdentity(deviceId: 'device-1', deviceName: 'Test');

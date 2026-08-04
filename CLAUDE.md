@@ -129,6 +129,15 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
 - No `print` — use a logger, and never log tokens, passwords, or Quick Connect secrets.
 - Copy style: plain and warm, never cute about permissions. See `docs/DECISIONS.md` § Voice.
 - Write tests for the tag-diff logic and the allow/block inversion. Those are where bugs hide.
+- **Run the grep your sentence implies.** Prose in `SECURITY.md`, `THIRD_PARTY_NOTICES.md` and
+  doc comments makes checkable claims — "written at seven call sites", "the only URL literals",
+  "does not survive an uninstall" — and every one of those has been wrong at least once while
+  the code beside it was correct. A claim scoped to what you searched rather than to what exists
+  reads exactly like a verified one. Tests here get mutation-tested as a matter of course; give
+  sentences the same treatment, which costs one command.
+- **A gate you have not tried to break is not a gate.** Mutation-test anything you add or rewrite
+  that is supposed to catch something — delete the thing it guards and watch it fail. Two gates
+  in this repo were vacuous when written.
 
 ## Definition of done for a feature
 
