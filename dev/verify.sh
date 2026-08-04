@@ -114,10 +114,23 @@ else
 fi
 
 step "gitleaks (secrets)"
+# TWO scans, and the second is the one that matches CI.
+#
+# `gitleaks git` walks history. Locally that is a full clone, so it sees each
+# commit's diff. In CI `actions/checkout` fetches depth 1, so the same command
+# sees a single commit containing the whole tree — meaning CI effectively scans
+# every file while a local run scans only what changed. That divergence let a
+# secret-shaped test fixture reach CI green locally and red there (#34).
+#
+# `gitleaks dir` scans the working tree, which reproduces CI's coverage. It also
+# walks build/ when one exists, which is a bonus rather than a cost: a
+# credential baked into an APK is exactly the thing worth catching.
 if command -v gitleaks >/dev/null 2>&1; then
-  gitleaks git --no-banner . && echo ok || fail=1
+  gitleaks git --no-banner . && gitleaks dir --no-banner . && echo ok || fail=1
 else
-  echo "SKIP (gitleaks not installed) — CI still runs it"
+  echo "SKIP (gitleaks not installed) — CI still runs it, and see above: a"
+  echo "     local run would not have matched it anyway. Install it:"
+  echo "     https://github.com/gitleaks/gitleaks/releases"
 fi
 
 step "REUSE (per-file SPDX licensing)"
