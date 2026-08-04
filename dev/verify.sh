@@ -36,12 +36,15 @@ if flutter build apk --release; then
   elif [ -z "$aapt2" ]; then
     # Unlike CI, a contributor may genuinely not have build-tools on PATH.
     echo "SKIP (aapt2 not found) — CI still checks the APK's permissions"
-  # Captured, not piped into `grep -q`. This script runs under `set -o
-  # pipefail`, and `grep -q` exits on its first match, so aapt2 takes SIGPIPE
-  # and the pipeline reports failure on a *successful* match. It fails closed,
-  # which is the safe direction, but it fails on a perfectly good APK.
-  elif printf '%s' "$("$aapt2" dump badging "$apk" 2>/dev/null)" \
-       | grep -q "uses-permission: name='android.permission.INTERNET'"; then
+  # No pipe. This script sets `pipefail`, and `grep -q` exits at its first
+  # match, so whatever is still writing takes SIGPIPE and the pipeline reports
+  # failure on a *successful* match. Capturing first does NOT fix that — it
+  # only raises the threshold to the pipe buffer, measured at ~64 KB. It is
+  # safe here today solely because aapt2's output is ~4 KB, which is a property
+  # of the tool rather than of this code. A bash `==` test has no subprocess
+  # and so nothing to break. See the longer note in .github/workflows/ci.yml.
+  elif [[ $("$aapt2" dump badging "$apk" 2>/dev/null) \
+          == *"uses-permission: name='android.permission.INTERNET'"* ]]; then
     echo ok
   else
     echo "RELEASE: the APK declares no INTERNET permission"; fail=1

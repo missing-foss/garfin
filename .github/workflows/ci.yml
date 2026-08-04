@@ -65,31 +65,39 @@ jobs:
           aapt2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
           [ -n "$aapt2" ] || { echo "::error::aapt2 not found; cannot inspect the APK"; exit 1; }
 
-          # BOTH checks capture their input before grepping it, and neither may
-          # be "simplified" back into `producer | grep -q`. That shape is safe
-          # only while this workflow has no `shell: bash` and no `defaults:`
-          # block, because GitHub's default `bash -e {0}` leaves `pipefail` off.
-          # Adding either — a routine hardening change — turns `pipefail` on,
-          # and `grep -q` exits at its first match, so the producer takes
-          # SIGPIPE and the pipeline reports failure on a *successful* match.
+          # NEITHER CHECK BELOW MAY BE PUT BEHIND A PIPE. Not `producer | grep`,
+          # and not `printf '%s' "$captured" | grep` either — capturing first
+          # does not fix this, it only raises the threshold to the pipe buffer.
           #
-          # Measured, and the two checks below fail in opposite directions:
-          #   INTERNET  (`|| exit 1`)  -> reports missing though present. Noisy,
-          #                              but safe. This is how it was caught in
-          #                              dev/verify.sh, which does set pipefail.
-          #   signature (`if …; then`) -> reports absent though present.
-          #                              FAIL-OPEN: a signed APK sails through
-          #                              the gate whose only job is catching one.
+          # `grep -q` exits at its first match, so whatever is still writing
+          # takes SIGPIPE, and under `pipefail` the pipeline then reports
+          # failure on a *successful* match. GitHub's default `bash -e {0}`
+          # leaves `pipefail` off today — adding `shell: bash` or a `defaults:`
+          # block, a routine hardening change, turns it on.
+          #
+          # Measured under pipefail, match emitted first:
+          #    64 KB payload -> pipe + grep -q: 0    (works, by luck of size)
+          #   128 KB payload -> pipe + grep -q: 141  (SIGPIPE)
+          #   any size       -> [[ ... ]]:      0    (no subprocess to break)
+          #
+          # `unzip -l` on this APK is ~22 KB over 433 entries today, so a piped
+          # version would pass — until the APK grows past roughly 1,300 entries.
+          # The two checks also fail in OPPOSITE directions, which is why the
+          # second matters most: INTERNET (`|| exit 1`) would report missing
+          # though present — noisy but safe, and how this was first caught in
+          # dev/verify.sh, which does set pipefail. The signature check
+          # (`if ...; then`) would report absent though present: FAIL-OPEN, a
+          # signed APK sailing through the gate whose only job is catching one.
           badging=$("$aapt2" dump badging "$apk")
-          printf '%s' "$badging" \
-            | grep -q "uses-permission: name='android.permission.INTERNET'" \
+          [[ $badging == *"uses-permission: name='android.permission.INTERNET'"* ]] \
             || { echo "::error::release APK declares no INTERNET permission"; exit 1; }
 
           # The signing key never exists in CI, by design (CONTRIBUTING.md), and
           # build.gradle.kts promises an *unsigned* release rather than a silent
           # debug-key sign. A signed artifact here means that promise broke.
           listing=$(unzip -l "$apk")
-          if printf '%s' "$listing" | grep -qE "META-INF/.*\.(RSA|EC|DSA)"; then
+          signature_re='META-INF/.*\.(RSA|EC|DSA)'
+          if [[ $listing =~ $signature_re ]]; then
             echo "::error::release APK is signed — CI must never have a signing key"
             exit 1
           fi
