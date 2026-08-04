@@ -9,7 +9,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 This documents Garfin's privacy posture and its at-rest protection of the Jellyfin
 access token.
 
-**Status: partially verified.** Garfin is pre-alpha and has no network code yet.
+**Status: partially verified.** Garfin is pre-alpha.
 Each claim below states what has actually been checked and what has not. Nothing
 here is inherited by analogy from a sibling project — where verification is
 outstanding it says so, and it must be completed before the first release.
@@ -49,9 +49,24 @@ Garfin backend, no account system, and no third-party service. Server URL,
 credentials and library data never leave the user's own device and their own
 server.
 
-**Verified (2026-08-02):** trivially, by absence — there is no HTTP call in the
-codebase yet. This claim needs re-verifying, by packet capture, once the
-Jellyfin client lands.
+**Verified statically (2026-08-04).** The earlier version of this line said the
+claim held "trivially, by absence — there is no HTTP call in the codebase yet",
+which stopped being true when the client landed in #24.
+
+Every HTTP call goes through one place. `JellyfinApiFactory.create` holds the
+only `Dio(` constructor in `lib/`, its `baseUrl` is the address the user typed,
+and every request path is relative to it. There is no second client and no
+hardcoded host: the only URL literals in `lib/` are two occurrences of
+`'http://$text'` in `server_settings_store.dart`, which prefix a scheme onto
+what the user entered rather than naming a destination. `cached_network_image`
+is a declared dependency and is not yet used by any screen — zero references.
+
+**Still not verified:** that this is what happens on the wire. A packet capture
+is outstanding (#19) and is the only thing that can close it, since "no other
+host is contacted" is a runtime claim and everything above is a reading of the
+source. Note for whoever runs it: capture a **release** build. Debug and release
+differ in ways that have already bitten this project once — see § Release
+signing and #30.
 
 ### Cleartext HTTP needs no exemption, and must not be given one
 
@@ -102,13 +117,49 @@ exchange, not an identifier, and is held in memory only.
 Nothing is logged that could carry a credential: no `print` anywhere, and the
 logger must never receive tokens, passwords or Quick Connect secrets.
 
-**Verified (2026-08-02):** `flutter_secure_storage` is a declared dependency and
-`shared_preferences` is present for settings only.
+**Verified against the implementation (2026-08-04, #19).** Two ways, because a
+static reading and a behavioural one fail differently.
 
-**Not yet verified:** there is no storage code at all yet, so the separation
-above is a design commitment rather than an audited fact. It needs confirming
-against the real implementation — including that no token reaches
-`shared_preferences`, a logger, or a crash path — before release.
+*Statically*, every write in `lib/` was enumerated. `shared_preferences` is
+written at seven call sites, all in `server_settings_store.dart` and
+`unlock_settings_store.dart`, and the values are: a bool, an int of seconds, the
+server URL, the user id and the user name. `flutter_secure_storage` is written
+at exactly one, `token_store.dart`, under one key, with the access token. The
+logger is called at seven sites, and every one interpolates an enum name, a
+runtime type or a duration — never a value from a credential-bearing object.
+
+*Behaviourally*, `test/credential_containment_test.dart` runs both real sign-in
+paths — password and Quick Connect, including the tolerated-failure poll that
+logs at `fine` — and then sweeps **everything they wrote or said** for three
+sentinel credentials:
+
+| | `shared_preferences` | `flutter_secure_storage` | the logger |
+|---|---|---|---|
+| Access token | absent | **present** (required) | absent |
+| Password | absent | absent | absent |
+| Quick Connect `Secret` | absent | absent | absent |
+
+The `Secret` therefore never touches disk in either store, which is the claim
+`docs/DECISIONS.md` makes about it. The log assertions read records **before**
+`redactSecrets` runs: redaction is the backstop, and the property worth holding
+is that nothing hands a credential to the logger at all. The crash path is
+covered by asserting no model puts a credential in `toString()` — that is what
+an uncaught error prints.
+
+Mutation-tested, because a containment test that cannot fail is worse than
+none: leaking the token into preferences fires 4 assertions, logging the token
+fires 3, logging the `Secret` fires 2.
+
+**Two limits on that, stated rather than glossed:**
+
+- The test asserts what the app *writes*, through the same key-value API the
+  real plugins implement, not what lands on disk. Confirming the bytes in
+  `shared_prefs/*.xml` and the Keystore-backed store needs a device, and belongs
+  with the packet capture below.
+- `configureLogging` redacts a record's message and error but passes
+  `stackTrace` through untouched. A Dart stack trace is frames, not values, so
+  this is not currently a gap — but it is the one part of a log record nothing
+  scrubs.
 
 ## Device access
 
