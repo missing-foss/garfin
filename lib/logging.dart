@@ -35,8 +35,13 @@ void configureLogging({Level level = Level.INFO}) {
 /// (`GET /QuickConnect/Connect?secret=…`), so a `DioException` carries it in
 /// `requestOptions.uri` and prints it in `toString()`. Logging that error
 /// verbatim would write a live credential to the device log — the one thing
-/// `docs/JELLYFIN-API.md` is most explicit about. `api_key` gets the same
-/// treatment because Jellyfin accepts the access token that way too.
+/// `docs/JELLYFIN-API.md` is most explicit about.
+///
+/// The access token is covered in all three shapes it actually takes, not just
+/// the query one: `?api_key=…`, the `Token="…"` inside the `Authorization`
+/// header, and `{"AccessToken":"…"}` in the body of `AuthenticateByName` and
+/// `AuthenticateWithQuickConnect`. The last is the one worth naming — it is a
+/// live admin token, and a response body is the shape a leak has.
 ///
 /// This is a backstop, not the primary defence: [redactSecrets] runs on every
 /// record, and the client layer converts Dio errors into `JellyfinException`
@@ -53,8 +58,17 @@ String redactSecrets(String input) => input.replaceAllMapped(
       // `{"Authenticated":false,"Secret":"DA4C…","Code":"793600"}`. A pattern
       // that only knew about `=` would pass a logged response body through
       // untouched, which is the shape a leak would actually have.
+      //
+      // `accesstoken` / `access_token` covers the *other* body this app sees:
+      // `POST /Users/AuthenticateByName` answers
+      // `{"AccessToken":"988dc…","ServerId":"…"}`, and that is a live admin
+      // token. Bare `token` is in the list for the header form,
+      // `Authorization: MediaBrowser Token="…"`. The `(?<![\w-])` lookbehind is
+      // what keeps `token` from matching inside `AccessToken` and producing a
+      // half-redacted mess.
       RegExp(
-        r'''(?<![\w-])(["']?)(secret|api_key|apikey|x-emby-token|pw|password)'''
+        r'''(?<![\w-])(["']?)(secret|api_key|apikey|access_?token|'''
+        r'''x-emby-token|token|pw|password)'''
         r'''\1\s*([=:])\s*(["']?)[^&\s,"'`)\]}]*\4''',
         caseSensitive: false,
       ),

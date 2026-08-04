@@ -44,6 +44,33 @@ void main() {
     );
   });
 
+  test('strips the access token out of an authentication response', () {
+    // The response to `POST /Users/AuthenticateByName`. That is a live *admin*
+    // token — the same argument as the Quick Connect secret above, one field
+    // over, and the reason `Secret` alone was not enough.
+    expect(
+      redactSecrets(
+        '{"AccessToken":"988dc435d3b64611","ServerId":"2569","User":{}}',
+      ),
+      '{"AccessToken":"REDACTED","ServerId":"2569","User":{}}',
+    );
+    expect(
+      redactSecrets('{"access_token":"988dc435"}'),
+      '{"access_token":"REDACTED"}',
+    );
+  });
+
+  test('strips the token out of the Authorization header', () {
+    // The header the interceptor builds. Nothing logs it today, but it is the
+    // one string in the app guaranteed to contain the token.
+    expect(
+      redactSecrets(
+        'MediaBrowser Token="abc123", Client="Garfin", DeviceId="d1"',
+      ),
+      'MediaBrowser Token="REDACTED", Client="Garfin", DeviceId="d1"',
+    );
+  });
+
   test('leaves a neighbouring field alone', () {
     // The six-digit code is not a credential — it is inert without the secret,
     // and it is meant to be read off a screen. Redacting it would make a log
@@ -51,6 +78,18 @@ void main() {
     expect(
       redactSecrets('{"Code":"793600"}'),
       '{"Code":"793600"}',
+    );
+  });
+
+  test('matches whole names, not fragments of longer ones', () {
+    // `myapikey` needs the lookbehind; `AccessTokenExpiry` needs the name to
+    // run up against the separator. Between them they pin both halves of the
+    // pattern — the failure they guard against is a half-redacted string, which
+    // reads as though redaction ran and did nothing.
+    expect(redactSecrets('myapikey=keepme'), 'myapikey=keepme');
+    expect(
+      redactSecrets('{"AccessTokenExpiry":"2026-08-04"}'),
+      '{"AccessTokenExpiry":"2026-08-04"}',
     );
   });
 
