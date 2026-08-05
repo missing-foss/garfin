@@ -161,7 +161,11 @@ class _PickChip extends StatelessWidget {
 int? _ageOf(WidgetRef ref, JellyfinUser? child) {
   if (child == null) return null;
   final year = ref.watch(birthYearStoreProvider).read(child.id);
-  return year == null ? null : DateTime.now().year - year;
+  if (year == null) return null;
+  // The age they are *certainly* old enough to be, not the one they might have
+  // reached — see `guaranteedAge`. Erring high here would tilt the hint toward
+  // "suitable" for every child whose birthday has not come round yet.
+  return guaranteedAge(birthYear: year, today: DateTime.now());
 }
 
 class _Grid extends ConsumerWidget {

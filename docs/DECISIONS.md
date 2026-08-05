@@ -258,6 +258,21 @@ Rejected — treating an unrated item as suitable, on the grounds that most unra
 family library are innocuous. Probably true and entirely beside the point: the cost of being
 wrong is asymmetric, and the parent can see the answer is missing and decide for themselves.
 
+**The age it compares against is the one the child is *guaranteed* to have reached.** Only a year
+is stored, so a child is either `today.year - birthYear` or one less depending on whether their
+birthday has passed. The hint takes the lower.
+
+Taking the higher — the obvious arithmetic, and what this first shipped as — biases every hint
+toward *suitable* for roughly half of children at any moment: born 2013, on 2026-08-05 the sum
+says 13 while a November birthday means 12, and a 13-rated title reads as suiting them. Systematic,
+invisible, and pointed the wrong way. Erring low means the hint appears slightly too often and a
+parent who knows the birthday dismisses it, which is the failure worth having. Same asymmetry as
+the unrated case above, and it gives the same answer.
+
+This is deliberately **different from the age on the Kids card**, which is a best estimate that
+nothing branches on. A number that decides something and a number that is merely displayed can
+honestly differ by a year for part of the year.
+
 **The ladder's values are an ordering, not ages.** They align with ages in the low range on the
 measured US ladder — 7, 10, 13, 14, 17, 18, 21 — and then jump to 1000 (`XXX`) and 1001
 (`Banned`), which are sentinels. Values outside 0–21 answer *not known*. The mapping is read from

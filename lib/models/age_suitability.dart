@@ -54,6 +54,29 @@ enum AgeSuitability {
 /// which is also why the mapping is read from the ladder rather than hardcoded.
 const maxAgeLikeRatingValue = 21;
 
+/// The age a child born in [birthYear] is **guaranteed** to have reached.
+///
+/// Only the year is stored, so a child is either `today.year - birthYear` or
+/// one less, depending on whether their birthday has passed. This takes the
+/// lower — the age they certainly are — and the choice is the same asymmetry
+/// argument the rest of this file runs on.
+///
+/// Taking the higher would bias every hint toward *suitable* for roughly half
+/// of children at any moment: born 2013, on 2026-08-05, the arithmetic says 13
+/// while a November birthday means 12, and a 13-rated title would read as
+/// suiting them. The error would be systematic, invisible, and pointed the
+/// wrong way.
+///
+/// Erring low means the hint is shown slightly too often, and a parent who
+/// knows the birthday dismisses it. That is the failure worth having.
+///
+/// **Deliberately different from `KidSummary.ageIn`**, which is what the Kids
+/// card displays. A displayed age should be the best estimate and nothing
+/// branches on it; this one decides something, so it is conservative instead.
+/// The two disagreeing by a year for part of the year is intended, not a bug.
+int guaranteedAge({required int birthYear, required DateTime today}) =>
+    today.year - birthYear - 1;
+
 /// Whether [item] looks suitable for a child of [childAge].
 ///
 /// Pure, so the whole truth table is testable without a server or a widget.

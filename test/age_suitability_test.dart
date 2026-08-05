@@ -117,6 +117,39 @@ void main() {
     });
   });
 
+  group('the age the hint compares against', () {
+    test('it is the age the child is guaranteed to have reached', () {
+      // Born 2013. On 2026-08-05 they are 13 only if their birthday has
+      // passed; with a November one they are 12. Only the year is stored, so
+      // the hint takes the lower.
+      expect(
+        guaranteedAge(birthYear: 2013, today: DateTime(2026, 8, 5)),
+        12,
+      );
+    });
+
+    test('erring low points the residual error at aboveAge, not suitsAge', () {
+      // The asymmetry this whole feature runs on, applied to its own
+      // arithmetic. Taking the higher age would have read a 13-rated title as
+      // suiting a child who is still 12 — systematic, invisible, and pointed
+      // the wrong way for roughly half of children at any moment.
+      final age = guaranteedAge(birthYear: 2013, today: DateTime(2026, 8, 5));
+
+      expect(check(rating: 'PG-13', age: age), AgeSuitability.aboveAge);
+      // And the naive arithmetic would have said the opposite.
+      expect(check(rating: 'PG-13', age: age + 1), AgeSuitability.suitsAge);
+    });
+
+    test('it does not depend on the month, only the year', () {
+      // The whole point of storing a year: the answer must not lurch on
+      // 1 January for a child born in December.
+      expect(
+        guaranteedAge(birthYear: 2013, today: DateTime(2026, 1, 1)),
+        guaranteedAge(birthYear: 2013, today: DateTime(2026, 12, 31)),
+      );
+    });
+  });
+
   group('the ladder\'s inverse lookup', () {
     test('a name has one value even though a value has many names', () {
       expect(ladder.valueFor('PG'), 10);
