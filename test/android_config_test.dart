@@ -41,11 +41,24 @@ void main() {
   ///
   /// Block comments go too. Kotlin has both, and `//` alone would leave a
   /// `/* … */` one able to satisfy a match.
+  ///
+  /// **One alternation, not two passes.** Running the two strips in sequence is
+  /// wrong in either order, because each order lets the *other* comment form
+  /// open a match that swallows real code — a false positive on correct
+  /// source, not a hole, but one an ordinary edit would trip:
+  ///
+  /// - block-then-line: `// see the /* pattern` starts a block match that eats
+  ///   everything up to the next `*/`, which the first KDoc supplies.
+  /// - line-then-block: `/* see http://example.com */` loses its terminator to
+  ///   the line strip, and the block match then runs on to a later `*/`.
+  ///
+  /// Both measured. A single left-to-right alternation has neither problem:
+  /// whichever form opens first consumes its own contents, so a `/*` inside a
+  /// line comment and a `//` inside a block comment are both inert.
   final activity =
       File('android/app/src/main/kotlin/com/mfoss/garfin/MainActivity.kt')
           .readAsStringSync()
-          .replaceAll(RegExp(r'/\*.*?\*/', dotAll: true), '')
-          .replaceAll(RegExp(r'//.*'), '');
+          .replaceAll(RegExp(r'//[^\n]*|/\*.*?\*/', dotAll: true), '');
 
   test('no cleartext exemption is granted', () {
     // Measured on GrapheneOS / Android 17 with a control build: plain HTTP to a
@@ -110,13 +123,26 @@ void main() {
     //
     // Reads the comment-stripped source, for the reason given where it is
     // built: the comment above the flag names it repeatedly, so a bare
-    // `contains` would pass on the prose alone with the call deleted. Checked
-    // by deleting the `addFlags` line and watching this fail.
+    // `contains` would pass on the prose alone with the call deleted.
     //
-    // This asserts the source, which is all a unit test can reach. That the
-    // system then declines to snapshot is a runtime property, verified on a
-    // device by pulling the snapshot directory — see SECURITY.md.
-    expect(activity, contains('FLAG_SECURE'));
-    expect(activity, contains('addFlags'));
+    // Assert the *call*, not two substrings. `contains('FLAG_SECURE')` and
+    // `contains('addFlags')` never have to refer to the same statement, so
+    // `clearFlags(…FLAG_SECURE)` beside `addFlags(…FLAG_KEEP_SCREEN_ON)` —
+    // the exact inverse of what this guards — satisfied both and reported
+    // green. Measured; it is the same defect as #37, one assertion down.
+    //
+    // **What this cannot reach: whether the call runs.** Wrapping it in
+    // `if (false)`, or moving it to a method nobody calls, both leave this
+    // green, and no assertion over source text can tell the difference. The
+    // gate proves the call is *written*, not that it *executes*. The runtime
+    // half is the device measurement in SECURITY.md — background the app and
+    // pull /data/system_ce/0/snapshots/<taskId>.jpg — and a green test here
+    // must not be read as standing in for it.
+    expect(
+      activity,
+      matches(
+        RegExp(r'addFlags\(\s*WindowManager\.LayoutParams\.FLAG_SECURE\s*\)'),
+      ),
+    );
   });
 }
