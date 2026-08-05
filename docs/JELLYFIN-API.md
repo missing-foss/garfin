@@ -221,10 +221,100 @@ Cache images aggressively; include the tag in the cache key so a changed poster 
 
 ## Collections
 
-    GET /Items?IncludeItemTypes=BoxSet&Recursive=true&Fields=Tags
-    GET /Items?parentId={boxsetId}    -> members
+    GET /Items?IncludeItemTypes=BoxSet&Recursive=true&Fields=Tags,ChildCount
+    GET /Items?parentId={boxsetId}&Fields=Tags    -> members
 
 An item can belong to several BoxSets. Do not assume one parent.
+
+**Measured on 10.11.11, 2026-08-05**, throwaway container per the protocol below — six films,
+three BoxSets, one allow-list child.
+
+`userId` and `Recursive=true` change nothing on the `parentId` query; `Fields=Tags` is required
+exactly as it is everywhere else, and without it the `Tags` key is **absent** rather than empty —
+which reads as "no member is labelled". Member rows carry `Name`, `ProductionYear` and
+`OfficialRating` (when the item has one) unasked, which is enough for the cascade dialog's list.
+
+**`ChildCount` is absent unless asked for.** `Fields=Tags` alone returns no `ChildCount` at all;
+`Fields=Tags,ChildCount` returns it. The grid's count badge is guarded on that field being
+non-null, so it never rendered until this was fixed.
+
+### There is no way to ask which collections contain a film
+
+Every plausible route gives a **wrong answer rather than an error**:
+
+| Attempt | Result |
+|---|---|
+| `Fields=ParentId` on the film | the **library folder** — the same id for every film in the library |
+| `GET /Items/{id}/Ancestors` | that same folder chain. The BoxSet is not in it |
+| recursing the Collections folder for `IncludeItemTypes=Movie` | **0 items** |
+| `IncludeItemTypes=BoxSet&ancestorIds={filmId}` | **every** BoxSet on the server, including ones that do not contain the film |
+
+The last row is the trap worth remembering: `ancestorIds` is **not one of `/Items`' 86
+parameters**, and an unknown parameter is **silently ignored rather than rejected** — confirmed
+directly, `totalNonsense=42` answers 200. On a test library with one collection, that wrong answer
+and the right answer are the same string.
+
+So the reverse map is built the only way that exists — list the BoxSets, then one `parentId` query
+each, 1 + N calls — and cached for the session. Nothing Garfin does changes membership.
+
+### Tagging the container and tagging the members do different things
+
+Allow-list child, tag `kids-emma`, every combination measured:
+
+| container tagged | members tagged | films the child sees | BoxSets they see | browsing the set |
+|---|---|---|---|---|
+| no | no | 0 | — | 401 |
+| no | **yes** | **3** | — | **401** |
+| **yes** | no | 0 | Back to the Future | **0 items** |
+| yes | yes | 3 | Back to the Future | 3 |
+
+Tagging the container alone is not inert — it hands the child an **empty collection**. Tagging
+only the members is not the whole job either: the films arrive and the set does not.
+
+**So a collection write covers both.** Write the container **last** on an addition and **first** on
+a removal, and its label becomes an accurate marker of "the whole set landed": a fix-forward
+partial leaves it off, and the half-tagged set stays in the to-do list on the grid at no extra
+query. See `DECISIONS.md` § Collections and `AssignRepository.applyToCollection`.
+
+### The BoxSet round-trip is a film's, with different numbers
+
+    BoxSet single-item GET : 41 fields      BoxSet list row : 14 fields
+    POST /Items/{boxSetId} : 204            LOST none  GAINED none  CHANGED ['Etag', 'Tags']
+
+Read the claim, not the number: the count is item-dependent here too.
+
+### `tags=` takes `|`, not `,`
+
+    tags=kids-emma                  -> 3
+    tags=family-films               -> 1
+    tags=kids-emma|family-films     -> 3     <- OR
+    tags=kids-emma,family-films     -> 0
+
+That 0 is not "AND". Writing a tag *literally named* `kids-emma,family-films` onto one film makes
+`tags=kids-emma,family-films` return exactly **1** — that film. The comma was never a separator;
+the whole string is one tag. Meanwhile `IncludeItemTypes=Movie,Series` in the same query string
+uses commas correctly, so the conventions really are per parameter.
+
+It matters because a child may hold **several** shortlist tags and the server matches any of them:
+a member-counting query built with a comma returns 0, and a fully-shared set reads as untouched.
+
+### A well-formed GUID that does not exist answers 404 — except the all-zero one
+
+    GET /Users/{admin}/Items/deadbeefdeadbeefdeadbeefdeadbeef  -> 404
+    GET /Users/{admin}/Items/00000000000000000000000000000000  -> 200  Name="Media Folders"
+    GET /Users/{admin}/Items/not-a-guid                        -> 400
+
+The empty GUID resolves to the **root media folder**, whose `Id` is not the one asked for. A caller
+that trusts the status — or trusts that a JSON object came back — would hand the write path the
+root folder's body to post to `/Items/000…`. So `fullItem` compares the returned `Id` with the
+requested one and refuses the mismatch. The check is one line; the failure it prevents is the class
+the whole of ground rule 2 exists for.
+
+### Batching
+
+Five member writes at a concurrency of four: **0.2s, all 204**. Failures are per item — a bogus id
+in the middle 404s at pre-flight while both its neighbours land, which is the fix-forward state
+exactly.
 
 ## Writing tags — the dangerous part
 
@@ -429,6 +519,14 @@ Surface the exact state instead — "7 of 12 tagged" — and offer *finish the r
 Both are idempotent and both are the user's choice. See ground rule 5.
 
 Keep a small concurrency limit (3–4) so a big collection doesn't flood the server.
+
+**The pre-flight reads and keeps nothing.** Handing a pre-flight body to the write would be
+re-posting a captured object — the thing the Undo rule above forbids — and it would be stale by
+however long the batch takes. Every write does its own fresh `GET`. In the code that is structural:
+`_preflight` returns ids, so there is no body to be tempted by.
+
+**And "the read succeeded" is not the check.** It is "the item that came back is the item asked
+for" — see the all-zero GUID answering 200 with the root folder, in § Collections above.
 
 ## Gotchas
 

@@ -93,7 +93,13 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
    which is exactly what this rule forbids.
 5. **Collection writes pre-flight, then fix forward. They do not roll back.** `GET` every
    member before writing anything and abort if any read fails — reads are free and catch most
-   failures before a single write. If a write still fails mid-batch, retry *that item*; never
+   failures before a single write. The pre-flight keeps **no bodies**: every write starts with its
+   own fresh `GET`, and what it checks is not "the read succeeded" but "the item that came back is
+   the item asked for" (`docs/JELLYFIN-API.md`: the all-zero GUID answers 200 with the root
+   folder). A collection write covers the **container as well as every member** — measured, members
+   alone leave the set unreachable and the container alone leaves it empty — with the container
+   written **last** on an addition and **first** on a removal, so its label only ever means "the
+   whole set is here". If a write still fails mid-batch, retry *that item*; never
    undo the ones that succeeded. Tag writes are idempotent, so retrying is safe and repeatable
    while undoing is neither, and every undo is another full-object replace under rule 2 on an
    item that was fine. Surface the exact state — "7 of 12 tagged" — and let the user choose to
@@ -170,14 +176,20 @@ the sign-in screen or the (placeholder) home depending on whether a session rest
 the device-unlock wrapper; `lib/providers/` wires them into Riverpod. Tracked in the build-order
 epic; phases get their own issue when they are next.
 
+The write path is `lib/repositories/assign_repository.dart` — one item through `apply`, a whole
+collection through `applyToCollection`, and neither accepts an item object. `dev/live_collection_roundtrip.dart`
+runs the collection write against a real server and prints the before/after diff, which is the
+standing gate in `docs/JELLYFIN-API.md`; it sits in `dev/` rather than `test/` so it can never
+become a skipped check that still reports green.
+
 - [x] **Round-trip experiment** — done. The write path's read strategy is measured, not assumed:
       `GET /Users/{uid}/Items/{id}`, no `Fields` needed. See `docs/JELLYFIN-API.md`
 1. [x] Jellyfin client + auth (Quick Connect and password), admin check
 2. [x] Device unlock gate (`local_auth`) — rule 9. Early, because every later screen sits behind it
-3. User list with policy parsing → Kids screen
-4. Library grid with the child selector
-5. Assign sheet with tag diff, counts, and the write path
-6. Collections, pre-flight and fix-forward
+3. [x] User list with policy parsing → Kids screen
+4. [x] Library grid with the child selector — filter bar and infinite scroll still open in #44
+5. [x] Assign sheet with tag diff, counts, and the write path
+6. [x] Collections, pre-flight and fix-forward
 7. Settings
 8. Activity log
 

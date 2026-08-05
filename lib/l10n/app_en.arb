@@ -543,8 +543,92 @@
   "@assignNoChildren": {
     "description": "Shown on the assign sheet when no account is under shortlist control."
   },
-  "assignCollectionNote": "Collections are handled later — this labels the collection itself, not the titles inside.",
+  "assignCollectionNote": "Labels land on all {count} titles inside, and on the collection itself.",
   "@assignCollectionNote": {
-    "description": "Shown when the item is a collection. Cascading to members is build order step 6, and pretending otherwise would silently do nothing useful."
+    "description": "Shown when the item is a collection. Measured: labelling only the container gives the child an empty collection, and labelling only the members hands over the films without the set, so both are written.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "assignPartOfSet": "Part of {name} — {count} titles in the set.",
+  "@assignPartOfSet": {
+    "description": "Shown when a single film belongs to a collection. A film can be in several sets, so this line can appear more than once.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "assignSetTogetherTitle": "Keep the set together?",
+  "@assignSetTogetherTitle": {
+    "description": "Title of the dialog asked once when a film being given away belongs to a collection. Additions only — removing a label never cascades."
+  },
+  "assignSetTogetherBody": "{title} is part of {name}. The rest of the set can go at the same time.",
+  "@assignSetTogetherBody": {
+    "description": "Body of the keep-the-set-together dialog, above a list of the other titles and their ratings.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "assignSetTogetherJustThis": "Just this one",
+  "@assignSetTogetherJustThis": {
+    "description": "Declines the cascade: write the single film only."
+  },
+  "assignSetTogetherAll": "All {count}",
+  "@assignSetTogetherAll": {
+    "description": "Accepts the cascade: write every title in the set.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "assignBatchPartial": "{done} of {total} titles changed.",
+  "@assignBatchPartial": {
+    "description": "Ground rule 5's exact state after a collection write partly failed — the rule's own example is '7 of 12 tagged'. Worded for what changed rather than for tagging, because the same notice reports a partly-failed removal, and the change preview directly above already says which direction it went. Nothing that succeeded is undone; the parent chooses what happens next.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "assignBatchSetIncomplete": "All {count} titles changed, but the collection itself didn't. The films are there; the set isn't.",
+  "@assignBatchSetIncomplete": {
+    "description": "The other half-done state: every member took the change and the container did not. Measured — the child then sees the films but cannot reach the collection, which is why this is not treated as finished.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "assignBatchFinish": "Finish the rest",
+  "@assignBatchFinish": {
+    "description": "Retries the titles that failed. Tag writes are idempotent, so this is safe to press twice."
+  },
+  "assignBatchRemoveAll": "Remove all",
+  "@assignBatchRemoveAll": {
+    "description": "Takes the change back off the whole set, as a forward write. Not a rollback — see ground rule 5."
+  },
+  "assignBatchPreflightFailed": "Nothing was changed. {count} titles in this set couldn't be read, so Garfin left the whole set alone.",
+  "@assignBatchPreflightFailed": {
+    "description": "Ground rule 5's pre-flight: every member is read before anything is written, and one unreadable member cancels the write.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

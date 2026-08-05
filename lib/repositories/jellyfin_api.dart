@@ -247,7 +247,13 @@ class JellyfinApi {
             'StartIndex': startIndex,
             'Limit': limit,
             'IncludeItemTypes': itemTypes.join(','),
-            'Fields': 'Tags',
+            // `ChildCount` is **absent** without asking for it, the same way
+            // `Tags` is. Measured on 10.11.11: `Fields=Tags` alone returns no
+            // `ChildCount` at all, so `LibraryItem.childCount` was always null
+            // and the collection count badge `docs/UI-SPEC.md` asks for — which
+            // `library_tile.dart` guards on that field being non-null — had
+            // never once rendered.
+            'Fields': 'Tags,ChildCount',
             'SortBy': 'SortName',
             'SortOrder': 'Ascending',
           },
@@ -339,6 +345,62 @@ class JellyfinApi {
         return readInt(_asMap(response.data), 'TotalRecordCount') ?? 0;
       });
 
+  /// Every BoxSet on the server, for the reverse index a sheet needs.
+  ///
+  /// One call; the members come from [collectionMembers], one call each.
+  Future<List<LibraryItem>> collections({
+    required String userId,
+    int limit = 500,
+  }) =>
+      _call(() async {
+        final response = await _dio.get<dynamic>(
+          '/Items',
+          queryParameters: <String, dynamic>{
+            'userId': userId,
+            'Recursive': true,
+            'Limit': limit,
+            'IncludeItemTypes': 'BoxSet',
+            'Fields': 'Tags,ChildCount',
+            'SortBy': 'SortName',
+            'SortOrder': 'Ascending',
+          },
+        );
+        return _itemsOf(response.data);
+      });
+
+  /// What is inside a collection.
+  ///
+  /// Measured on 10.11.11: `userId` and `Recursive=true` change nothing here —
+  /// `parentId` is its own lookup — but `Fields=Tags` is required exactly as it
+  /// is elsewhere, and without it the `Tags` key is **absent** rather than
+  /// empty, which would report every member as unlabelled.
+  ///
+  /// The rows carry `Name`, `ProductionYear` and `OfficialRating` unasked, so
+  /// the "keep the set together?" dialog can list the other members with their
+  /// ratings off this one query.
+  ///
+  /// **These rows are for reading only.** They are list results — 16 fields
+  /// against 41 from a single-item `GET` on a BoxSet — and posting one back is
+  /// the wipe ground rule 2 exists to prevent. Nothing in the write path
+  /// accepts them; it takes ids. See [replaceItem].
+  Future<List<LibraryItem>> collectionMembers({
+    required String userId,
+    required String collectionId,
+    int limit = 500,
+  }) =>
+      _call(() async {
+        final response = await _dio.get<dynamic>(
+          '/Items',
+          queryParameters: <String, dynamic>{
+            'userId': userId,
+            'parentId': collectionId,
+            'Limit': limit,
+            'Fields': 'Tags',
+          },
+        );
+        return _itemsOf(response.data);
+      });
+
   /// The complete item, as the only legal source for a write.
   ///
   /// **Ground rule 2 starts here.** `POST /Items/{id}` replaces the whole
@@ -350,13 +412,28 @@ class JellyfinApi {
   ///
   /// Posting a list result back is the wipe the rule exists to prevent. That is
   /// why nothing in the write path accepts an item object — see [replaceItem].
+  ///
+  /// **It also checks that the item it got back is the one it asked for**, which
+  /// is not paranoia about a well-behaved endpoint. Measured on 10.11.11: a
+  /// well-formed GUID that does not exist answers 404 — *except* the all-zero
+  /// one, which answers **200 with the root "Media Folders" object**. A caller
+  /// that trusted the status, or trusted that a JSON object came back, would
+  /// then post the root folder's body to `/Items/00000…`. Comparing the `Id` is
+  /// one line and it fails closed.
   Future<Map<String, dynamic>> fullItem({
     required String userId,
     required String itemId,
   }) =>
       _call(() async {
         final response = await _dio.get<dynamic>('/Users/$userId/Items/$itemId');
-        return _asMap(response.data);
+        final item = _asMap(response.data);
+        if (readString(item, 'Id') != itemId) {
+          throw const JellyfinException(
+            JellyfinErrorKind.notFound,
+            message: 'the server answered with a different item',
+          );
+        }
+        return item;
       });
 
   /// Posts a complete item back.
@@ -398,6 +475,16 @@ class JellyfinApi {
             : JellyfinException(remapped, message: mapped.message),
       );
     }
+  }
+
+  /// The `Items` array of a list response, as models.
+  static List<LibraryItem> _itemsOf(dynamic data) {
+    final items = readField(_asMap(data), 'Items');
+    if (items is! List) return const [];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(LibraryItem.fromJson)
+        .toList(growable: false);
   }
 
   static Map<String, dynamic> _asMap(dynamic data) {

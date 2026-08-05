@@ -88,11 +88,28 @@ even when the tag logic is right, because `MaxParentalRating` silently overrides
 PG-capped child will not see a correctly tagged PG-13 title. The app is supposed to surface that
 conflict, not paper over it.
 
-**5. Collection writes are batched and roll back together.** A half-tagged set is worse than no
-change.
-*Smells:* a bare `for` loop of awaited writes with no failure handling and no compensating
-writes; a `Future.wait` whose partial failure is swallowed. Also check for a concurrency limit —
-`docs/JELLYFIN-API.md` asks for 3–4 so a large collection does not flood the server.
+**5. Collection writes pre-flight, then fix forward. They do not roll back.** `GET` every member
+before writing anything and abandon the batch if any read fails. If a write still fails mid-batch,
+retry *that item* and leave the ones that succeeded alone.
+*Smells:* **a compensating write after a partial failure** — undoing 7 successful writes of 12 is
+seven more full-object replaces, under rule 2, on items that were fine; a `Future.wait` whose
+partial failure is swallowed rather than surfaced as "7 of 12"; writes that start before every
+member has been read. Also check for a concurrency limit — `docs/JELLYFIN-API.md` asks for 3–4 so
+a large collection does not flood the server.
+
+> **This rule used to say the opposite** — "batched and roll back together", with a missing
+> compensating write listed as the defect. It was reversed deliberately in `CLAUDE.md` ground
+> rule 5 and `docs/DECISIONS.md` § Collections, on the arithmetic above: tag writes are idempotent
+> so a retry is safe and repeatable, while an undo is neither. A reviewer working from the old
+> text would block the correct implementation.
+
+**5b. A collection write covers the container as well as every member, and the container goes
+last.** Measured on 10.11.11: labelling only the members hands the child the films while the set
+itself stays absent and browsing it answers 401; labelling only the container hands them an
+**empty** set. Writing the container last on an addition (and first on a removal) is what makes
+its label mean "the whole set is here", so a partly-failed batch leaves it off.
+*Smells:* a batch that writes only `memberIds`; a container written before its members; a
+collection reported as shared on the strength of the container's own tags alone.
 
 **6. Cascades are asymmetric.** Adding a label to a film that belongs to a collection prompts
 once, listing the other members. Removing a label **never** cascades.

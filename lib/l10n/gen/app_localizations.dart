@@ -716,11 +716,71 @@ abstract class AppLocalizations {
   /// **'No children have a shortlist set up yet.'**
   String get assignNoChildren;
 
-  /// Shown when the item is a collection. Cascading to members is build order step 6, and pretending otherwise would silently do nothing useful.
+  /// Shown when the item is a collection. Measured: labelling only the container gives the child an empty collection, and labelling only the members hands over the films without the set, so both are written.
   ///
   /// In en, this message translates to:
-  /// **'Collections are handled later — this labels the collection itself, not the titles inside.'**
-  String get assignCollectionNote;
+  /// **'Labels land on all {count} titles inside, and on the collection itself.'**
+  String assignCollectionNote(int count);
+
+  /// Shown when a single film belongs to a collection. A film can be in several sets, so this line can appear more than once.
+  ///
+  /// In en, this message translates to:
+  /// **'Part of {name} — {count} titles in the set.'**
+  String assignPartOfSet(String name, int count);
+
+  /// Title of the dialog asked once when a film being given away belongs to a collection. Additions only — removing a label never cascades.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the set together?'**
+  String get assignSetTogetherTitle;
+
+  /// Body of the keep-the-set-together dialog, above a list of the other titles and their ratings.
+  ///
+  /// In en, this message translates to:
+  /// **'{title} is part of {name}. The rest of the set can go at the same time.'**
+  String assignSetTogetherBody(String title, String name);
+
+  /// Declines the cascade: write the single film only.
+  ///
+  /// In en, this message translates to:
+  /// **'Just this one'**
+  String get assignSetTogetherJustThis;
+
+  /// Accepts the cascade: write every title in the set.
+  ///
+  /// In en, this message translates to:
+  /// **'All {count}'**
+  String assignSetTogetherAll(int count);
+
+  /// Ground rule 5's exact state after a collection write partly failed — the rule's own example is '7 of 12 tagged'. Worded for what changed rather than for tagging, because the same notice reports a partly-failed removal, and the change preview directly above already says which direction it went. Nothing that succeeded is undone; the parent chooses what happens next.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} of {total} titles changed.'**
+  String assignBatchPartial(int done, int total);
+
+  /// The other half-done state: every member took the change and the container did not. Measured — the child then sees the films but cannot reach the collection, which is why this is not treated as finished.
+  ///
+  /// In en, this message translates to:
+  /// **'All {count} titles changed, but the collection itself didn\'t. The films are there; the set isn\'t.'**
+  String assignBatchSetIncomplete(int count);
+
+  /// Retries the titles that failed. Tag writes are idempotent, so this is safe to press twice.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish the rest'**
+  String get assignBatchFinish;
+
+  /// Takes the change back off the whole set, as a forward write. Not a rollback — see ground rule 5.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove all'**
+  String get assignBatchRemoveAll;
+
+  /// Ground rule 5's pre-flight: every member is read before anything is written, and one unreadable member cancels the write.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing was changed. {count} titles in this set couldn\'t be read, so Garfin left the whole set alone.'**
+  String assignBatchPreflightFailed(int count);
 }
 
 class _AppLocalizationsDelegate

@@ -98,11 +98,24 @@ members" walks across a set. Separate switches, separate concerns.
 **Tagging a collection always writes to its members.** A Jellyfin BoxSet is a container; the
 policy filters the films inside. Tagging the container alone appears to work and does nothing.
 
+> **Amended 2026-08-05 (#50), from measurement.** The first sentence stands and is still the
+> load-bearing half. The second understates it, and the amendment is that **the write covers the
+> container too**. Measured on 10.11.11 for an allow-list child: tagging only the container is not
+> inert — the child gets the collection on their screen and it is **empty**; tagging only the
+> members hands over the films while the set itself is absent from their library and browsing it
+> answers **401**. To hand over a collection *as a collection*, both.
+>
+> That gives the container's label a job: written **last** on an addition and **first** on a
+> removal, it is an accurate marker of "the whole set landed". A fix-forward partial therefore
+> leaves it off and the half-tagged set stays in the to-do list below — which that decision asks
+> for, and now costs the grid no extra query. Full matrix in `JELLYFIN-API.md` § Collections.
+
 **Collections are browsable in their own right** — stacked cover, count badge, and the strictest
 rating found among members.
 
-**A collection counts as shared only when every member is.** Half-shared sets stay in the to-do
-list rather than looking finished.
+**A collection counts as shared only when every member is** — and, per the amendment above, only
+when the container carries the label too, because without it the child cannot reach the set at all.
+Half-shared sets stay in the to-do list rather than looking finished.
 
 **Tagging one film in a set asks once**, listing the other members and their ratings, then either
 keeps the set together or writes just the one. Default is *ask each time*, because "Jurassic Park"
