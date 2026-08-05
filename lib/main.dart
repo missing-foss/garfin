@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'l10n/gen/app_localizations.dart';
 import 'logging.dart';
 import 'providers/app_providers.dart';
+import 'providers/settings_providers.dart';
 import 'repositories/device_identity.dart';
 import 'screens/app_root.dart';
 import 'theme.dart';
@@ -43,16 +44,22 @@ Future<void> main() async {
   );
 }
 
-class GarfinApp extends StatelessWidget {
+class GarfinApp extends ConsumerWidget {
   const GarfinApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
-        // Material You where the platform offers it (Android 12+), the brand seed below it.
-        final light = lightDynamic ?? ColorScheme.fromSeed(seedColor: seedColor);
-        final dark = darkDynamic ??
+        // Material You where the platform offers it (Android 12+), the brand
+        // seed below it — and the brand seed whenever Settings says so, which
+        // is the only way to get Garfin's own purple on a phone that has
+        // dynamic colour.
+        final light = (settings.dynamicColour ? lightDynamic : null) ??
+            ColorScheme.fromSeed(seedColor: seedColor);
+        final dark = (settings.dynamicColour ? darkDynamic : null) ??
             ColorScheme.fromSeed(seedColor: seedColor, brightness: Brightness.dark);
 
         return MaterialApp(
@@ -67,8 +74,9 @@ class GarfinApp extends StatelessWidget {
           supportedLocales: AppLocalizations.supportedLocales,
           theme: garfinTheme(light),
           darkTheme: garfinTheme(dark),
-          // Dark-first: the app is used in the evening, on a sofa.
-          themeMode: ThemeMode.dark,
+          // Dark-first: the app is used in the evening, on a sofa. Settings
+          // can move it, and the stored default is dark rather than system.
+          themeMode: settings.themeMode,
           // Ground rule 9. Above `AppRoot` rather than inside it, so the gate
           // covers sign-in too — `docs/UI-SPEC.md` puts Unlock "before anything
           // else", and a gate that only covered the signed-in screens would

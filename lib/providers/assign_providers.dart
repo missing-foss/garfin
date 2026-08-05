@@ -12,6 +12,7 @@ import '../repositories/assign_repository.dart';
 import 'app_providers.dart';
 import 'collection_providers.dart';
 import 'kids_providers.dart';
+import 'settings_providers.dart';
 
 /// Identifies one sheet: which server, which item.
 ///
@@ -43,7 +44,11 @@ final assignRepositoryProvider =
         baseUrl: session.serverUrl,
         readToken: () => session.accessToken,
       );
-  return AssignRepository(api: api, adminUserId: session.userId);
+  return AssignRepository(
+    api: api,
+    adminUserId: session.userId,
+    refreshAfterWrite: ref.watch(settingsProvider).refreshAfterWrite,
+  );
 });
 
 /// One row per child who has a shortlist Garfin can interpret.

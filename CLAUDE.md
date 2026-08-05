@@ -190,7 +190,7 @@ become a skipped check that still reports green.
 4. [x] Library grid with the child selector — filter bar and infinite scroll still open in #44
 5. [x] Assign sheet with tag diff, counts, and the write path
 6. [x] Collections, pre-flight and fix-forward
-7. Settings
+7. [x] Settings — minus three switches that turn out to control nothing; see `docs/UI-SPEC.md`
 8. Activity log
 
 `local_auth` landed with step 2. Its licence was read from the package's own shipped `LICENSE`

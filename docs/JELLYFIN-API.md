@@ -481,6 +481,16 @@ Garfin's labels live in the same array. Consequences:
 The setting must never pass `replaceAllMetadata=true`. Doing so would delete the label the write
 just created — the app undoing its own work, silently.
 
+**Re-measured 2026-08-05 for #52, watching it settle**, because a refresh is queued work and an
+immediate re-read proves nothing about what the scan does when it gets there:
+
+    FullRefresh                        t+2s ['kids-emma']  … t+30s ['kids-emma']
+    FullRefresh + replaceAllMetadata   t+5s []             … t+30s []
+
+The wipe lands within five seconds and stays. The safe call is still safe half a minute later. In
+the app the dangerous parameter is not a flag, a default, or a caller's choice — `refreshItem`
+does not have one.
+
 **Standing review gate.** Every PR that touches the write path must demonstrate a round-trip
 against a live server: stand up Jellyfin in Docker, snapshot the item's full JSON, write one tag
 through the code under review, and diff. Prove it, don't assert it. This method has caught silent

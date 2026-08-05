@@ -10,7 +10,7 @@ import '../providers/auth_providers.dart';
 import '../widgets/error_notice.dart';
 import 'kids_screen.dart';
 import 'library_screen.dart';
-import 'unlock_settings_screen.dart';
+import 'settings_screen.dart';
 
 /// Where a signed-in session lands.
 ///
@@ -43,28 +43,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final l10n = AppLocalizations.of(context);
     final state = widget.state;
 
+    final titles = [l10n.libraryTitle, l10n.kidsTitle, l10n.settingsTitle];
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_tab == 0 ? l10n.libraryTitle : l10n.kidsTitle),
-        actions: [
-          // Until the Settings screen exists (build order step 7), this is how
-          // the Unlock section is reached. It moves there when it does.
-          IconButton(
-            tooltip: l10n.settingsUnlockTitle,
-            icon: const Icon(Icons.lock_outline),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const UnlockSettingsScreen(),
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () =>
-                ref.read(authControllerProvider.notifier).signOut(),
-            child: Text(l10n.signOutAction),
-          ),
-        ],
-      ),
+      // No actions: Unlock and sign-out are Settings' job from step 7 on, and
+      // an app bar carrying a second route to them would be two places to keep
+      // in step.
+      appBar: AppBar(title: Text(titles[_tab])),
       body: SafeArea(
         child: Column(
           children: [
@@ -74,9 +59,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: InfoNotice(message: l10n.offlineNotice),
               ),
             Expanded(
-              child: _tab == 0
-                  ? LibraryScreen(session: state.session)
-                  : KidsScreen(session: state.session),
+              child: switch (_tab) {
+                0 => LibraryScreen(session: state.session),
+                1 => KidsScreen(session: state.session),
+                _ => SettingsScreen(session: state.session),
+              },
             ),
           ],
         ),
@@ -94,6 +81,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: const Icon(Icons.people_outline),
             selectedIcon: const Icon(Icons.people),
             label: l10n.kidsTitle,
+          ),
+          // Activity is step 8 and gets the third slot then — `docs/UI-SPEC.md`
+          // § Product shape orders them Library · Kids · Activity · Settings.
+          NavigationDestination(
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: l10n.settingsTitle,
           ),
         ],
       ),

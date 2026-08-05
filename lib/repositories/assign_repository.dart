@@ -104,10 +104,19 @@ class AssignRepository {
   const AssignRepository({
     required this._api,
     required this._adminUserId,
+    // Defaulted rather than required, so every existing call site keeps the
+    // behaviour it was written for: no extra call unless Settings asks.
+    this._refreshAfterWrite = false,
   });
 
   final JellyfinApi _api;
   final String _adminUserId;
+
+  /// Settings → Labels → *refresh metadata after write*. Off by default, and
+  /// slow when on: it is one more server round-trip per item, so a twelve-film
+  /// set pays it twelve times. See [JellyfinApi.refreshItem] for why the
+  /// dangerous parameter is not reachable from here.
+  final bool _refreshAfterWrite;
 
   /// The sheet's rows: whether the item carries each child's label, and what
   /// each child can see right now.
@@ -332,6 +341,18 @@ class AssignRepository {
     item['Tags'] = diff.applyTo(readStringList(item, 'Tags'));
 
     await _api.replaceItem(itemId: itemId, item: item);
+
+    if (_refreshAfterWrite) {
+      try {
+        await _api.refreshItem(itemId: itemId);
+      } on Object catch (error) {
+        // **A failed refresh is not a failed write.** The label is on the item;
+        // letting this escape would put the item in `BatchOutcome.failed`, and
+        // the fix-forward panel would then report a write that actually
+        // succeeded as one that did not.
+        log.info('metadata refresh after write failed: ${error.runtimeType}');
+      }
+    }
   }
 
   /// [_writeOne], reporting rather than throwing, so one failure does not

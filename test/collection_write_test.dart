@@ -4,6 +4,7 @@
 
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/models/collection_set.dart';
 import 'package:garfin/models/jellyfin_user.dart';
@@ -472,6 +473,94 @@ void main() {
     test('a film in no set gets no cascade question', () {
       expect(index.setsContaining('b1'), hasLength(1));
       expect(index.setsContaining('nowhere'), isEmpty);
+    });
+  });
+
+  group('refresh after write — the setting that could delete its own work', () {
+    AssignRepository withRefresh() => AssignRepository(
+          api: JellyfinApiFactory(identity: identity, adapter: server)
+              .create(baseUrl: serverUrl),
+          adminUserId: 'admin-1',
+          refreshAfterWrite: true,
+        );
+
+    List<RequestOptions> refreshes() => server.requests
+        .where((r) => r.method == 'POST' && r.path.endsWith('/Refresh'))
+        .toList(growable: false);
+
+    test('off by default: nothing extra is asked of the server', () async {
+      scriptSet();
+      await repository.applyToCollection(
+        collectionId: 'set-1',
+        memberIds: members,
+        diff: give,
+      );
+      expect(refreshes(), isEmpty);
+    });
+
+    test('on: every written item is refreshed, and never with '
+        'replaceAllMetadata', () async {
+      // Measured on 10.11.11: `Refresh?metadataRefreshMode=FullRefresh` leaves
+      // Garfin's tag alone, and the same call plus `replaceAllMetadata=true`
+      // **wipes** it. Sending the second would be the app deleting the label it
+      // had just written, with no error and no sign but a child who cannot see
+      // the film they were given.
+      scriptSet();
+
+      await withRefresh().applyToCollection(
+        collectionId: 'set-1',
+        memberIds: members,
+        diff: give,
+      );
+
+      expect(refreshes().map((r) => r.path).toSet(),
+          {for (final id in [...members, 'set-1']) '/Items/$id/Refresh'});
+      for (final request in refreshes()) {
+        expect(request.queryParameters['metadataRefreshMode'], 'FullRefresh');
+        expect(request.queryParameters.containsKey('replaceAllMetadata'), isFalse,
+            reason: 'that parameter wipes every Garfin tag on the item');
+        // Belt and braces: not as a differently-cased or nested key either.
+        expect(request.uri.toString().toLowerCase(),
+            isNot(contains('replaceallmetadata')));
+      }
+    });
+
+    test('a refresh that fails does not turn a written item into a failed one',
+        () async {
+      // The label is on the item. Letting the refresh escape would put a
+      // successful write in `failed`, and the fix-forward panel would then
+      // offer to retry something that already worked — and report the set as
+      // half-done when it is not.
+      scriptSet();
+      for (final id in [...members, 'set-1']) {
+        server.on('/Items/$id/Refresh', status: 500);
+      }
+
+      final outcome = await withRefresh().applyToCollection(
+        collectionId: 'set-1',
+        memberIds: members,
+        diff: give,
+      );
+
+      expect(outcome.failed, isEmpty);
+      expect(outcome.written, members);
+      expect(outcome.setMarked, isTrue);
+      expect(outcome.isComplete, isTrue);
+    });
+
+    test('the refresh follows the write, never precedes it', () async {
+      // A refresh sent first would re-read the metadata Garfin is about to
+      // replace, which is at best pointless and at worst a race with its own
+      // write.
+      scriptSet();
+      await withRefresh().apply(itemId: 'film-1', diff: give);
+
+      final order = server.requests
+          .where((r) => r.method == 'POST')
+          .map((r) => r.path)
+          .toList(growable: false);
+      expect(order.indexOf('/Items/film-1'),
+          lessThan(order.indexOf('/Items/film-1/Refresh')));
     });
   });
 

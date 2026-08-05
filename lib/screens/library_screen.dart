@@ -14,6 +14,8 @@ import '../models/parental_rating.dart';
 import '../providers/app_providers.dart';
 import '../providers/kids_providers.dart';
 import '../providers/library_providers.dart';
+import '../providers/settings_providers.dart';
+import '../repositories/app_settings_store.dart';
 import '../repositories/jellyfin_exception.dart';
 import '../repositories/library_repository.dart';
 import '../widgets/error_notice.dart';
@@ -35,7 +37,7 @@ class LibraryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final slice = ref.watch(librarySliceProvider(session));
-    final child = ref.watch(pickingForProvider);
+    final child = ref.watch(pickedChildProvider(session));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -114,9 +116,9 @@ class _PickingForRow extends ConsumerWidget {
                 for (final kid in kids)
                   _PickChip(
                     label: kid.user.name,
-                    selected: selected?.id == kid.user.id,
+                    selected: selected == kid.user.id,
                     onTap: () =>
-                        ref.read(pickingForProvider.notifier).select(kid.user),
+                        ref.read(pickingForProvider.notifier).select(kid.user.id),
                   ),
               ],
             ),
@@ -180,7 +182,10 @@ class _Grid extends ConsumerWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
     final hideShared = ref.watch(hideSharedProvider);
-    final columns = MediaQuery.sizeOf(context).width < 400 ? 2 : 3;
+    final columns = columnsFor(
+      ref.watch(settingsProvider).posterSize,
+      MediaQuery.sizeOf(context).width,
+    );
 
     // The hint's two inputs (#43). Either being unavailable answers "not
     // known" for every tile, which is the honest degradation — never a pass.

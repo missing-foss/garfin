@@ -450,4 +450,104 @@ class AppLocalizationsFr extends AppLocalizations {
   String assignBatchPreflightFailed(int count) {
     return 'Rien n\'a été modifié. $count titres de cet ensemble n\'ont pas pu être lus : Garfin a laissé l\'ensemble intact.';
   }
+
+  @override
+  String get settingsTitle => 'Réglages';
+
+  @override
+  String get settingsSectionServer => 'Serveur';
+
+  @override
+  String get settingsSectionLabels => 'Étiquettes';
+
+  @override
+  String get settingsSectionPicking => 'Choix';
+
+  @override
+  String get settingsSectionLooks => 'Apparence';
+
+  @override
+  String get settingsSectionAbout => 'À propos';
+
+  @override
+  String get settingsRefreshCache => 'Actualiser ce que Garfin a en mémoire';
+
+  @override
+  String get settingsRefreshCacheDone => 'Nouvelle interrogation du serveur';
+
+  @override
+  String get settingsCollectionPrompt =>
+      'Quand un titre fait partie d\'une collection';
+
+  @override
+  String get settingsCollectionPromptAsk => 'Demander à chaque fois';
+
+  @override
+  String get settingsCollectionPromptAlways => 'Donner tout l\'ensemble';
+
+  @override
+  String get settingsCollectionPromptNever => 'Seulement le titre choisi';
+
+  @override
+  String get settingsRefreshAfterWrite =>
+      'Actualiser le titre après l\'avoir étiqueté';
+
+  @override
+  String get settingsRefreshAfterWriteSubtitle =>
+      'Plus lent. La modification apparaît tout de suite dans Jellyfin.';
+
+  @override
+  String get settingsStartingChild => 'Ouvrir la médiathèque sur';
+
+  @override
+  String get settingsStartingChildEveryone => 'Tout le monde';
+
+  @override
+  String get settingsHideShared => 'Masquer ce qu\'un enfant a déjà';
+
+  @override
+  String get settingsTheme => 'Thème';
+
+  @override
+  String get settingsThemeSystem => 'Suivre le téléphone';
+
+  @override
+  String get settingsThemeLight => 'Clair';
+
+  @override
+  String get settingsThemeDark => 'Sombre';
+
+  @override
+  String get settingsDynamicColour => 'Utiliser les couleurs du téléphone';
+
+  @override
+  String get settingsPosterSize => 'Taille des affiches';
+
+  @override
+  String get settingsPosterLarge => 'Grandes';
+
+  @override
+  String get settingsPosterRegular => 'Normales';
+
+  @override
+  String get settingsPosterSmall => 'Petites';
+
+  @override
+  String settingsVersion(String version) {
+    return 'Version $version';
+  }
+
+  @override
+  String get settingsLicence =>
+      'GPL-3.0-or-later. Garfin est un logiciel libre, fourni sans aucune garantie.';
+
+  @override
+  String get settingsNotAffiliated =>
+      'Sans affiliation avec le projet Jellyfin. Jellyfin est une marque de Jellyfin, Inc.';
+
+  @override
+  String get settingsSource => 'Code source';
+
+  @override
+  String get settingsLicences => 'Licences des logiciels libres utilisés';
 }

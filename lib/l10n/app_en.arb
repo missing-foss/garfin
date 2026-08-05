@@ -652,5 +652,134 @@
         "type": "int"
       }
     }
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "The fourth navigation destination, and the title of its screen."
+  },
+  "settingsSectionServer": "Server",
+  "@settingsSectionServer": {
+    "description": "Settings section: which Jellyfin, signed in as whom."
+  },
+  "settingsSectionLabels": "Labels",
+  "@settingsSectionLabels": {
+    "description": "Settings section: how writing labels behaves."
+  },
+  "settingsSectionPicking": "Picking",
+  "@settingsSectionPicking": {
+    "description": "Settings section: how the Library opens."
+  },
+  "settingsSectionLooks": "Looks",
+  "@settingsSectionLooks": {
+    "description": "Settings section: theme, colour and poster size."
+  },
+  "settingsSectionAbout": "About",
+  "@settingsSectionAbout": {
+    "description": "Settings section: version, licence, source."
+  },
+  "settingsRefreshCache": "Refresh what Garfin has cached",
+  "@settingsRefreshCache": {
+    "description": "Throws away the loaded library, children and collections so everything is asked for again."
+  },
+  "settingsRefreshCacheDone": "Asking the server again",
+  "@settingsRefreshCacheDone": {
+    "description": "Confirms the cache was dropped."
+  },
+  "settingsCollectionPrompt": "When a title belongs to a collection",
+  "@settingsCollectionPrompt": {
+    "description": "Setting for the keep-the-set-together question. Additions only — removing a label never cascades."
+  },
+  "settingsCollectionPromptAsk": "Ask each time",
+  "@settingsCollectionPromptAsk": {
+    "description": "The default. Jurassic Park and Jurassic Park III are not the same decision."
+  },
+  "settingsCollectionPromptAlways": "Hand over the whole set",
+  "@settingsCollectionPromptAlways": {
+    "description": "Answers the question once, here, in favour of the set."
+  },
+  "settingsCollectionPromptNever": "Just the one title",
+  "@settingsCollectionPromptNever": {
+    "description": "Answers it in favour of the single title. Never cascades."
+  },
+  "settingsRefreshAfterWrite": "Refresh the title after labelling it",
+  "@settingsRefreshAfterWrite": {
+    "description": "Asks Jellyfin to re-read the item's metadata after a write."
+  },
+  "settingsRefreshAfterWriteSubtitle": "Slower. Makes the change show up in Jellyfin straight away.",
+  "@settingsRefreshAfterWriteSubtitle": {
+    "description": "The cost of the setting above, stated plainly. One extra server round-trip per title."
+  },
+  "settingsStartingChild": "Open the Library on",
+  "@settingsStartingChild": {
+    "description": "Which child is picked when the app starts."
+  },
+  "settingsStartingChildEveryone": "Everyone",
+  "@settingsStartingChildEveryone": {
+    "description": "No child picked at startup. Matches the Everyone chip on the Library."
+  },
+  "settingsHideShared": "Hide what a child already has",
+  "@settingsHideShared": {
+    "description": "The stored default for the Library's Show/Hide shared button, which turns the grid into a to-do list."
+  },
+  "settingsTheme": "Theme",
+  "@settingsTheme": {
+    "description": "Light, dark or follow the phone."
+  },
+  "settingsThemeSystem": "Follow the phone",
+  "@settingsThemeSystem": {
+    "description": "Theme option: whatever the system is set to."
+  },
+  "settingsThemeLight": "Light",
+  "@settingsThemeLight": {
+    "description": "Theme option."
+  },
+  "settingsThemeDark": "Dark",
+  "@settingsThemeDark": {
+    "description": "Theme option, and the default."
+  },
+  "settingsDynamicColour": "Use the phone's colours",
+  "@settingsDynamicColour": {
+    "description": "Material You. Off means Garfin's own purple."
+  },
+  "settingsPosterSize": "Poster size",
+  "@settingsPosterSize": {
+    "description": "How many posters fit across the Library grid."
+  },
+  "settingsPosterLarge": "Large",
+  "@settingsPosterLarge": {
+    "description": "Poster size option: fewest per row."
+  },
+  "settingsPosterRegular": "Regular",
+  "@settingsPosterRegular": {
+    "description": "Poster size option, and the default."
+  },
+  "settingsPosterSmall": "Small",
+  "@settingsPosterSmall": {
+    "description": "Poster size option: most per row."
+  },
+  "settingsVersion": "Version {version}",
+  "@settingsVersion": {
+    "description": "The app version, on the About section.",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsLicence": "GPL-3.0-or-later. Garfin is free software, and comes with no warranty.",
+  "@settingsLicence": {
+    "description": "The licence line. Stays plain — docs/DECISIONS.md § Voice."
+  },
+  "settingsNotAffiliated": "Not affiliated with the Jellyfin project. Jellyfin is a trademark of Jellyfin, Inc.",
+  "@settingsNotAffiliated": {
+    "description": "The non-affiliation line, required by BRANDING.md and kept plain."
+  },
+  "settingsSource": "Source code",
+  "@settingsSource": {
+    "description": "Label for the repository address."
+  },
+  "settingsLicences": "Open-source licences",
+  "@settingsLicences": {
+    "description": "Opens Flutter's licence page, which lists every bundled package."
   }
 }
