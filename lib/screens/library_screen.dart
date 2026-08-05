@@ -8,7 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/gen/app_localizations.dart';
 import '../models/auth_session.dart';
 import '../models/jellyfin_user.dart';
+import '../models/age_suitability.dart';
 import '../models/kid_summary.dart';
+import '../models/parental_rating.dart';
+import '../providers/app_providers.dart';
 import '../providers/kids_providers.dart';
 import '../providers/library_providers.dart';
 import '../repositories/jellyfin_exception.dart';
@@ -150,6 +153,21 @@ class _PickChip extends StatelessWidget {
       );
 }
 
+/// The selected child's age, from the birth year the parent entered.
+///
+/// Null when no child is selected or no year has been set — both of which make
+/// every hint "not known" rather than suppressing the hint entirely, because a
+/// missing year is a thing the parent can fix and should be able to see.
+int? _ageOf(WidgetRef ref, JellyfinUser? child) {
+  if (child == null) return null;
+  final year = ref.watch(birthYearStoreProvider).read(child.id);
+  if (year == null) return null;
+  // The age they are *certainly* old enough to be, not the one they might have
+  // reached — see `guaranteedAge`. Erring high here would tilt the hint toward
+  // "suitable" for every child whose birthday has not come round yet.
+  return guaranteedAge(birthYear: year, today: DateTime.now());
+}
+
 class _Grid extends ConsumerWidget {
   const _Grid({
     required this.session,
@@ -167,6 +185,12 @@ class _Grid extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final hideShared = ref.watch(hideSharedProvider);
     final columns = MediaQuery.sizeOf(context).width < 400 ? 2 : 3;
+
+    // The hint's two inputs (#43). Either being unavailable answers "not
+    // known" for every tile, which is the honest degradation — never a pass.
+    final ladder = ref.watch(parentalRatingLadderProvider(session)).asData?.value ??
+        const ParentalRatingLadder.empty();
+    final childAge = _ageOf(ref, child);
 
     if (slice.entries.isEmpty) {
       return Center(
@@ -229,11 +253,19 @@ class _Grid extends ConsumerWidget {
                 mainAxisSpacing: 12,
               ),
               itemCount: slice.entries.length,
-              itemBuilder: (context, index) => LibraryTile(
-                entry: slice.entries[index],
-                serverUrl: session.serverUrl,
-                childName: child?.name,
-              ),
+              itemBuilder: (context, index) {
+                final entry = slice.entries[index];
+                return LibraryTile(
+                  entry: entry,
+                  serverUrl: session.serverUrl,
+                  childName: child?.name,
+                  suitability: suitabilityFor(
+                    item: entry.item,
+                    ladder: ladder,
+                    childAge: childAge,
+                  ),
+                );
+              },
             ),
           ),
         ),

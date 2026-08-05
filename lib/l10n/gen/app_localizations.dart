@@ -625,6 +625,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Try again'**
   String get libraryRetry;
+
+  /// Hint on a tile whose rating is above the child's age. A suggestion for the parent, not a restriction — nothing is enforced by it.
+  ///
+  /// In en, this message translates to:
+  /// **'Above {name}\'s age'**
+  String libraryHintAboveAge(String name);
+
+  /// Shown when Garfin cannot tell whether a title suits the child: the item has no rating, its rating is not on the server's list, no birth year is set, or the value is not an age. Must read as 'not known', never as 'fine'.
+  ///
+  /// In en, this message translates to:
+  /// **'No age rating'**
+  String get libraryHintUnknownAge;
 }
 
 class _AppLocalizationsDelegate

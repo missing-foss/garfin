@@ -87,5 +87,7 @@
   "libraryBadgeHeldBack": "Retenu",
   "libraryHeldBackExplanation": "{name} a ce titre, mais le serveur ne le lui montre pas. La limite d'âge en est la raison habituelle.",
   "libraryCollectionCount": "{count} titres",
-  "libraryRetry": "Réessayer"
+  "libraryRetry": "Réessayer",
+  "libraryHintAboveAge": "Au-dessus de l'âge de {name}",
+  "libraryHintUnknownAge": "Pas de classification"
 }

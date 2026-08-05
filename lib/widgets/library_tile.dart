@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/gen/app_localizations.dart';
+import '../models/age_suitability.dart';
 import '../models/library_item.dart';
 import '../repositories/library_repository.dart';
 
@@ -21,6 +22,7 @@ class LibraryTile extends StatelessWidget {
     required this.entry,
     required this.serverUrl,
     this.childName,
+    this.suitability = AgeSuitability.unknown,
   });
 
   final LibraryEntry entry;
@@ -28,6 +30,14 @@ class LibraryTile extends StatelessWidget {
 
   /// The selected child, for the sentence explaining a held-back item.
   final String? childName;
+
+  /// The age hint (#43). **Advice, and it never changes which tiles appear.**
+  ///
+  /// [AgeSuitability.suitsAge] shows nothing: the grid is a to-do list, and
+  /// marking the majority case would be noise. Only "above their age" and
+  /// "not known" are worth a parent's attention, and the second is worth it
+  /// precisely because it is not a pass.
+  final AgeSuitability suitability;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +64,17 @@ class LibraryTile extends StatelessWidget {
                     left: 4,
                     child: _Badge(label: badge, tone: _tone(theme)),
                   ),
+                if (_ageHint(l10n) case final hint?)
+                  Positioned(
+                    bottom: 4,
+                    left: 4,
+                    child: _Badge(
+                      label: hint,
+                      tone: suitability == AgeSuitability.aboveAge
+                          ? theme.colorScheme.tertiaryContainer
+                          : theme.colorScheme.surfaceContainerHighest,
+                    ),
+                  ),
                 if (item.isCollection && item.childCount != null)
                   Positioned(
                     bottom: 4,
@@ -76,6 +97,19 @@ class LibraryTile extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// The age hint, or null when there is nothing useful to say.
+  ///
+  /// Silent with no child selected — there is no age to compare against — and
+  /// silent when the title suits, because that is most of the grid.
+  String? _ageHint(AppLocalizations l10n) {
+    if (childName == null) return null;
+    return switch (suitability) {
+      AgeSuitability.aboveAge => l10n.libraryHintAboveAge(childName!),
+      AgeSuitability.unknown => l10n.libraryHintUnknownAge,
+      AgeSuitability.suitsAge => null,
+    };
   }
 
   String? _badge(AppLocalizations l10n) => switch (entry.state) {
@@ -107,8 +141,8 @@ class LibraryTile extends StatelessWidget {
     if (entry.state == LibraryItemState.givenButHidden && childName != null) {
       return '$name. ${l10n.libraryHeldBackExplanation(childName!)}';
     }
-    final badge = _badge(l10n);
-    return badge == null ? name : '$name. $badge';
+    final parts = <String>[name, ?_badge(l10n), ?_ageHint(l10n)];
+    return parts.join('. ');
   }
 }
 

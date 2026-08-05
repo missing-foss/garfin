@@ -440,5 +440,18 @@
   "libraryRetry": "Try again",
   "@libraryRetry": {
     "description": "Button that reloads the library grid after an error."
+  },
+  "libraryHintAboveAge": "Above {name}'s age",
+  "@libraryHintAboveAge": {
+    "description": "Hint on a tile whose rating is above the child's age. A suggestion for the parent, not a restriction — nothing is enforced by it.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryHintUnknownAge": "No age rating",
+  "@libraryHintUnknownAge": {
+    "description": "Shown when Garfin cannot tell whether a title suits the child: the item has no rating, its rating is not on the server's list, no birth year is set, or the value is not an age. Must read as 'not known', never as 'fine'."
   }
 }
