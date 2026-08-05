@@ -329,4 +329,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get libraryRetry => 'Try again';
+
+  @override
+  String libraryHintAboveAge(String name) {
+    return 'Above $name\'s age';
+  }
+
+  @override
+  String get libraryHintUnknownAge => 'No age rating';
 }

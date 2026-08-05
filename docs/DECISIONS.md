@@ -229,6 +229,41 @@ stale-credential-after-crash case. Accepted cost: a process kill mid-pairing mea
 **No `SCORECARD_TOKEN`.** Adding a classic PAT with `repo` scope to a public repo's secrets, to
 raise a security score, is a net loss. See `SECURITY.md`.
 
+## The age hint advises; it never enforces (settled 2026-08-05, from issue #43)
+
+**Jellyfin enforces the rating cap. Garfin suggests.** `MaxParentalRating` is applied server-side
+and silently overrides tags — measured — but only if the parent set one, and on a self-hosted
+server most accounts have no cap at all. The hint exists for that case: nothing is enforcing, the
+parent is choosing, and a rating on the item plus a birth year they typed is enough to flag the
+obvious mismatches.
+
+It compares the item's `OfficialRating`, resolved through the server's own ladder, to the child's
+age. It never filters, and `test/library_tile_test.dart` asserts the tile survives every value of
+the enum.
+
+**Ground rule 4 is untouched, and the distinction is worth keeping straight.** Rule 4 forbids
+computing what a child can *see*, because that is the server's answer — tags and cap together. The
+hint predicts nothing about the server; it compares two numbers and offers a sentence. It is the
+same distinction rule 1 draws for the tagged-item count. The child's `MaxParentalRating` is
+deliberately **not** an input, so the hint cannot drift into being a visibility prediction.
+
+**"Not known" is a first-class answer, and it carries the weight.** Four situations produce it: the
+item has no `OfficialRating`; its rating is not on the ladder (`Rated PG`, or a French certificate
+on a US server); no birth year is set; or the ladder value is a sentinel rather than an age. Each
+must read as *don't know* and look different from *suitable* — a helper that quietly reported
+absence as suitability would be wrong exactly where a parent is trusting it, and unrated files are
+arguably the majority case in a self-hosted library.
+
+Rejected — treating an unrated item as suitable, on the grounds that most unrated files in a
+family library are innocuous. Probably true and entirely beside the point: the cost of being
+wrong is asymmetric, and the parent can see the answer is missing and decide for themselves.
+
+**The ladder's values are an ordering, not ages.** They align with ages in the low range on the
+measured US ladder — 7, 10, 13, 14, 17, 18, 21 — and then jump to 1000 (`XXX`) and 1001
+(`Banned`), which are sentinels. Values outside 0–21 answer *not known*. The mapping is read from
+the ladder rather than hardcoded, because the ladder is locale-dependent, and `PG = 10` never
+meant "suitable at ten" in the first place.
+
 ## The Library grid's two filters (settled 2026-08-05, from issue #44)
 
 **Hide-shared filters client-side, over an enlarged fetch window.** `/Items` takes 86 parameters

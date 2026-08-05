@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
+import 'package:garfin/models/age_suitability.dart';
 import 'package:garfin/models/library_item.dart';
 import 'package:garfin/repositories/library_repository.dart';
 import 'package:garfin/widgets/library_tile.dart';
@@ -23,6 +24,8 @@ void main() {
     String? childName = 'Emma',
     String type = 'Movie',
     int? childCount,
+    AgeSuitability suitability = AgeSuitability.unknown,
+    String? rating,
   }) =>
       tester.pumpWidget(
         MaterialApp(
@@ -40,11 +43,13 @@ void main() {
                     type: type,
                     tags: tags,
                     childCount: childCount,
+                    officialRating: rating,
                   ),
                   state: state,
                 ),
                 serverUrl: 'http://host:8096',
                 childName: childName,
+                suitability: suitability,
               ),
             ),
           ),
@@ -105,6 +110,61 @@ void main() {
     final semantics = tester.getSemantics(find.byType(LibraryTile));
     expect(semantics.label, contains('the usual reason'));
     expect(semantics.label, isNot(contains('because')));
+  });
+
+  group('the age hint (#43)', () {
+    testWidgets('above their age is said plainly, naming the child',
+        (tester) async {
+      await pump(tester, LibraryItemState.notGiven,
+          suitability: AgeSuitability.aboveAge, rating: 'PG-13');
+      await tester.pumpAndSettle();
+
+      expect(find.text("Above Emma's age"), findsOneWidget);
+    });
+
+    testWidgets('not-known looks different from suitable, not absent',
+        (tester) async {
+      // The whole point of the third state. A helper that rendered "unknown"
+      // as nothing would read as a pass on exactly the items — unrated ones —
+      // where a parent most needs telling that Garfin cannot say.
+      await pump(tester, LibraryItemState.notGiven,
+          suitability: AgeSuitability.unknown);
+      await tester.pumpAndSettle();
+      expect(find.text('No age rating'), findsOneWidget);
+
+      await pump(tester, LibraryItemState.notGiven,
+          suitability: AgeSuitability.suitsAge, rating: 'G');
+      await tester.pumpAndSettle();
+      expect(find.text('No age rating'), findsNothing);
+    });
+
+    testWidgets('a suitable title is not badged — that is most of the grid',
+        (tester) async {
+      await pump(tester, LibraryItemState.notGiven,
+          suitability: AgeSuitability.suitsAge, rating: 'G');
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('age'), findsNothing);
+    });
+
+    testWidgets('no child selected means no hint at all', (tester) async {
+      // There is no age to compare against, so there is nothing to say.
+      await pump(tester, LibraryItemState.unknown,
+          childName: null, suitability: AgeSuitability.unknown);
+      await tester.pumpAndSettle();
+
+      expect(find.text('No age rating'), findsNothing);
+    });
+
+    testWidgets('the hint never removes the tile', (tester) async {
+      // Ground rule 4's neighbour: this is advice, and advice does not filter.
+      for (final s in AgeSuitability.values) {
+        await pump(tester, LibraryItemState.notGiven, suitability: s);
+        await tester.pumpAndSettle();
+        expect(find.text('Paddington'), findsOneWidget,
+            reason: 'the tile disappeared for $s');
+      }
+    });
   });
 
   testWidgets('a collection says how many titles it holds', (tester) async {

@@ -330,4 +330,12 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get libraryRetry => 'Réessayer';
+
+  @override
+  String libraryHintAboveAge(String name) {
+    return 'Au-dessus de l\'âge de $name';
+  }
+
+  @override
+  String get libraryHintUnknownAge => 'Pas de classification';
 }

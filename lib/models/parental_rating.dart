@@ -107,6 +107,32 @@ class ParentalRatingLadder {
     return null;
   }
 
+  /// The score a rating *name* sits at, or null when the ladder has no such
+  /// name.
+  ///
+  /// The inverse of [nameFor], and unlike it this direction **is** unambiguous:
+  /// many names share a score, but a name has one score.
+  ///
+  /// Matched case-insensitively. An item's `OfficialRating` is written by
+  /// whichever metadata provider scraped it and does not reliably match the
+  /// ladder's capitalisation, and the server's own `tags=` filter sets the
+  /// precedent that comparisons here are case-insensitive.
+  ///
+  /// Null for a name that is not on the ladder at all — `Rated PG`, or a French
+  /// certificate on a US-configured server. That is a *don't know*, not a low
+  /// rating, and callers must keep the two apart.
+  int? valueFor(String? name) {
+    if (name == null) return null;
+    final wanted = name.trim().toLowerCase();
+    if (wanted.isEmpty) return null;
+    for (final rating in ratings) {
+      if (rating.value != null && rating.name.toLowerCase() == wanted) {
+        return rating.value;
+      }
+    }
+    return null;
+  }
+
   /// Every name sharing a score, in the server's order.
   ///
   /// Exists so the collision above is testable as a property of the data

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/auth_session.dart';
 import '../models/jellyfin_user.dart';
+import '../models/parental_rating.dart';
 import '../repositories/library_repository.dart';
 import 'app_providers.dart';
 
@@ -36,6 +37,24 @@ class HideShared extends Notifier<bool> {
 }
 
 final hideSharedProvider = NotifierProvider<HideShared, bool>(HideShared.new);
+
+/// The server's rating ladder, for the age hint (#43).
+///
+/// Separate from the Kids screen's copy on purpose: a failure here must cost
+/// the hint and nothing else. An empty ladder answers "not known" for every
+/// rating, which is the honest degradation — see `suitabilityFor`.
+final parentalRatingLadderProvider =
+    FutureProvider.family<ParentalRatingLadder, AuthSession>((ref, session) async {
+  final api = ref.watch(jellyfinApiFactoryProvider).create(
+        baseUrl: session.serverUrl,
+        readToken: () => session.accessToken,
+      );
+  try {
+    return await api.parentalRatings();
+  } on Object {
+    return const ParentalRatingLadder.empty();
+  }
+});
 
 final libraryRepositoryProvider =
     Provider.family<LibraryRepository, AuthSession>((ref, session) {
