@@ -143,6 +143,40 @@ Read policy, write items. See ground rule 8.
 The server applies the policy. Never compute this client-side. Per library, add
 `parentId={libraryId}`.
 
+### Measured, 2026-08-05 — the admin token honours `userId`
+
+This was asserted here for two days before anyone checked it, and it is the
+assumption the whole Kids screen rests on: if an admin token *ignored* the
+`userId` parameter, every child would show the administrator's total and every
+test would still pass, because the tests can only confirm Garfin sends what it
+means to send.
+
+Four movies, two tagged `kids`, a child holding `AllowedTags: ["kids"]`:
+
+    GET /Items?userId={id}&Recursive=true&Limit=0&IncludeItemTypes=Movie,Series
+
+    admin token, admin userId   -> TotalRecordCount 4
+    admin token, child userId   -> TotalRecordCount 2      policy applied
+    child's OWN token           -> TotalRecordCount 2      control, agrees exactly
+
+**The control is the part that matters.** Without it, a smaller number is
+equally consistent with "the server filtered by `userId`" and with "the number
+happened to be smaller". Asking as the child, with the child's own token, is
+what distinguishes them — and the two agree exactly.
+
+### Measured, 2026-08-05 — the rating cap really does override a correct tag
+
+The justification for ground rule 4, demonstrated rather than argued. Starting
+from the child's count of 2 above, setting `OfficialRating=R` on one of the two
+**correctly tagged** items and `MaxParentalRating=7` on the child:
+
+    admin token, child userId   -> TotalRecordCount 2 -> 0
+
+A properly tagged title disappears. This is why a count derived from the tag
+list would be confidently wrong for exactly the children who have a cap, and
+why `SECURITY.md` and the Kids screen both show the cap next to the tags — so a
+parent can see the reason rather than concluding Garfin is broken.
+
     GET /Users/{id}/Views     -> libraries this user can reach
 
 ## Browsing
