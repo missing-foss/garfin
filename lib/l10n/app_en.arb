@@ -453,5 +453,98 @@
   "libraryHintUnknownAge": "No age rating",
   "@libraryHintUnknownAge": {
     "description": "Shown when Garfin cannot tell whether a title suits the child: the item has no rating, its rating is not on the server's list, no birth year is set, or the value is not an age. Must read as 'not known', never as 'fine'."
+  },
+  "assignTitle": "Who gets this?",
+  "@assignTitle": {
+    "description": "Title of the assign sheet, opened by tapping a title in the library."
+  },
+  "assignSees": "{name} sees {visible} of {total}",
+  "@assignSees": {
+    "description": "A child's current visible count on their row. Fetched from the server, never predicted.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "visible": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "assignChangesHeading": "About to change",
+  "@assignChangesHeading": {
+    "description": "Heading above the preview of exactly what will be written."
+  },
+  "assignWillGive": "Give to {name}",
+  "@assignWillGive": {
+    "description": "A line in the change preview: this child gains access.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "assignWillTake": "Take from {name}",
+  "@assignWillTake": {
+    "description": "A line in the change preview: this child loses access.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "assignApply": "Apply",
+  "@assignApply": {
+    "description": "Writes the previewed changes."
+  },
+  "assignLastItemTitle": "{name} would see nothing",
+  "@assignLastItemTitle": {
+    "description": "Title of the hard warning shown when a removal would take a child's label off the last item carrying it.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "assignLastItemBody": "This is the last thing labelled for {name}. Take it away and their list matches nothing, so they'll see an empty library rather than everything.",
+  "@assignLastItemBody": {
+    "description": "Explains the last-item case. The important part is that the child sees NOTHING, not everything — the opposite of what a parent might assume."
+  },
+  "assignLastItemConfirm": "Take it anyway",
+  "@assignLastItemConfirm": {
+    "description": "Confirms the removal despite the last-item warning."
+  },
+  "assignResult": "{name} now sees {visible} of {total}",
+  "@assignResult": {
+    "description": "Reported after a write, using the count re-fetched from the server. This is also what explains a share the rating cap swallowed.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "visible": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "assignUndo": "Undo",
+  "@assignUndo": {
+    "description": "Reverses the change just made. A fresh forward write, not a restore."
+  },
+  "assignUndone": "Put back",
+  "@assignUndone": {
+    "description": "Confirms the undo completed."
+  },
+  "assignNoChildren": "No children have a shortlist set up yet.",
+  "@assignNoChildren": {
+    "description": "Shown on the assign sheet when no account is under shortlist control."
+  },
+  "assignCollectionNote": "Collections are handled later — this labels the collection itself, not the titles inside.",
+  "@assignCollectionNote": {
+    "description": "Shown when the item is a collection. Cascading to members is build order step 6, and pretending otherwise would silently do nothing useful."
   }
 }
