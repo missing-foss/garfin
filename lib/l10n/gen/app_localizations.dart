@@ -535,6 +535,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancelAction;
+
+  /// Title of the library grid screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Library'**
+  String get libraryTitle;
+
+  /// Label above the row of child avatars at the top of the library.
+  ///
+  /// In en, this message translates to:
+  /// **'Picking for'**
+  String get libraryPickingFor;
+
+  /// The option in the picking-for row that clears the child selection.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone'**
+  String get libraryEveryone;
+
+  /// Result line when a child is selected. Says what has not been handed over, NOT what the child can see — the second is the server's answer and includes the rating cap.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} things {name} hasn\'t got yet'**
+  String libraryNotYetGiven(int count, String name);
+
+  /// Result line when no child is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} things'**
+  String libraryItemCount(int count);
+
+  /// Button revealing items already given to the selected child.
+  ///
+  /// In en, this message translates to:
+  /// **'Show shared'**
+  String get libraryShowShared;
+
+  /// Button hiding items already given to the selected child.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide shared'**
+  String get libraryHideShared;
+
+  /// Shown when the library query returns no items at all.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here yet.'**
+  String get libraryEmpty;
+
+  /// Shown when hiding shared items leaves nothing to give.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} has everything already.'**
+  String libraryNothingLeft(String name);
+
+  /// Badge on a tile the selected child has been given and can reach.
+  ///
+  /// In en, this message translates to:
+  /// **'Given'**
+  String get libraryBadgeGiven;
+
+  /// Badge on a tile taken away from a block-list child.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked'**
+  String get libraryBadgeBlocked;
+
+  /// Badge for an item the child has been given but the server still does not show them. Deliberately does not name a cause — the server does not say why.
+  ///
+  /// In en, this message translates to:
+  /// **'Held back'**
+  String get libraryBadgeHeldBack;
+
+  /// Explains a held-back item. Offers the likely reason rather than asserting it: the server does not say why it hid something, and a folder permission looks identical.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} has this, but the server isn\'t showing it to them. Their age limit is the usual reason.'**
+  String libraryHeldBackExplanation(String name);
+
+  /// Badge on a collection tile saying how many items it holds.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} titles'**
+  String libraryCollectionCount(int count);
+
+  /// Button that reloads the library grid after an error.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get libraryRetry;
 }
 
 class _AppLocalizationsDelegate

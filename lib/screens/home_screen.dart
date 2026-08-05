@@ -9,6 +9,7 @@ import '../l10n/gen/app_localizations.dart';
 import '../providers/auth_providers.dart';
 import '../widgets/error_notice.dart';
 import 'kids_screen.dart';
+import 'library_screen.dart';
 import 'unlock_settings_screen.dart';
 
 /// Where a signed-in session lands.
@@ -22,18 +23,29 @@ import 'unlock_settings_screen.dart';
 /// The offline notice is here rather than inside the Kids screen deliberately:
 /// it is about the *session* being unconfirmed, not about this screen's data
 /// having failed, and the two have different remedies.
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, required this.state});
 
   final AuthSignedIn state;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  /// Library first, Kids second — `docs/UI-SPEC.md` § Product shape. The task
+  /// that opens the app is "find something for a kid", so the app opens on the
+  /// thing you act on; the Kids screen is an overview surface.
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final state = widget.state;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.kidsTitle),
+        title: Text(_tab == 0 ? l10n.libraryTitle : l10n.kidsTitle),
         actions: [
           // Until the Settings screen exists (build order step 7), this is how
           // the Unlock section is reached. It moves there when it does.
@@ -61,9 +73,29 @@ class HomeScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 child: InfoNotice(message: l10n.offlineNotice),
               ),
-            Expanded(child: KidsScreen(session: state.session)),
+            Expanded(
+              child: _tab == 0
+                  ? LibraryScreen(session: state.session)
+                  : KidsScreen(session: state.session),
+            ),
           ],
         ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: (index) => setState(() => _tab = index),
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.grid_view_outlined),
+            selectedIcon: const Icon(Icons.grid_view),
+            label: l10n.libraryTitle,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.people_outline),
+            selectedIcon: const Icon(Icons.people),
+            label: l10n.kidsTitle,
+          ),
+        ],
       ),
     );
   }

@@ -229,6 +229,40 @@ stale-credential-after-crash case. Accepted cost: a process kill mid-pairing mea
 **No `SCORECARD_TOKEN`.** Adding a classic PAT with `repo` scope to a public repo's secrets, to
 raise a security score, is a net loss. See `SECURITY.md`.
 
+## The Library grid's two filters (settled 2026-08-05, from issue #44)
+
+**Hide-shared filters client-side, over an enlarged fetch window.** `/Items` takes 86 parameters
+and **none of them excludes by tag** — measured on 10.11.11. So "what this child hasn't got yet"
+has no direct server query, and the grid asks for more than a screenful while hiding is on, then
+keeps fetching until the visible rows fill.
+
+Rejected — `excludeItemIds`, the obvious server-side answer. It is a comma-delimited query string,
+so the URL grows with the *shared* set, and the shared set is precisely what grows as the app is
+used. Around 240 ids is roughly 8 KB, the default request-line limit in Kestrel, which Jellyfin
+runs behind. A parent who has shared 300 titles with a child would get a 414 — and 300 shared
+titles is ordinary use, not an edge case. The client-side cost is a variable number of requests
+once nearly everything is shared, which lands exactly when the grid is nearly empty and resolves
+quickly.
+
+Rejected — dropping hide-by-default. § Product shape already settled that hiding turns the grid
+into a to-do list rather than an inventory, and the paging mechanics do not bear on that.
+
+**The visibility diff decorates; it never filters.** An item the server does not show to the
+selected child stays on the grid, marked. Two reasons, the second stronger than the first: it
+leaves exactly one filtering axis, so ragged-page handling stays in one place; and hiding a
+given-but-invisible film would hide the one case the feature exists to explain. A parent tags
+something, the count does not move, and the tile is what tells them why — remove the tile and the
+confusion comes back.
+
+So the rule is: **hide-shared may remove tiles. The cap diff may only change how they look.**
+
+**Visibility is asked, never computed.** The state comes from `GET /Items?userId={child}&ids=…`
+against the ids on screen — the server applying tags and cap together — and not from comparing the
+item's `OfficialRating` to the child's `MaxParentalRating`. That comparison is ground rule 4
+verbatim and fails silently on unrated items, on a non-US ladder, and on anything hidden for a
+reason that is not the cap at all. A folder permission is indistinguishable from a rating cap from
+here, which is also why the screen *offers* a reason rather than asserting one.
+
 ## Nothing syncs to a cloud account (settled 2026-08-05, from issue #35)
 
 **Garfin is a tool for self-hosters, and nothing it stores leaves the device for anyone's cloud.**

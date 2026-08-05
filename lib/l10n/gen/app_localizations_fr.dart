@@ -275,4 +275,59 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get cancelAction => 'Annuler';
+
+  @override
+  String get libraryTitle => 'Médiathèque';
+
+  @override
+  String get libraryPickingFor => 'Choix pour';
+
+  @override
+  String get libraryEveryone => 'Tout le monde';
+
+  @override
+  String libraryNotYetGiven(int count, String name) {
+    return '$count titres que $name n\'a pas encore';
+  }
+
+  @override
+  String libraryItemCount(int count) {
+    return '$count titres';
+  }
+
+  @override
+  String get libraryShowShared => 'Afficher les partagés';
+
+  @override
+  String get libraryHideShared => 'Masquer les partagés';
+
+  @override
+  String get libraryEmpty => 'Rien ici pour le moment.';
+
+  @override
+  String libraryNothingLeft(String name) {
+    return '$name a déjà tout.';
+  }
+
+  @override
+  String get libraryBadgeGiven => 'Donné';
+
+  @override
+  String get libraryBadgeBlocked => 'Bloqué';
+
+  @override
+  String get libraryBadgeHeldBack => 'Retenu';
+
+  @override
+  String libraryHeldBackExplanation(String name) {
+    return '$name a ce titre, mais le serveur ne le lui montre pas. La limite d\'âge en est la raison habituelle.';
+  }
+
+  @override
+  String libraryCollectionCount(int count) {
+    return '$count titres';
+  }
+
+  @override
+  String get libraryRetry => 'Réessayer';
 }

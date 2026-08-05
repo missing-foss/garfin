@@ -352,5 +352,93 @@
   "cancelAction": "Cancel",
   "@cancelAction": {
     "description": "Dismisses a dialog without changing anything."
+  },
+  "libraryTitle": "Library",
+  "@libraryTitle": {
+    "description": "Title of the library grid screen."
+  },
+  "libraryPickingFor": "Picking for",
+  "@libraryPickingFor": {
+    "description": "Label above the row of child avatars at the top of the library."
+  },
+  "libraryEveryone": "Everyone",
+  "@libraryEveryone": {
+    "description": "The option in the picking-for row that clears the child selection."
+  },
+  "libraryNotYetGiven": "{count} things {name} hasn't got yet",
+  "@libraryNotYetGiven": {
+    "description": "Result line when a child is selected. Says what has not been handed over, NOT what the child can see — the second is the server's answer and includes the rating cap.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryItemCount": "{count} things",
+  "@libraryItemCount": {
+    "description": "Result line when no child is selected.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryShowShared": "Show shared",
+  "@libraryShowShared": {
+    "description": "Button revealing items already given to the selected child."
+  },
+  "libraryHideShared": "Hide shared",
+  "@libraryHideShared": {
+    "description": "Button hiding items already given to the selected child."
+  },
+  "libraryEmpty": "Nothing here yet.",
+  "@libraryEmpty": {
+    "description": "Shown when the library query returns no items at all."
+  },
+  "libraryNothingLeft": "{name} has everything already.",
+  "@libraryNothingLeft": {
+    "description": "Shown when hiding shared items leaves nothing to give.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryBadgeGiven": "Given",
+  "@libraryBadgeGiven": {
+    "description": "Badge on a tile the selected child has been given and can reach."
+  },
+  "libraryBadgeBlocked": "Blocked",
+  "@libraryBadgeBlocked": {
+    "description": "Badge on a tile taken away from a block-list child."
+  },
+  "libraryBadgeHeldBack": "Held back",
+  "@libraryBadgeHeldBack": {
+    "description": "Badge for an item the child has been given but the server still does not show them. Deliberately does not name a cause — the server does not say why."
+  },
+  "libraryHeldBackExplanation": "{name} has this, but the server isn't showing it to them. Their age limit is the usual reason.",
+  "@libraryHeldBackExplanation": {
+    "description": "Explains a held-back item. Offers the likely reason rather than asserting it: the server does not say why it hid something, and a folder permission looks identical.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryCollectionCount": "{count} titles",
+  "@libraryCollectionCount": {
+    "description": "Badge on a collection tile saying how many items it holds.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryRetry": "Try again",
+  "@libraryRetry": {
+    "description": "Button that reloads the library grid after an error."
   }
 }
