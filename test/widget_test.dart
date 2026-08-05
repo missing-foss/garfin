@@ -4,6 +4,7 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +12,8 @@ import 'package:garfin/main.dart';
 import 'package:garfin/providers/app_providers.dart';
 import 'package:garfin/repositories/device_identity.dart';
 import 'package:garfin/repositories/jellyfin_api.dart';
+import 'package:garfin/repositories/token_store.dart';
+import 'package:garfin/screens/sign_in_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fake_jellyfin_server.dart';
@@ -198,4 +201,83 @@ void main() {
     // Still on the address step, with the address there to correct.
     expect(find.text('Which server?'), findsOneWidget);
   });
+
+  testWidgets('a secure-storage failure on restore lands on sign-in',
+      (tester) async {
+    // Issue #35. `flutter_secure_storage` is backed by
+    // `EncryptedSharedPreferences`, whose master key lives in the Keystore and
+    // is not backed up. So a restored install can hold a blob it cannot
+    // decrypt, and the plugin throws rather than returning null. Changing the
+    // device credential or re-enrolling biometrics can invalidate the key the
+    // same way, so this outlives the backup decision that turned it up —
+    // `allowBackup="false"` removes the restore path, not the other causes.
+    //
+    // `AuthRepository.restore()` calls `TokenStore.read()` with no `try`, so
+    // the throw propagates into `AuthController.build()` and surfaces as an
+    // `AsyncError`. `app_root.dart` renders that as the sign-in screen, and
+    // deliberately — the comment there says so. This pins that, because it was
+    // the one link in the chain with nothing holding it in place.
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'unlock_required': false,
+      // Needed to get past the early return in `restore()` and actually reach
+      // the token store. Asserted below rather than assumed: without it this
+      // test lands on the sign-in screen anyway, for entirely the wrong
+      // reason, and stays green.
+      'server_url': 'http://host:8096',
+    });
+    prefs = await SharedPreferences.getInstance();
+
+    final store = _UndecryptableTokenStore();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          deviceIdentityProvider.overrideWithValue(identity),
+          jellyfinApiFactoryProvider.overrideWithValue(
+            JellyfinApiFactory(identity: identity, adapter: server),
+          ),
+          tokenStoreProvider.overrideWithValue(store),
+        ],
+        child: const GarfinApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Proves the throw was actually reached. Without this the test passes on
+    // a `restore()` that returned early and never touched the store — which
+    // it would, quietly, if `server_url` above were ever dropped.
+    //
+    // Not pinned to an exact count: the controller is re-read while the error
+    // settles, and this observed 11 calls rather than 1. Harmless — it is a
+    // local read that throws immediately, and it does settle — but the number
+    // is an artefact of rebuild scheduling, so asserting it would be pinning
+    // something this test is not about.
+    expect(store.reads, greaterThan(0));
+    expect(find.byType(SignInScreen), findsOneWidget);
+    // The point of the test: it surfaced as a screen, not as a crash.
+    expect(tester.takeException(), isNull);
+  });
+}
+
+/// A token store whose `read` fails the way a restored, undecryptable
+/// `EncryptedSharedPreferences` does.
+class _UndecryptableTokenStore implements TokenStore {
+  int reads = 0;
+
+  @override
+  Future<String?> read() async {
+    reads++;
+    throw PlatformException(
+      code: 'Exception encountered',
+      message: 'read',
+      details: 'javax.crypto.AEADBadTagException',
+    );
+  }
+
+  @override
+  Future<void> write(String token) async {}
+
+  @override
+  Future<void> clear() async {}
 }

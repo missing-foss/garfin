@@ -42,9 +42,24 @@
          build/app/intermediates/merged_manifests/debug/.../AndroidManifest.xml.
          Repeating them would be a second place to keep in step with the plugin
          for no gain. -->
+    <!-- Nothing Garfin stores syncs to a cloud account. Issue #35, and
+         docs/DECISIONS.md § Nothing syncs to a cloud account.
+
+         Both attributes are needed, and `allowBackup="false"` alone is the
+         trap: per Android's documentation, for apps targeting API 31+ it
+         disables cloud backup on some manufacturers' devices "but doesn't
+         disable device-to-device transfers for the app". Garfin targets well
+         past 31. The rules file is what closes D2D, and it must carry real
+         excludes — an empty <device-transfer> section means fully enabled.
+         The reasoning and the format's other trap are documented there.
+
+         allowBackup stays too: it covers the pre-31 path and states the
+         intent where anyone looks first. -->
     <application
         android:label="garfin"
         android:name="${applicationName}"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

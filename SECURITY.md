@@ -69,18 +69,38 @@ shipped in the APK, and the two must not be conflated. Disable it locally with
 Garfin backend, no account system, and no third-party service. Nothing Garfin
 *sends* goes anywhere but that server.
 
-**One qualification, and it is the platform's rather than the app's.** Nothing
-in `android/` declares `allowBackup`, `dataExtractionRules`,
-`fullBackupContent` or a `backupAgent`, so Android's default `allowBackup="true"`
-applies and `shared_preferences` is eligible for **Auto Backup** and
-**device-to-device transfer**. That means the server URL, the signed-in user's
-id and name, the unlock settings and `device_id` can be uploaded to the user's
-own cloud account and restored onto a different phone. It is their account and
-recent Android encrypts those backups with a key derived from the device
-credential — so this is a qualification, not a refutation. But it is
-platform-mediated egress, and the verification below cannot see it: that reading
-is scoped to the app's own HTTP. See #35 for the decision about whether to turn
-it off.
+**That includes the platform's own egress, which is off (2026-08-05, #35).**
+This paragraph used to carry a qualification: nothing in `android/` declared
+`allowBackup`, so Android's default `allowBackup="true"` applied and
+`shared_preferences` — the server URL, the signed-in user's id and name, the
+unlock settings, `device_id` — was eligible for **Auto Backup** and
+**device-to-device transfer**. Garfin now declares both
+`android:allowBackup="false"` and an
+`android:dataExtractionRules` file that excludes everything from
+`<cloud-backup>` and `<device-transfer>` alike.
+
+**Both are needed, and `allowBackup` alone is the trap.** Android's own
+documentation, on apps targeting API 31 or higher: *"On devices from some
+device manufacturers, specifying `android:allowBackup="false"` disables
+cloud-based backup and restore (such as Google Drive backups) but doesn't
+disable device-to-device transfers for the app."* Garfin targets well past 31,
+so a build checked on one handset could have been wrong on another. There is a
+second trap in the rules format worth knowing before editing it: an **empty**
+section means that mode is *fully enabled*, so `<device-transfer />` reads like
+a disable and is the opposite of one. Both are commented in
+`android/app/src/main/res/xml/data_extraction_rules.xml`.
+
+**Verified on the release artifact**, not on the source: `aapt2 dump xmltree`
+against `app-release.apk` shows `allowBackup=false` in the compiled manifest
+and `dataExtractionRules` pointing at the rules resource, and dumping that
+resource — `aapt2 dump resources` resolves its id, since resource shrinking
+renames the file — shows all four `exclude` rules across both sections.
+Asserted in `test/android_config_test.dart`, which also fails on an emptied
+`<device-transfer>`.
+
+This is a decision about the product, not only about a manifest attribute —
+Garfin is for self-hosters, and nothing it stores syncs to anyone's cloud. See
+`docs/DECISIONS.md` § Nothing syncs to a cloud account.
 
 **Verified statically (2026-08-04).** The earlier version of this line said the
 claim held "trivially, by absence — there is no HTTP call in the codebase yet",
