@@ -276,6 +276,18 @@ class JellyfinApi {
   ///
   /// Bounded by the page: `ids` is comma-delimited, so this asks about the
   /// twenty-odd items on screen rather than the whole library.
+  ///
+  /// **No `Recursive=true`, deliberately.** Every other `/Items` call here
+  /// passes it, so its absence looks like an oversight — it is not. `ids=` is
+  /// its own lookup and does not consult the recursion flag. Measured on
+  /// 10.11.11 with items nested inside a library: three ids in, three back for
+  /// the admin and two for a capped child, identical with and without it.
+  ///
+  /// Adding it would be harmless but would enshrine a wrong reason, and the
+  /// failure it would appear to fix is worth knowing: had `ids=` needed
+  /// recursion, this would return an empty set — a *successful* empty response,
+  /// which the caller's fallback does not catch — and every labelled item on
+  /// the grid would render as held back.
   Future<Set<String>> visibleIds({
     required String userId,
     required List<String> ids,
