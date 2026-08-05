@@ -409,6 +409,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 minute} other{{count} minutes}}'**
   String unlockTimeoutMinutes(int count);
+
+  /// Title of the Kids screen, which lists children and their shortlists.
+  ///
+  /// In en, this message translates to:
+  /// **'Kids'**
+  String get kidsTitle;
+
+  /// Heading above the list of accounts that have no shortlist tags set.
+  ///
+  /// In en, this message translates to:
+  /// **'No shortlist yet'**
+  String get kidsNoShortlistHeading;
+
+  /// Explains why these accounts are listed but cannot be acted on. Garfin cannot give a child their first label; that is a policy write. Deliberately says nothing about why, per docs/UI-SPEC.md.
+  ///
+  /// In en, this message translates to:
+  /// **'Set their shortlist up in Jellyfin first, then come back here.'**
+  String get kidsNoShortlistExplanation;
+
+  /// Count on a child's card. Both numbers come from the server, never computed here.
+  ///
+  /// In en, this message translates to:
+  /// **'{visible} of {total} things visible'**
+  String kidsVisibleOfTotal(int visible, int total);
+
+  /// Chip on a card whose account uses AllowedTags: the child sees only what is tagged.
+  ///
+  /// In en, this message translates to:
+  /// **'Shortlist'**
+  String get kidsModeAllowList;
+
+  /// Chip on a card whose account uses BlockedTags: the child sees everything except what is tagged.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocklist'**
+  String get kidsModeBlockList;
+
+  /// Shown when a Jellyfin account has both AllowedTags and BlockedTags populated. Garfin refuses to guess which applies.
+  ///
+  /// In en, this message translates to:
+  /// **'Both lists are set'**
+  String get kidsModeConflicting;
+
+  /// Explains the conflicting-lists state and what to do about it.
+  ///
+  /// In en, this message translates to:
+  /// **'This account has a shortlist and a blocklist at the same time. Sort it out in Jellyfin — Garfin can\'t tell which one you meant.'**
+  String get kidsModeConflictingDetail;
+
+  /// Age on a child's card, worked out from the birth year the parent entered.
+  ///
+  /// In en, this message translates to:
+  /// **'{years} years old'**
+  String kidsAgeYears(int years);
+
+  /// Shown in place of an age when no birth year has been entered. Jellyfin does not store one.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a birth year'**
+  String get kidsAgeUnknown;
+
+  /// The child's parental rating cap, named from the server's own rating list.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to {rating}'**
+  String kidsRatingCap(String rating);
+
+  /// Fallback when the server's rating list has no entry for the child's cap. Shows the raw number rather than guessing a nearby name.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating limit {value}'**
+  String kidsRatingCapValue(int value);
+
+  /// Shown when a child's account has no parental rating cap set.
+  ///
+  /// In en, this message translates to:
+  /// **'No rating limit'**
+  String get kidsRatingCapNone;
+
+  /// Title of the dialog where the parent types a child's birth year.
+  ///
+  /// In en, this message translates to:
+  /// **'Birth year'**
+  String get kidsBirthYearTitle;
+
+  /// Explains why the birth year is asked for and that it stays on the device.
+  ///
+  /// In en, this message translates to:
+  /// **'Jellyfin doesn\'t store this, so Garfin keeps it on this phone. The year is enough.'**
+  String get kidsBirthYearHelp;
+
+  /// Validation message for the birth year field.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a year between {min} and {max}.'**
+  String kidsBirthYearInvalid(int min, int max);
+
+  /// Button that forgets a stored birth year.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get kidsBirthYearClear;
+
+  /// Shown when the server reports no users at all.
+  ///
+  /// In en, this message translates to:
+  /// **'No accounts on this server yet.'**
+  String get kidsEmpty;
+
+  /// Button that reloads the Kids screen after an error.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get kidsRetry;
+
+  /// Confirms a dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get saveAction;
+
+  /// Dismisses a dialog without changing anything.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancelAction;
 }
 
 class _AppLocalizationsDelegate

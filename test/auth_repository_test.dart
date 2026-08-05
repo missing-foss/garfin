@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/repositories/auth_repository.dart';
+import 'package:garfin/repositories/birth_year_store.dart';
 import 'package:garfin/repositories/device_identity.dart';
 import 'package:garfin/repositories/jellyfin_api.dart';
 import 'package:garfin/repositories/jellyfin_exception.dart';
@@ -43,6 +44,7 @@ void main() {
       apiFactory: JellyfinApiFactory(identity: identity, adapter: server),
       tokenStore: const SecureTokenStore(FlutterSecureStorage()),
       settings: ServerSettingsStore(prefs),
+      birthYears: BirthYearStore(prefs),
     );
   }
 
@@ -161,6 +163,31 @@ void main() {
       // The address belongs to the household, not to the session — retyping it
       // after every sign-out would be a small daily annoyance for no gain.
       expect(prefs.getString('server_url'), serverUrl);
+    });
+
+    test('signing out forgets the birth years', () async {
+      // Birth years are keyed by Jellyfin user id and ids are per-server, so
+      // carrying them across a sign-out would at best leave dead keys and at
+      // worst attach one household's ages to another's accounts.
+      //
+      // This is asserted because SECURITY.md § Data at rest says it happens.
+      // The enumeration there is only worth anything if each line has a gate.
+      await BirthYearStore(prefs).write('kid-1', 2015);
+      expect(prefs.getInt('birth_year_kid-1'), 2015);
+
+      server.on('/Users/AuthenticateByName', json: authResultJson());
+      await repository.signInWithPassword(
+        serverUrl: serverUrl,
+        username: 'alex',
+        password: 'hunter2',
+      );
+      await repository.signOut();
+
+      expect(prefs.getInt('birth_year_kid-1'), isNull);
+      expect(
+        prefs.getKeys().where((k) => k.startsWith('birth_year_')),
+        isEmpty,
+      );
     });
   });
 

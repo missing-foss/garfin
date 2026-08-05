@@ -1,107 +1,76 @@
 {
   "@@locale": "fr",
-
   "appTitle": "Garfin",
-
   "signInTitle": "Connexion",
-
   "serverStepTitle": "Quel serveur ?",
-
   "serverAddressLabel": "Adresse du serveur",
-
   "serverAddressHint": "http://jellyfin.local:8096",
-
   "serverAddressHelp": "Garfin la retient, vous ne la tapez qu'une fois.",
-
   "continueLabel": "Continuer",
-
   "changeServerLabel": "Changer de serveur",
-
   "signInMethodQuickConnect": "Quick Connect",
-
   "signInMethodPassword": "Mot de passe",
-
   "quickConnectStarting": "Demande d'un code au serveur…",
-
   "quickConnectHowTo": "Ouvrez Jellyfin sur n'importe quel appareil, allez dans Quick Connect et saisissez ce code.",
-
   "quickConnectWaiting": "En attente de la validation du code…",
-
   "quickConnectNewCode": "Obtenir un nouveau code",
-
   "usernameLabel": "Nom d'utilisateur",
-
   "passwordLabel": "Mot de passe",
-
   "signInAction": "Se connecter",
-
   "signedInAs": "Connecté en tant que {name}",
-
   "connectedTo": "Relié à {server}",
-
   "signOutAction": "Se déconnecter",
-
   "homeNextUpBody": "La connexion est faite. Les écrans Enfants et Bibliothèque arrivent ensuite.",
-
   "offlineNotice": "Garfin n'arrive pas à joindre le serveur pour le moment. Voici ce qu'il savait déjà.",
-
   "noticeCredentialsDropped": "Cette adresse contenait un nom d'utilisateur et un mot de passe. Garfin les a retirés : il ne peut pas se connecter à travers un serveur placé derrière son propre accès.",
-
   "errorMalformedServerAddress": "Cela ne ressemble pas à une adresse web. Essayez plutôt http://jellyfin.local:8096",
-
   "errorUnreachable": "Garfin n'a pas pu joindre {server}. Vérifiez l'adresse, et que ce téléphone est sur le même réseau.",
-
   "errorTimeout": "Le serveur n'a pas répondu à temps. Réessayez.",
-
   "errorUnauthorized": "Ce nom d'utilisateur ou ce mot de passe ne correspond pas.",
-
   "errorForbidden": "Ce compte n'a pas le droit de faire cela sur le serveur.",
-
   "errorNotFound": "Quelque chose a répondu à cette adresse, mais ce n'était pas Jellyfin.",
-
   "errorServer": "Le serveur a rencontré un problème. Réessayez dans un instant.",
-
   "errorQuickConnectExpired": "Ce code a expiré. Demandez-en un nouveau.",
-
   "errorQuickConnectUnavailable": "Quick Connect est désactivé sur ce serveur. Utilisez plutôt un mot de passe.",
-
   "errorNotAdministrator": "{name} n'est pas administrateur sur ce serveur. Garfin lit et modifie la liste de chaque compte, il lui faut donc un compte administrateur. Connectez-vous avec un tel compte.",
-
   "errorCancelled": "L'opération a été interrompue avant la fin.",
-
   "unlockPromptReason": "Déverrouiller Garfin",
-
   "unlockTitle": "Garfin est verrouillé",
-
   "unlockBody": "Garfin se connecte à Jellyfin en tant qu'administrateur : il demande qui vous êtes avant de s'ouvrir.",
-
   "unlockAction": "Déverrouiller",
-
   "unlockFailed": "Cela ne correspond pas. Réessayez.",
-
   "unlockCancelled": "Annulé. Touchez Déverrouiller quand vous voulez.",
-
   "unlockTooManyTries": "Trop d'essais. Patientez un instant, puis réessayez.",
-
   "unlockUsePinInstead": "Trop d'essais avec l'empreinte. Utilisez le code ou le schéma de l'appareil.",
-
   "unlockError": "Le téléphone n'a pas pu le demander pour le moment. Réessayez.",
-
   "unlockCannotEnforce": "Ce téléphone n'a ni code, ni schéma, ni empreinte : Garfin ne peut donc rien demander. Configurez-en un dans les réglages du téléphone si vous voulez que Garfin le demande.",
-
   "unlockContinue": "Continuer",
-
   "settingsUnlockTitle": "Verrouillage",
-
   "settingsUnlockRequire": "Demander à l'ouverture de Garfin",
-
   "settingsUnlockRequireSubtitle": "Garfin garde une connexion administrateur à votre serveur Jellyfin.",
-
   "settingsUnlockTimeout": "Redemander après",
-
   "settingsUnlockTimeoutSubtitle": "Combien de temps Garfin peut rester en arrière-plan avant de redemander.",
-
   "unlockTimeoutImmediate": "Immédiatement",
-
-  "unlockTimeoutMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}"
+  "unlockTimeoutMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
+  "kidsTitle": "Enfants",
+  "kidsNoShortlistHeading": "Pas encore de sélection",
+  "kidsNoShortlistExplanation": "Créez d'abord leur sélection dans Jellyfin, puis revenez ici.",
+  "kidsVisibleOfTotal": "{visible} sur {total} titres visibles",
+  "kidsModeAllowList": "Sélection",
+  "kidsModeBlockList": "Liste d'exclusion",
+  "kidsModeConflicting": "Les deux listes sont définies",
+  "kidsModeConflictingDetail": "Ce compte a une sélection et une liste d'exclusion en même temps. Corrigez cela dans Jellyfin — Garfin ne peut pas deviner laquelle s'applique.",
+  "kidsAgeYears": "{years} ans",
+  "kidsAgeUnknown": "Ajouter une année de naissance",
+  "kidsRatingCap": "Jusqu'à {rating}",
+  "kidsRatingCapValue": "Limite d'âge {value}",
+  "kidsRatingCapNone": "Aucune limite d'âge",
+  "kidsBirthYearTitle": "Année de naissance",
+  "kidsBirthYearHelp": "Jellyfin ne l'enregistre pas, Garfin la garde donc sur ce téléphone. L'année suffit.",
+  "kidsBirthYearInvalid": "Saisissez une année entre {min} et {max}.",
+  "kidsBirthYearClear": "Supprimer",
+  "kidsEmpty": "Aucun compte sur ce serveur pour le moment.",
+  "kidsRetry": "Réessayer",
+  "saveAction": "Enregistrer",
+  "cancelAction": "Annuler"
 }

@@ -8,15 +8,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/gen/app_localizations.dart';
 import '../providers/auth_providers.dart';
 import '../widgets/error_notice.dart';
+import 'kids_screen.dart';
 import 'unlock_settings_screen.dart';
 
-/// Where a signed-in session lands until the Library screen exists.
+/// Where a signed-in session lands.
 ///
-/// Placeholder — replace it with the Library (build order step 4), do not build
-/// on it. It is here because sign-in has to lead somewhere, and because it is
-/// the smallest thing that demonstrates the offline-degraded rule: a restored
-/// session that could not be confirmed still shows the account and the server
-/// with a plain explanation, rather than a blank screen or a surprise sign-out.
+/// A shell, not a screen: the app bar and the offline notice live here, and the
+/// body is the Kids screen (build order step 3). The Library becomes the
+/// landing screen at step 4 and the Kids screen moves to second in the nav —
+/// `docs/UI-SPEC.md` § Product shape — so this stays a shell rather than
+/// growing content of its own.
+///
+/// The offline notice is here rather than inside the Kids screen deliberately:
+/// it is about the *session* being unconfirmed, not about this screen's data
+/// having failed, and the two have different remedies.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key, required this.state});
 
@@ -24,12 +29,11 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.appTitle),
+        title: Text(l10n.kidsTitle),
         actions: [
           // Until the Settings screen exists (build order step 7), this is how
           // the Unlock section is reached. It moves there when it does.
@@ -50,35 +54,15 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (state.offlineReason != null) ...[
-                InfoNotice(message: l10n.offlineNotice),
-                const SizedBox(height: 24),
-              ],
-              Text(
-                l10n.signedInAs(state.session.userName),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall,
+        child: Column(
+          children: [
+            if (state.offlineReason != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: InfoNotice(message: l10n.offlineNotice),
               ),
-              const SizedBox(height: 8),
-              Text(
-                l10n.connectedTo(state.session.serverUrl),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                l10n.homeNextUpBody,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge,
-              ),
-            ],
-          ),
+            Expanded(child: KidsScreen(session: state.session)),
+          ],
         ),
       ),
     );

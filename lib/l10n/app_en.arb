@@ -1,91 +1,73 @@
 {
   "@@locale": "en",
-
   "appTitle": "Garfin",
   "@appTitle": {
     "description": "The app's name. A proper noun — left untranslated in every locale."
   },
-
   "signInTitle": "Sign in",
   "@signInTitle": {
     "description": "Title of the sign-in screen."
   },
-
   "serverStepTitle": "Which server?",
   "@serverStepTitle": {
     "description": "Heading for the first sign-in step, where the Jellyfin server address is typed."
   },
-
   "serverAddressLabel": "Server address",
   "@serverAddressLabel": {
     "description": "Label on the text field for the Jellyfin server URL."
   },
-
   "serverAddressHint": "http://jellyfin.local:8096",
   "@serverAddressHint": {
     "description": "Placeholder inside the server address field. An example URL rather than a sentence — leave it as-is unless the example itself should differ in this locale."
   },
-
   "serverAddressHelp": "Garfin remembers this, so you only type it once.",
   "@serverAddressHelp": {
     "description": "Helper text under the server address field."
   },
-
   "continueLabel": "Continue",
   "@continueLabel": {
     "description": "Button that accepts the typed server address and moves on to the sign-in method."
   },
-
   "changeServerLabel": "Change server",
   "@changeServerLabel": {
     "description": "Button that goes back to the server address step."
   },
-
   "signInMethodQuickConnect": "Quick Connect",
   "@signInMethodQuickConnect": {
     "description": "Tab label. Quick Connect is Jellyfin's own feature name — keep it untranslated so it matches what the user sees inside Jellyfin."
   },
-
   "signInMethodPassword": "Password",
   "@signInMethodPassword": {
     "description": "Tab label for the username-and-password fallback."
   },
-
   "quickConnectStarting": "Asking the server for a code…",
   "@quickConnectStarting": {
     "description": "Shown between opening the Quick Connect tab and the six-digit code arriving."
   },
-
   "quickConnectHowTo": "Open Jellyfin on any device, go to Quick Connect, and enter this code.",
   "@quickConnectHowTo": {
     "description": "Instructions shown above the six-digit Quick Connect code."
   },
-
   "quickConnectWaiting": "Waiting for the code to be approved…",
   "@quickConnectWaiting": {
     "description": "Shown beside the indeterminate progress bar while Garfin polls for approval."
   },
-
   "quickConnectNewCode": "Get a new code",
   "@quickConnectNewCode": {
     "description": "Button that starts a fresh Quick Connect pairing after one expired or failed."
   },
-
   "usernameLabel": "Username",
   "@usernameLabel": {
     "description": "Label on the username field of the password sign-in form."
   },
-
   "passwordLabel": "Password",
   "@passwordLabel": {
     "description": "Label on the password field of the password sign-in form."
   },
-
   "signInAction": "Sign in",
   "@signInAction": {
     "description": "Button that submits the username and password."
   },
-
   "signedInAs": "Signed in as {name}",
   "@signedInAs": {
     "description": "Names the Jellyfin account Garfin is using.",
@@ -96,7 +78,6 @@
       }
     }
   },
-
   "connectedTo": "Connected to {server}",
   "@connectedTo": {
     "description": "Names the Jellyfin server address Garfin is talking to.",
@@ -107,32 +88,26 @@
       }
     }
   },
-
   "signOutAction": "Sign out",
   "@signOutAction": {
     "description": "Button that forgets the account and the access token."
   },
-
   "homeNextUpBody": "Sign-in is done. The Kids and Library screens come next.",
   "@homeNextUpBody": {
     "description": "Body of the temporary home screen shown after signing in, until the Library screen exists."
   },
-
   "offlineNotice": "Garfin can't reach the server right now. This is what it already knew.",
   "@offlineNotice": {
     "description": "Banner shown when a stored session could not be confirmed because the server is unreachable. The app stays usable with what it has cached."
   },
-
   "noticeCredentialsDropped": "That address had a username and password in it. Garfin removed them — it can't sign in through a server that sits behind its own separate login.",
   "@noticeCredentialsDropped": {
     "description": "Shown when the typed server address contained user:password@. The credentials are dropped rather than stored, because they would otherwise be written to preferences in clear and shown on screen — and Jellyfin offers no way to pass its own identity while the Authorization header is taken by a proxy. Says what happened rather than failing silently."
   },
-
   "errorMalformedServerAddress": "That doesn't look like a web address. Try something like http://jellyfin.local:8096",
   "@errorMalformedServerAddress": {
     "description": "Shown when the typed server address cannot be parsed at all, so nothing was sent anywhere."
   },
-
   "errorUnreachable": "Garfin couldn't reach {server}. Check the address, and that this phone is on the same network.",
   "@errorUnreachable": {
     "description": "Shown when no answer came back from the server at all.",
@@ -143,42 +118,34 @@
       }
     }
   },
-
   "errorTimeout": "The server didn't answer in time. Try again.",
   "@errorTimeout": {
     "description": "Shown when a request timed out."
   },
-
   "errorUnauthorized": "That username or password didn't match.",
   "@errorUnauthorized": {
     "description": "Shown for HTTP 401 during sign-in."
   },
-
   "errorForbidden": "That account isn't allowed to do this on the server.",
   "@errorForbidden": {
     "description": "Shown for HTTP 403."
   },
-
   "errorNotFound": "Something answered at that address, but it wasn't Jellyfin.",
   "@errorNotFound": {
     "description": "Shown for HTTP 404 — usually a URL pointing at some other service."
   },
-
   "errorServer": "The server ran into a problem. Try again in a moment.",
   "@errorServer": {
     "description": "Shown for HTTP 5xx, or a response that could not be read."
   },
-
   "errorQuickConnectExpired": "That code ran out. Ask for a new one.",
   "@errorQuickConnectExpired": {
     "description": "Shown when a Quick Connect code was never approved inside the polling window."
   },
-
   "errorQuickConnectUnavailable": "Quick Connect is switched off on this server. Use a password instead.",
   "@errorQuickConnectUnavailable": {
     "description": "Shown when the server reports Quick Connect as disabled."
   },
-
   "errorNotAdministrator": "{name} isn't an administrator on this server. Garfin reads and edits every account's shortlist, so it needs an admin account. Sign in with one.",
   "@errorNotAdministrator": {
     "description": "Shown when an account authenticated but is not a Jellyfin administrator. Ground rule 7 — the refusal happens at sign-in, and the wording says which account was refused and what to do instead.",
@@ -189,97 +156,78 @@
       }
     }
   },
-
   "errorCancelled": "That was stopped before it finished.",
   "@errorCancelled": {
     "description": "Shown when a request was cancelled — the screen was closed, or the user backed out."
   },
-
   "unlockPromptReason": "Unlock Garfin",
   "@unlockPromptReason": {
     "description": "Shown by the phone's own biometric/PIN dialog, not by Garfin. Keep it very short — the system gives it one line."
   },
-
   "unlockTitle": "Garfin is locked",
   "@unlockTitle": {
     "description": "Heading on the lock screen."
   },
-
   "unlockBody": "Garfin signs in to Jellyfin as an admin, so it asks who you are before it opens.",
   "@unlockBody": {
     "description": "Says why the lock exists, in one sentence. Claims nothing about what it prevents — see docs/DECISIONS.md § Voice and SECURITY.md."
   },
-
   "unlockAction": "Unlock",
   "@unlockAction": {
     "description": "Button that asks the phone for a fingerprint or a PIN."
   },
-
   "unlockFailed": "That didn't match. Try again.",
   "@unlockFailed": {
     "description": "Shown when the fingerprint or PIN was wrong."
   },
-
   "unlockCancelled": "That was cancelled. Tap Unlock when you're ready.",
   "@unlockCancelled": {
     "description": "Shown when the user dismissed the phone's unlock dialog, or the system took it away."
   },
-
   "unlockTooManyTries": "Too many tries. Wait a moment, then try again.",
   "@unlockTooManyTries": {
     "description": "Shown when the device has rate-limited unlock attempts and waiting clears it."
   },
-
   "unlockUsePinInstead": "Too many fingerprint tries. Use your device PIN or pattern.",
   "@unlockUsePinInstead": {
     "description": "Shown when biometrics are locked until a device credential is used."
   },
-
   "unlockError": "The phone couldn't ask for that just now. Try again.",
   "@unlockError": {
     "description": "Shown when the unlock attempt failed for a device-level reason that is nothing the user did."
   },
-
   "unlockCannotEnforce": "This phone has no PIN, pattern or fingerprint set, so Garfin can't ask for one. Set one up in the phone's settings if you'd like Garfin to ask.",
   "@unlockCannotEnforce": {
     "description": "Shown when the device has no credential at all. Garfin cannot enforce a lock the phone does not have, and must not turn that into a lock-out — so this explains and lets the user through."
   },
-
   "unlockContinue": "Continue",
   "@unlockContinue": {
     "description": "Button that dismisses the 'this phone has no PIN' notice and opens the app."
   },
-
   "settingsUnlockTitle": "Unlock",
   "@settingsUnlockTitle": {
     "description": "Title of the Unlock section of Settings."
   },
-
   "settingsUnlockRequire": "Ask when Garfin opens",
   "@settingsUnlockRequire": {
     "description": "Switch that turns the unlock gate on and off."
   },
-
   "settingsUnlockRequireSubtitle": "Garfin holds an admin sign-in to your Jellyfin server.",
   "@settingsUnlockRequireSubtitle": {
     "description": "Why the switch is on by default. States a fact rather than making a promise."
   },
-
   "settingsUnlockTimeout": "Ask again after",
   "@settingsUnlockTimeout": {
     "description": "Heading for the idle-timeout choices."
   },
-
   "settingsUnlockTimeoutSubtitle": "How long Garfin can sit in the background before it asks again.",
   "@settingsUnlockTimeoutSubtitle": {
     "description": "Explains what the idle timeout measures."
   },
-
   "unlockTimeoutImmediate": "Straight away",
   "@unlockTimeoutImmediate": {
     "description": "The zero-length idle timeout: ask every time Garfin comes back to the foreground."
   },
-
   "unlockTimeoutMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
   "@unlockTimeoutMinutes": {
     "description": "An idle timeout of a whole number of minutes.",
@@ -289,5 +237,120 @@
         "example": "2"
       }
     }
+  },
+  "kidsTitle": "Kids",
+  "@kidsTitle": {
+    "description": "Title of the Kids screen, which lists children and their shortlists."
+  },
+  "kidsNoShortlistHeading": "No shortlist yet",
+  "@kidsNoShortlistHeading": {
+    "description": "Heading above the list of accounts that have no shortlist tags set."
+  },
+  "kidsNoShortlistExplanation": "Set their shortlist up in Jellyfin first, then come back here.",
+  "@kidsNoShortlistExplanation": {
+    "description": "Explains why these accounts are listed but cannot be acted on. Garfin cannot give a child their first label; that is a policy write. Deliberately says nothing about why, per docs/UI-SPEC.md."
+  },
+  "kidsVisibleOfTotal": "{visible} of {total} things visible",
+  "@kidsVisibleOfTotal": {
+    "description": "Count on a child's card. Both numbers come from the server, never computed here.",
+    "placeholders": {
+      "visible": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "kidsModeAllowList": "Shortlist",
+  "@kidsModeAllowList": {
+    "description": "Chip on a card whose account uses AllowedTags: the child sees only what is tagged."
+  },
+  "kidsModeBlockList": "Blocklist",
+  "@kidsModeBlockList": {
+    "description": "Chip on a card whose account uses BlockedTags: the child sees everything except what is tagged."
+  },
+  "kidsModeConflicting": "Both lists are set",
+  "@kidsModeConflicting": {
+    "description": "Shown when a Jellyfin account has both AllowedTags and BlockedTags populated. Garfin refuses to guess which applies."
+  },
+  "kidsModeConflictingDetail": "This account has a shortlist and a blocklist at the same time. Sort it out in Jellyfin — Garfin can't tell which one you meant.",
+  "@kidsModeConflictingDetail": {
+    "description": "Explains the conflicting-lists state and what to do about it."
+  },
+  "kidsAgeYears": "{years} years old",
+  "@kidsAgeYears": {
+    "description": "Age on a child's card, worked out from the birth year the parent entered.",
+    "placeholders": {
+      "years": {
+        "type": "int"
+      }
+    }
+  },
+  "kidsAgeUnknown": "Add a birth year",
+  "@kidsAgeUnknown": {
+    "description": "Shown in place of an age when no birth year has been entered. Jellyfin does not store one."
+  },
+  "kidsRatingCap": "Up to {rating}",
+  "@kidsRatingCap": {
+    "description": "The child's parental rating cap, named from the server's own rating list.",
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      }
+    }
+  },
+  "kidsRatingCapValue": "Rating limit {value}",
+  "@kidsRatingCapValue": {
+    "description": "Fallback when the server's rating list has no entry for the child's cap. Shows the raw number rather than guessing a nearby name.",
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "kidsRatingCapNone": "No rating limit",
+  "@kidsRatingCapNone": {
+    "description": "Shown when a child's account has no parental rating cap set."
+  },
+  "kidsBirthYearTitle": "Birth year",
+  "@kidsBirthYearTitle": {
+    "description": "Title of the dialog where the parent types a child's birth year."
+  },
+  "kidsBirthYearHelp": "Jellyfin doesn't store this, so Garfin keeps it on this phone. The year is enough.",
+  "@kidsBirthYearHelp": {
+    "description": "Explains why the birth year is asked for and that it stays on the device."
+  },
+  "kidsBirthYearInvalid": "Enter a year between {min} and {max}.",
+  "@kidsBirthYearInvalid": {
+    "description": "Validation message for the birth year field.",
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "kidsBirthYearClear": "Remove",
+  "@kidsBirthYearClear": {
+    "description": "Button that forgets a stored birth year."
+  },
+  "kidsEmpty": "No accounts on this server yet.",
+  "@kidsEmpty": {
+    "description": "Shown when the server reports no users at all."
+  },
+  "kidsRetry": "Try again",
+  "@kidsRetry": {
+    "description": "Button that reloads the Kids screen after an error."
+  },
+  "saveAction": "Save",
+  "@saveAction": {
+    "description": "Confirms a dialog."
+  },
+  "cancelAction": "Cancel",
+  "@cancelAction": {
+    "description": "Dismisses a dialog without changing anything."
   }
 }

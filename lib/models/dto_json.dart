@@ -48,3 +48,34 @@ Map<String, dynamic>? readMap(Map<String, dynamic> json, String name) {
   final value = readField(json, name);
   return value is Map<String, dynamic> ? value : null;
 }
+
+/// [readField] for an integer, where **absent and null are the same answer**.
+///
+/// `MaxParentalRating` is the reason this returns `int?` rather than defaulting.
+/// Measured on 10.11.11: it is an integer for a capped child and `null` for an
+/// uncapped one — and `null` means *no cap*, which is the opposite of the
+/// restrictive reading. Defaulting it to `0` would invent the strictest
+/// possible cap out of a missing field.
+///
+/// Tolerates a JSON number arriving as a double, which `dart:convert` does for
+/// anything written `7.0`.
+int? readInt(Map<String, dynamic> json, String name) {
+  final value = readField(json, name);
+  if (value is int) return value;
+  if (value is double) return value.toInt();
+  return null;
+}
+
+/// [readField] for a list of strings, absent or wrong-typed meaning empty.
+///
+/// Empty is the right default here and not a fudge: measured on 10.11.11,
+/// `AllowedTags` and `BlockedTags` are **always present as arrays**, empty
+/// rather than null, on every user including the administrator. So an absent
+/// one is a server that changed, and "no tags" is both the honest reading and
+/// the one that leaves a user out of shortlist control rather than inventing
+/// one for them.
+List<String> readStringList(Map<String, dynamic> json, String name) {
+  final value = readField(json, name);
+  if (value is! List) return const [];
+  return value.whereType<String>().toList(growable: false);
+}

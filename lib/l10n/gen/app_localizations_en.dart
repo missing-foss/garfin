@@ -198,4 +198,80 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get kidsTitle => 'Kids';
+
+  @override
+  String get kidsNoShortlistHeading => 'No shortlist yet';
+
+  @override
+  String get kidsNoShortlistExplanation =>
+      'Set their shortlist up in Jellyfin first, then come back here.';
+
+  @override
+  String kidsVisibleOfTotal(int visible, int total) {
+    return '$visible of $total things visible';
+  }
+
+  @override
+  String get kidsModeAllowList => 'Shortlist';
+
+  @override
+  String get kidsModeBlockList => 'Blocklist';
+
+  @override
+  String get kidsModeConflicting => 'Both lists are set';
+
+  @override
+  String get kidsModeConflictingDetail =>
+      'This account has a shortlist and a blocklist at the same time. Sort it out in Jellyfin — Garfin can\'t tell which one you meant.';
+
+  @override
+  String kidsAgeYears(int years) {
+    return '$years years old';
+  }
+
+  @override
+  String get kidsAgeUnknown => 'Add a birth year';
+
+  @override
+  String kidsRatingCap(String rating) {
+    return 'Up to $rating';
+  }
+
+  @override
+  String kidsRatingCapValue(int value) {
+    return 'Rating limit $value';
+  }
+
+  @override
+  String get kidsRatingCapNone => 'No rating limit';
+
+  @override
+  String get kidsBirthYearTitle => 'Birth year';
+
+  @override
+  String get kidsBirthYearHelp =>
+      'Jellyfin doesn\'t store this, so Garfin keeps it on this phone. The year is enough.';
+
+  @override
+  String kidsBirthYearInvalid(int min, int max) {
+    return 'Enter a year between $min and $max.';
+  }
+
+  @override
+  String get kidsBirthYearClear => 'Remove';
+
+  @override
+  String get kidsEmpty => 'No accounts on this server yet.';
+
+  @override
+  String get kidsRetry => 'Try again';
+
+  @override
+  String get saveAction => 'Save';
+
+  @override
+  String get cancelAction => 'Cancel';
 }

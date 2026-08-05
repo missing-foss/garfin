@@ -195,14 +195,35 @@ logger must never receive tokens, passwords or Quick Connect secrets.
 **Verified against the implementation (2026-08-04, #19).** Two ways, because a
 static reading and a behavioural one fail differently.
 
-*Statically*, every write in `lib/` was enumerated — **eight `shared_preferences`
-call sites across three files**, which is the complete list:
+*Statically*, every write in `lib/` was enumerated — **eleven
+`shared_preferences` call sites across four files** (2026-08-05, updated for
+#33), which is the complete list:
 
 | File | Sites | Stored |
 |---|---|---|
 | `server_settings_store.dart` | 5 | server URL, user id, user name (and their removal on sign-out) |
 | `unlock_settings_store.dart` | 2 | whether the unlock gate is required (bool), the idle timeout (int seconds) |
 | `device_identity.dart` | 1 | `device_id` — see below |
+| `birth_year_store.dart` | 3 | a child's **birth year**, keyed by Jellyfin user id — write, clear, and the sweep `signOut` calls — see below |
+
+**The birth year is the one thing Garfin holds that Jellyfin does not.** Every
+other key above mirrors something the server already knows. Measured on
+10.11.11, `GET /Users` has **no `DateOfBirth`**, and nothing containing `Birth`
+appears in the user DTO, its `Policy` or its `Configuration` — so the age
+`docs/UI-SPEC.md` § Kids asks for cannot come from the server, and the parent
+types it here instead.
+
+Deliberately the **year alone**, not a date of birth: a rating cap is never
+applied at a finer resolution, and this is a child's personal data, so storing
+less is the design rather than a shortcut. It is entered by the parent, stays
+on the device, and is never sent anywhere — Garfin never writes a user policy
+(ground rule 8) and there is no field for it on the server in any case. It is
+cleared on sign-out along with the rest, because user ids are per-server.
+
+Worth naming as a sequence: this landed *after* backup and device-to-device
+transfer were switched off (#35), not before. Had the order been reversed, the
+first release carrying it would have made children's birth years eligible for
+Auto Backup by default.
 
 `flutter_secure_storage` is written at exactly one site, `token_store.dart`,
 under one key, with the access token. The logger is called at seven sites, and

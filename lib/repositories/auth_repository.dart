@@ -6,6 +6,7 @@ import '../logging.dart';
 import '../models/auth_session.dart';
 import '../models/authentication_result.dart';
 import '../models/jellyfin_user.dart';
+import 'birth_year_store.dart';
 import 'jellyfin_api.dart';
 import 'jellyfin_exception.dart';
 import 'quick_connect_session.dart';
@@ -33,6 +34,7 @@ class AuthRepository {
     required this._apiFactory,
     required this._tokenStore,
     required this._settings,
+    required this._birthYears,
   });
 
   final JellyfinApiFactory _apiFactory;
@@ -42,6 +44,9 @@ class AuthRepository {
 
   /// `shared_preferences`. Server address and account name — nothing secret.
   final ServerSettingsStore _settings;
+
+  /// Birth years the parent typed. Account-scoped, so sign-out forgets them.
+  final BirthYearStore _birthYears;
 
   /// The last address the user signed in against, if any.
   String? get rememberedServerUrl => _settings.serverUrl;
@@ -158,6 +163,10 @@ class AuthRepository {
   Future<void> signOut() async {
     await _tokenStore.clear();
     await _settings.clearUser();
+    // Birth years are keyed by Jellyfin user id, and ids are per-server.
+    // Leaving them would at best be dead keys and at worst attach one
+    // household's ages to another's accounts after a server change.
+    await _birthYears.clearAll();
   }
 
   JellyfinApi _anonymous(String serverUrl) =>

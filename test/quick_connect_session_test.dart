@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/repositories/auth_repository.dart';
+import 'package:garfin/repositories/birth_year_store.dart';
 import 'package:garfin/repositories/device_identity.dart';
 import 'package:garfin/repositories/jellyfin_api.dart';
 import 'package:garfin/repositories/jellyfin_exception.dart';
@@ -83,6 +84,7 @@ void main() {
       apiFactory: JellyfinApiFactory(identity: identity, adapter: server),
       tokenStore: const SecureTokenStore(FlutterSecureStorage()),
       settings: ServerSettingsStore(prefs),
+      birthYears: BirthYearStore(prefs),
     );
 
     final session = sessionFor(server);
