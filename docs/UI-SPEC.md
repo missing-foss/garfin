@@ -85,6 +85,13 @@ If the **pre-flight** fails instead, the sheet says so in different words — no
 all, and the difference between "untouched" and "half done" is the whole reason the pre-flight
 exists.
 
+**That report is written per direction, and it has to be.** A removal reaches it too — the
+container's label comes off first, so a container write that fails while every title succeeds ends
+there. Labels left *on* the container mean the child keeps a collection that is now empty; labels
+left *off* it mean they have the films and no set to find them in. Those are opposite sentences,
+and the reversing button is "remove all" after an addition and "put it all back" after a removal —
+naming the other one would name the opposite of what pressing it does.
+
 ### How Undo works — everywhere it appears
 
 **Undo is a new forward write, never a restore.** Fresh `GET /Users/{adminId}/Items/{itemId}`,

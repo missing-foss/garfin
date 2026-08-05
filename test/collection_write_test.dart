@@ -222,6 +222,29 @@ void main() {
           reason: 'the container label means the whole set is there');
     });
 
+    test('a failed container on a removal leaves the set marked and no failures',
+        () async {
+      // The state the fix-forward panel has to describe in the *other*
+      // direction, and the reason it can: removals write the container first,
+      // so a container that refuses while every member succeeds ends the batch
+      // with nothing failed and the set still labelled. Measured consequence —
+      // the child keeps the collection and finds it empty.
+      scriptSet(tags: <String>['scraper-tag', 'kids-emma']);
+      server.on('/Items/set-1', status: 400);
+
+      final outcome = await repository.applyToCollection(
+        collectionId: 'set-1',
+        memberIds: members,
+        diff: take,
+      );
+
+      expect(outcome.failed, isEmpty);
+      expect(outcome.written, members);
+      expect(outcome.setMarked, isFalse);
+      expect(outcome.isComplete, isFalse,
+          reason: 'the films are unlabelled and the container is not');
+    });
+
     test('a retry finishes the rest, and is safe over the ones already done',
         () async {
       scriptSet();

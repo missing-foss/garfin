@@ -605,14 +605,36 @@
       }
     }
   },
-  "assignBatchSetIncomplete": "All {count} titles changed, but the collection itself didn't. The films are there; the set isn't.",
+  "assignBatchSetIncomplete": "All {count} titles changed, but the collection itself didn't.",
   "@assignBatchSetIncomplete": {
-    "description": "The other half-done state: every member took the change and the container did not. Measured — the child then sees the films but cannot reach the collection, which is why this is not treated as finished.",
+    "description": "The other half-done state: every member took the change and the container did not. Used when the diff went both ways at once, so nothing directional can be said about what the child now sees. The two directional versions below carry the consequence.",
     "placeholders": {
       "count": {
         "type": "int"
       }
     }
+  },
+  "assignBatchSetIncompleteAdded": "All {count} titles are labelled, but the collection itself isn't. The films are there; the set isn't.",
+  "@assignBatchSetIncompleteAdded": {
+    "description": "Labels went on to every title and not to the container. Measured — the child gets the films while the collection stays absent from their library, so this is not finished.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "assignBatchSetIncompleteRemoved": "All {count} titles are unlabelled, but the collection itself still is. The films are gone; the set is still there, and it will look empty.",
+  "@assignBatchSetIncompleteRemoved": {
+    "description": "The mirror image, and it must not be described as the one above. Labels came off every title and not off the container, so — measured — the child keeps the collection and finds nothing inside it.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "assignBatchPutBack": "Put it all back",
+  "@assignBatchPutBack": {
+    "description": "The reversing button when the change was a removal, or went both ways: reversing it puts labels back on. Saying 'Remove all' there would name the opposite of what the button does."
   },
   "assignBatchFinish": "Finish the rest",
   "@assignBatchFinish": {

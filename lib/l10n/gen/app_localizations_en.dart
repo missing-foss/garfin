@@ -422,8 +422,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String assignBatchSetIncomplete(int count) {
-    return 'All $count titles changed, but the collection itself didn\'t. The films are there; the set isn\'t.';
+    return 'All $count titles changed, but the collection itself didn\'t.';
   }
+
+  @override
+  String assignBatchSetIncompleteAdded(int count) {
+    return 'All $count titles are labelled, but the collection itself isn\'t. The films are there; the set isn\'t.';
+  }
+
+  @override
+  String assignBatchSetIncompleteRemoved(int count) {
+    return 'All $count titles are unlabelled, but the collection itself still is. The films are gone; the set is still there, and it will look empty.';
+  }
+
+  @override
+  String get assignBatchPutBack => 'Put it all back';
 
   @override
   String get assignBatchFinish => 'Finish the rest';

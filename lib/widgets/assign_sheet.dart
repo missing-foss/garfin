@@ -19,6 +19,7 @@ import '../providers/collection_providers.dart';
 import '../providers/kids_providers.dart';
 import '../providers/library_providers.dart';
 import '../repositories/assign_repository.dart';
+import 'batch_result_notice.dart';
 import 'collection_prompt.dart';
 
 /// Build order steps 5 and 6. The only place a tag write is previewed and
@@ -220,57 +221,30 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
   }
 
   /// Ground rule 5's fix-forward offer, in place of Apply.
-  Widget _fixForward(_Unfinished unfinished) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
-    final outcome = unfinished.outcome;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          outcome.failed.isEmpty
-              ? l10n.assignBatchSetIncomplete(outcome.total)
-              : l10n.assignBatchPartial(outcome.written.length, outcome.total),
-          style: theme.textTheme.bodyMedium,
+  ///
+  /// The words live in [BatchResultNotice], which has to know which way the
+  /// change went: reversing an addition removes labels and reversing a removal
+  /// puts them back, and the container being left marked or unmarked means
+  /// opposite things to the child.
+  Widget _fixForward(_Unfinished unfinished) => BatchResultNotice(
+        outcome: unfinished.outcome,
+        diff: unfinished.diff,
+        enabled: !_applying,
+        // The same write again. Tag writes are idempotent, so the titles that
+        // landed are untouched and the ones that did not are retried — which is
+        // the whole of "retry that item".
+        onFinish: () => _runBatch(
+          unfinished.set,
+          unfinished.diff,
+          libraryTotal: unfinished.libraryTotal,
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                // A forward removal across the set, not a restore of anything.
-                onPressed: _applying
-                    ? null
-                    : () => _runBatch(
-                          unfinished.set,
-                          AssignRepository.reverse(unfinished.diff),
-                          libraryTotal: unfinished.libraryTotal,
-                        ),
-                child: Text(l10n.assignBatchRemoveAll),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                // The same write again. Tag writes are idempotent, so the ones
-                // that landed are untouched and the ones that did not are
-                // retried — which is the whole of "retry that item".
-                onPressed: _applying
-                    ? null
-                    : () => _runBatch(
-                          unfinished.set,
-                          unfinished.diff,
-                          libraryTotal: unfinished.libraryTotal,
-                        ),
-                child: Text(l10n.assignBatchFinish),
-              ),
-            ),
-          ],
+        // A fresh forward write in the other direction, not a restore.
+        onReverse: () => _runBatch(
+          unfinished.set,
+          AssignRepository.reverse(unfinished.diff),
+          libraryTotal: unfinished.libraryTotal,
         ),
-      ],
-    );
-  }
+      );
 
   Widget _row(AssignRow row) {
     final theme = Theme.of(context);

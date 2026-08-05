@@ -424,8 +424,21 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String assignBatchSetIncomplete(int count) {
-    return 'Les $count titres ont été modifiés, mais pas la collection elle-même. Les films sont là ; l\'ensemble ne l\'est pas.';
+    return 'Les $count titres ont été modifiés, mais pas la collection elle-même.';
   }
+
+  @override
+  String assignBatchSetIncompleteAdded(int count) {
+    return 'Les $count titres sont étiquetés, mais pas la collection elle-même. Les films sont là ; l\'ensemble ne l\'est pas.';
+  }
+
+  @override
+  String assignBatchSetIncompleteRemoved(int count) {
+    return 'Les étiquettes ont été retirées des $count titres, mais pas de la collection. Les films ne sont plus là ; l\'ensemble y est encore, et il paraîtra vide.';
+  }
+
+  @override
+  String get assignBatchPutBack => 'Tout remettre';
 
   @override
   String get assignBatchFinish => 'Terminer le reste';

@@ -420,6 +420,14 @@ class JellyfinApi {
   /// that trusted the status, or trusted that a JSON object came back, would
   /// then post the root folder's body to `/Items/00000…`. Comparing the `Id` is
   /// one line and it fails closed.
+  ///
+  /// **[itemId] must be canonical** — 32 hex digits, lower case, no dashes, as
+  /// every id in this app is, because every one of them came out of a server
+  /// response. Jellyfin accepts a dashed or upper-case GUID and answers with the
+  /// canonical form, so the string comparison below would reject a *correct*
+  /// item. That fails closed — a refused read, never a wrong write — but it
+  /// would be a puzzling afternoon for whoever first hands this an id typed by
+  /// hand or lifted out of a deep link.
   Future<Map<String, dynamic>> fullItem({
     required String userId,
     required String itemId,

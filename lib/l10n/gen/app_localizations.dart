@@ -758,11 +758,29 @@ abstract class AppLocalizations {
   /// **'{done} of {total} titles changed.'**
   String assignBatchPartial(int done, int total);
 
-  /// The other half-done state: every member took the change and the container did not. Measured — the child then sees the films but cannot reach the collection, which is why this is not treated as finished.
+  /// The other half-done state: every member took the change and the container did not. Used when the diff went both ways at once, so nothing directional can be said about what the child now sees. The two directional versions below carry the consequence.
   ///
   /// In en, this message translates to:
-  /// **'All {count} titles changed, but the collection itself didn\'t. The films are there; the set isn\'t.'**
+  /// **'All {count} titles changed, but the collection itself didn\'t.'**
   String assignBatchSetIncomplete(int count);
+
+  /// Labels went on to every title and not to the container. Measured — the child gets the films while the collection stays absent from their library, so this is not finished.
+  ///
+  /// In en, this message translates to:
+  /// **'All {count} titles are labelled, but the collection itself isn\'t. The films are there; the set isn\'t.'**
+  String assignBatchSetIncompleteAdded(int count);
+
+  /// The mirror image, and it must not be described as the one above. Labels came off every title and not off the container, so — measured — the child keeps the collection and finds nothing inside it.
+  ///
+  /// In en, this message translates to:
+  /// **'All {count} titles are unlabelled, but the collection itself still is. The films are gone; the set is still there, and it will look empty.'**
+  String assignBatchSetIncompleteRemoved(int count);
+
+  /// The reversing button when the change was a removal, or went both ways: reversing it puts labels back on. Saying 'Remove all' there would name the opposite of what the button does.
+  ///
+  /// In en, this message translates to:
+  /// **'Put it all back'**
+  String get assignBatchPutBack;
 
   /// Retries the titles that failed. Tag writes are idempotent, so this is safe to press twice.
   ///
