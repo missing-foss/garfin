@@ -106,12 +106,22 @@ avoid overclaiming and still didn't survive its own grep, because the l10n
 files were never in it. Claim what is true — nothing names a destination — not
 what is merely tidy.
 
-**Still not verified:** that this is what happens on the wire. A packet capture
-is outstanding (#19) and is the only thing that can close it, since "no other
-host is contacted" is a runtime claim and everything above is a reading of the
-source. Note for whoever runs it: capture a **release** build. Debug and release
-differ in ways that have already bitten this project once — see § Release
-signing and #30.
+**Verified (2026-08-05), at runtime.** Everything above this line is a reading
+of the source, and "no other host is contacted" is a claim about what happens
+on the wire, so it needed runtime evidence. Signed in against a throwaway
+Jellyfin 10.11.11 over Quick Connect: 35 socket samples for Garfin's uid across
+60s and two cold restarts with session restore resolved to exactly **one**
+remote endpoint — the server signed in to — with no UDP. Numbers, the idle
+case, and the positive control that makes them mean something are in
+§ No telemetry.
+
+This paragraph used to ask for a packet capture. The method is per-UID socket
+sampling instead, deliberately: on an image whose system talks to Google
+constantly, a whole-device capture cannot separate Garfin's packets from
+everything else's, while `/proc/net/{tcp,tcp6,udp,udp6}` and `dumpsys netstats`
+filtered to the app's uid attribute by construction. The measurement was run
+against a **release** build — debug and release differ in ways that have
+already bitten this project once, see § Release signing and #30.
 
 ### Cleartext HTTP needs no exemption, and must not be given one
 
