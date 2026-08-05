@@ -32,10 +32,31 @@ tree in `pubspec.lock` — 110 packages, not just the direct dependencies in
 `pubspec.yaml` — found no analytics, telemetry, crash-reporting or attribution
 SDK.
 
-**Not yet verified:** the runtime half. A `tcpdump` capture against an idle
-install, confirming no unexpected outbound connections, is **outstanding** and
-must be done once there is a running app to capture. Until then this section
-documents an audited dependency tree, not observed network silence.
+**Verified (2026-08-05), at runtime:** the release APK on an emulator —
+Android 16, API 36, `sdk_gphone64_x86_64`.
+
+Attribution is **per-UID, not per-packet**. A capture of the whole device
+cannot separate Garfin's traffic from the system's, and this image talks to
+Google constantly; Garfin ran as uid 10216, so network activity is read from
+`dumpsys netstats detail` and `/proc/net/{tcp,tcp6,udp,udp6}` filtered to that
+uid.
+
+- **Idle, not signed in.** From install through launch, unlock, the sign-in
+  screen, two minutes backgrounded and a resume: **zero** netstats entries and
+  **zero** sockets for uid 10216. In the same window 23 other UIDs recorded
+  traffic, which is what makes that zero evidence rather than a mis-aimed
+  query.
+- **Signed in.** Against a throwaway Jellyfin 10.11.11 over Quick Connect, 35
+  socket samples across 60s and two cold restarts with session restore
+  resolved to exactly **one** remote endpoint — the server signed in to — and
+  no UDP. This doubles as the positive control for the bullet above: the same
+  query goes from zero to non-zero the moment there is a server to talk to.
+
+**What that does not cover:** the test server was addressed by IP over plain
+HTTP, so no name resolution happened. A deployment addressed by hostname
+resolves through the system resolver under a different uid, which a per-UID
+method cannot see. This says Garfin opens no socket to anywhere but its
+server; it does not say Garfin never causes a DNS lookup.
 
 Note for contributors: Flutter's *tooling* reports usage analytics to Google by
 default. That is the `flutter` command on a developer's machine, not anything
@@ -242,15 +263,25 @@ Limits worth stating plainly:
 - The app stays mounted behind the gate so a relock does not discard what the user was in the
   middle of. It is covered by an opaque screen, made untouchable, and hidden from screen readers,
   but it is not unmounted.
-- **The recents thumbnail is not covered, and screenshots are not restricted.** `FLAG_SECURE` is
-  not set. The gate locks on *resume*, never on the way out, so Android captures its task snapshot
-  while Garfin is still showing unlocked content — someone who is handed the phone can read the
-  last screen off the task switcher without ever meeting the lock screen. Today that screen is a
-  placeholder, but the Kids screen, the library grid and per-child policy are the screens this
-  gate exists for, and they arrive at steps 3–5. **Decide this before they do.** Setting
-  `FLAG_SECURE` is the usual answer and costs the parent their own screenshots and casting;
-  covering on `paused` is racy against when the snapshot is taken. Argued from documented Android
-  behaviour, not measured — there is no device here to measure it on.
+- **The recents thumbnail is covered: `MainActivity` sets `FLAG_SECURE`.** Measured first, then
+  chosen — the reasoning and the rejected alternatives are in `docs/DECISIONS.md`.
+
+  **Measured without the flag (2026-08-05, emulator, Android 16, release build).** The gate locks
+  on *resume*, never on the way out, so Android snapshotted the window while Garfin was still
+  showing unlocked content and wrote it to `/data/system_ce/0/snapshots/<taskId>.jpg`. The file
+  held the full screen, including text typed into the sign-in field. It is worse than a live
+  thumbnail: after more than the idle timeout it was **still on disk byte-identical**, while
+  reopening the app raised a fresh authentication prompt. The app relocks; the snapshot does not.
+
+  **Measured with the flag, same build and device otherwise unchanged.** The window reports
+  `SECURE` in its `dumpsys window` flags. A snapshot file is **still written — it is blank, not
+  absent**: 3 distinct colours and 94.7% white, against 6102 distinct colours for the same screen
+  before. `screencap` of the foregrounded app comes back 99.8% pure black. Anyone re-checking this
+  should test *what is in the file*, because "a snapshot exists" stays true either way.
+
+  **The cost is real and accepted:** the parent cannot screenshot Garfin or mirror it to another
+  screen. Weighed against an admin token on a phone handed to children by design, which is what
+  ground rule 9 exists for, that trade is deliberate.
 
 **Verified (2026-08-03), in tests:** cold start locks; a wrong attempt keeps the gate up and does
 not retry on its own; resume after longer than the timeout relocks and resume inside it does not;

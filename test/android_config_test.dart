@@ -70,4 +70,26 @@ void main() {
       isNot(contains('io.flutter.embedding.android.FlutterActivity')),
     );
   });
+
+  test('MainActivity sets FLAG_SECURE', () {
+    // Issue #26. Without it Android writes the window to
+    // /data/system_ce/0/snapshots/<taskId>.jpg on the way out, and that file
+    // outlives the idle timeout — so the switcher shows unlocked content back
+    // while resume demands auth. Ground rule 9.
+    //
+    // Comments stripped first, for the same reason the manifest ones are: the
+    // comment above the flag explains it at length and names it repeatedly, so
+    // a bare `contains` would pass on the prose alone with the call deleted.
+    // Checked by deleting the `addFlags` line and watching this fail.
+    //
+    // This asserts the source, which is all a unit test can reach. That the
+    // system then declines to snapshot is a runtime property, verified on a
+    // device by pulling the snapshot directory — see SECURITY.md.
+    final activity = File(
+      'android/app/src/main/kotlin/com/mfoss/garfin/MainActivity.kt',
+    ).readAsStringSync().replaceAll(RegExp(r'//.*'), '');
+
+    expect(activity, contains('FLAG_SECURE'));
+    expect(activity, contains('addFlags'));
+  });
 }
