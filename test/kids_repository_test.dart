@@ -31,6 +31,7 @@ void main() {
     List<String> blocked = const [],
     Object? maxParentalRating,
     bool admin = false,
+    bool disabled = false,
     String? primaryImageTag,
   }) =>
       <String, dynamic>{
@@ -39,7 +40,7 @@ void main() {
         'PrimaryImageTag': ?primaryImageTag,
         'Policy': <String, dynamic>{
           'IsAdministrator': admin,
-          'IsDisabled': false,
+          'IsDisabled': disabled,
           'AllowedTags': allowed,
           'BlockedTags': blocked,
           'MaxParentalRating': maxParentalRating,
@@ -68,9 +69,16 @@ void main() {
         json: ratingsFail
             ? null
             : <Object>[
+                // Values are the measured ones, not invented: on 10.11.11's
+                // default US ladder PG sits at 10, not 7, and score 0 is
+                // shared four ways. A tidier fixture would have hidden the
+                // collision the real ladder has.
                 <String, dynamic>{'Name': 'Unrated'},
-                <String, dynamic>{'Name': 'PG', 'Value': 7},
-                <String, dynamic>{'Name': 'PG-13', 'Value': 13},
+                <String, dynamic>{'Name': 'Approved', 'Value': 0},
+                <String, dynamic>{'Name': 'G', 'Value': 0},
+                <String, dynamic>{'Name': 'TV-Y7', 'Value': 7},
+                <String, dynamic>{'Name': 'PG', 'Value': 10},
+                <String, dynamic>{'Name': 'TV-PG', 'Value': 10},
               ],
       )
       ..fallback(json: <String, dynamic>{'TotalRecordCount': 10});
@@ -135,7 +143,7 @@ void main() {
     test('resolves through the ladder, tolerating a valueless first entry',
         () async {
       await build(
-        users: [user('k1', 'Emma', allowed: ['t'], maxParentalRating: 7)],
+        users: [user('k1', 'Emma', allowed: ['t'], maxParentalRating: 10)],
       );
       final overview = await repository.load();
 
@@ -166,7 +174,7 @@ void main() {
     test('a ladder that fails to load does not take the screen down',
         () async {
       await build(
-        users: [user('k1', 'Emma', allowed: ['t'], maxParentalRating: 7)],
+        users: [user('k1', 'Emma', allowed: ['t'], maxParentalRating: 10)],
         ratingsFail: true,
       );
 
@@ -175,7 +183,7 @@ void main() {
       // The cap still exists and is still enforced by the server; only its
       // name is missing.
       expect(overview.shortlisted.single.ratingCapName, isNull);
-      expect(overview.shortlisted.single.user.policy.maxParentalRating, 7);
+      expect(overview.shortlisted.single.user.policy.maxParentalRating, 10);
     });
   });
 
@@ -210,6 +218,34 @@ void main() {
     });
   });
 
+  group('fields with no consumer yet', () {
+    test('IsDisabled is parsed, and a disabled child still gets a card', () {
+      // Nothing reads this today. Asserted anyway, because a field with no
+      // consumer is how a field ends up wrong without anyone noticing — and
+      // because the rendering choice (still show them) is deliberate rather
+      // than an oversight: hiding a child would make them vanish for a reason
+      // the screen never states.
+      final policy = UserPolicy.fromJson(<String, dynamic>{
+        'IsAdministrator': false,
+        'IsDisabled': true,
+        'AllowedTags': <String>['t'],
+      });
+
+      expect(policy.isDisabled, isTrue);
+      expect(policy.shortlistMode, ShortlistMode.allow);
+    });
+
+    test('a disabled child is not silently dropped from the screen', () async {
+      await build(
+        users: [user('k1', 'Emma', allowed: ['t'], disabled: true)],
+      );
+      final overview = await repository.load();
+
+      expect(overview.shortlisted.single.user.policy.isDisabled, isTrue);
+      expect(overview.withoutShortlist, isEmpty);
+    });
+  });
+
   group('avatars', () {
     test('a user with no PrimaryImageTag gets no URL to request', () async {
       // Measured: the key is absent, not null, when there is no avatar. A 404
@@ -235,15 +271,42 @@ void main() {
 
   group('the ladder parser directly', () {
     test('an entry with no Value is skipped rather than read as zero', () {
+      // 'Unrated' is the real valueless entry, and it is entry zero on a
+      // default install. Score 0 is deliberately absent from this fixture so
+      // the assertion below is about the valueless rung and nothing else — an
+      // earlier version had no rung at 0 at all, which made the same
+      // expectation pass for the wrong reason.
       final ladder = ParentalRatingLadder.fromJson(<Object>[
         <String, dynamic>{'Name': 'Unrated'},
-        <String, dynamic>{'Name': 'PG', 'Value': 7},
+        <String, dynamic>{'Name': 'PG', 'Value': 10},
       ]);
 
       expect(ladder.ratings.first.value, isNull);
       // A rung with no score is not a rung at score nothing.
       expect(ladder.nameFor(0), isNull);
-      expect(ladder.nameFor(7), 'PG');
+      expect(ladder.nameFor(10), 'PG');
+    });
+
+    test('a shared score resolves to the first name, and that is documented',
+        () {
+      // Measured on the real ladder: six scores carry more than one name, and
+      // they are the common ones — 0 is shared four ways, 10 seventeen ways,
+      // 17 ten ways. Jellyfin stores only the integer, so which label the
+      // parent clicked is unrecoverable.
+      //
+      // Every name at a score is the SAME cap, so a first-match name is
+      // accurate about the policy even when it is not the label that was
+      // clicked. That is what separates it from the missing-rung case, which
+      // returns null.
+      final ladder = ParentalRatingLadder.fromJson(<Object>[
+        <String, dynamic>{'Name': 'Approved', 'Value': 0},
+        <String, dynamic>{'Name': 'G', 'Value': 0},
+        <String, dynamic>{'Name': 'TV-G', 'Value': 0},
+      ]);
+
+      expect(ladder.namesFor(0), ['Approved', 'G', 'TV-G']);
+      // Pinned rather than incidental: server order, first match.
+      expect(ladder.nameFor(0), 'Approved');
     });
 
     test('null in, null out — an uncapped child has nothing to name', () {

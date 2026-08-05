@@ -52,6 +52,19 @@ class UserPolicy {
   /// account — see `AuthRepository` and `docs/JELLYFIN-API.md` § Measured.
   final bool isAdministrator;
 
+  /// Parsed, and deliberately not yet acted on.
+  ///
+  /// A disabled account still gets a card and a count, and that is the honest
+  /// rendering: the policy is real, the tags are real, and the server would
+  /// apply both the moment the account was re-enabled. Hiding it would make a
+  /// child silently vanish from the Kids screen for a reason the screen never
+  /// states.
+  ///
+  /// Flagged because a field with no consumer is how a field ends up wrong
+  /// without anyone noticing, so its parsing is asserted in
+  /// `test/kids_repository_test.dart` even though nothing reads it. Revisit
+  /// when the Kid detail screen lands and has room to say "disabled in
+  /// Jellyfin" rather than merely behave differently.
   final bool isDisabled;
 
   /// The child sees *only* items carrying one of these. Ground rule 3.
