@@ -274,4 +274,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cancelAction => 'Cancel';
+
+  @override
+  String get libraryTitle => 'Library';
+
+  @override
+  String get libraryPickingFor => 'Picking for';
+
+  @override
+  String get libraryEveryone => 'Everyone';
+
+  @override
+  String libraryNotYetGiven(int count, String name) {
+    return '$count things $name hasn\'t got yet';
+  }
+
+  @override
+  String libraryItemCount(int count) {
+    return '$count things';
+  }
+
+  @override
+  String get libraryShowShared => 'Show shared';
+
+  @override
+  String get libraryHideShared => 'Hide shared';
+
+  @override
+  String get libraryEmpty => 'Nothing here yet.';
+
+  @override
+  String libraryNothingLeft(String name) {
+    return '$name has everything already.';
+  }
+
+  @override
+  String get libraryBadgeGiven => 'Given';
+
+  @override
+  String get libraryBadgeBlocked => 'Blocked';
+
+  @override
+  String get libraryBadgeHeldBack => 'Held back';
+
+  @override
+  String libraryHeldBackExplanation(String name) {
+    return '$name has this, but the server isn\'t showing it to them. Their age limit is the usual reason.';
+  }
+
+  @override
+  String libraryCollectionCount(int count) {
+    return '$count titles';
+  }
+
+  @override
+  String get libraryRetry => 'Try again';
 }

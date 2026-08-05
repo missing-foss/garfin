@@ -72,5 +72,20 @@
   "kidsEmpty": "Aucun compte sur ce serveur pour le moment.",
   "kidsRetry": "Réessayer",
   "saveAction": "Enregistrer",
-  "cancelAction": "Annuler"
+  "cancelAction": "Annuler",
+  "libraryTitle": "Médiathèque",
+  "libraryPickingFor": "Choix pour",
+  "libraryEveryone": "Tout le monde",
+  "libraryNotYetGiven": "{count} titres que {name} n'a pas encore",
+  "libraryItemCount": "{count} titres",
+  "libraryShowShared": "Afficher les partagés",
+  "libraryHideShared": "Masquer les partagés",
+  "libraryEmpty": "Rien ici pour le moment.",
+  "libraryNothingLeft": "{name} a déjà tout.",
+  "libraryBadgeGiven": "Donné",
+  "libraryBadgeBlocked": "Bloqué",
+  "libraryBadgeHeldBack": "Retenu",
+  "libraryHeldBackExplanation": "{name} a ce titre, mais le serveur ne le lui montre pas. La limite d'âge en est la raison habituelle.",
+  "libraryCollectionCount": "{count} titres",
+  "libraryRetry": "Réessayer"
 }

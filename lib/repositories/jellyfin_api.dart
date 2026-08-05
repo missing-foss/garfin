@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import '../models/authentication_result.dart';
 import '../models/dto_json.dart';
 import '../models/jellyfin_user.dart';
+import '../models/library_item.dart';
+import '../models/library_page.dart';
 import '../models/parental_rating.dart';
 import '../models/quick_connect.dart';
 import 'device_identity.dart';
@@ -220,6 +222,118 @@ class JellyfinApi {
             // Folders and collections would inflate the number with things a
             // parent does not think of as "titles".
             'IncludeItemTypes': 'Movie,Series',
+          },
+        );
+        return readInt(_asMap(response.data), 'TotalRecordCount') ?? 0;
+      });
+
+  /// One page of the library, as a given user sees it.
+  ///
+  /// `Fields=Tags` is not optional: without it the `Tags` key is **absent**
+  /// from every item, and the grid's whole shared/not-shared partition is
+  /// computed from it. Measured on 10.11.11.
+  Future<LibraryPage> libraryPage({
+    required String userId,
+    required int startIndex,
+    required int limit,
+    List<String> itemTypes = const ['Movie', 'Series', 'BoxSet'],
+  }) =>
+      _call(() async {
+        final response = await _dio.get<dynamic>(
+          '/Items',
+          queryParameters: <String, dynamic>{
+            'userId': userId,
+            'Recursive': true,
+            'StartIndex': startIndex,
+            'Limit': limit,
+            'IncludeItemTypes': itemTypes.join(','),
+            'Fields': 'Tags',
+            'SortBy': 'SortName',
+            'SortOrder': 'Ascending',
+          },
+        );
+        final data = _asMap(response.data);
+        final items = readField(data, 'Items');
+        return LibraryPage(
+          items: items is List
+              ? items
+                  .whereType<Map<String, dynamic>>()
+                  .map(LibraryItem.fromJson)
+                  .toList(growable: false)
+              : const [],
+          totalRecordCount: readInt(data, 'TotalRecordCount') ?? 0,
+          startIndex: startIndex,
+        );
+      });
+
+  /// Of [ids], the ones the server shows to [userId].
+  ///
+  /// **This is how visibility is decided, and it is the server deciding.**
+  /// Ground rule 4 forbids working it out from the item's rating and the
+  /// child's cap, which fails silently on unrated items, on a non-US ladder,
+  /// and on anything hidden for a reason that is not the cap at all — a folder
+  /// permission looks identical from here.
+  ///
+  /// Bounded by the page: `ids` is comma-delimited, so this asks about the
+  /// twenty-odd items on screen rather than the whole library.
+  ///
+  /// **No `Recursive=true`, deliberately.** Every other `/Items` call here
+  /// passes it, so its absence looks like an oversight — it is not. `ids=` is
+  /// its own lookup and does not consult the recursion flag. Measured on
+  /// 10.11.11 with items nested inside a library: three ids in, three back for
+  /// the admin and two for a capped child, identical with and without it.
+  ///
+  /// Adding it would be harmless but would enshrine a wrong reason, and the
+  /// failure it would appear to fix is worth knowing: had `ids=` needed
+  /// recursion, this would return an empty set — a *successful* empty response,
+  /// which the caller's fallback does not catch — and every labelled item on
+  /// the grid would render as held back.
+  Future<Set<String>> visibleIds({
+    required String userId,
+    required List<String> ids,
+  }) =>
+      _call(() async {
+        if (ids.isEmpty) return <String>{};
+        final response = await _dio.get<dynamic>(
+          '/Items',
+          queryParameters: <String, dynamic>{
+            'userId': userId,
+            'ids': ids.join(','),
+            'Limit': ids.length,
+            // Nothing here is rendered — only membership is read — so ask for
+            // as little as the endpoint will send.
+            'enableImages': false,
+            'enableUserData': false,
+          },
+        );
+        final data = _asMap(response.data);
+        final items = readField(data, 'Items');
+        if (items is! List) return <String>{};
+        return items
+            .whereType<Map<String, dynamic>>()
+            .map((item) => readString(item, 'Id') ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet();
+      });
+
+  /// How many items carry [tag], as the server counts them.
+  ///
+  /// A library query, not a visibility computation — the same distinction
+  /// ground rule 1 draws for the last-item warning. No cap enters into it.
+  Future<int> taggedItemCount({
+    required String userId,
+    required String tag,
+    List<String> itemTypes = const ['Movie', 'Series', 'BoxSet'],
+  }) =>
+      _call(() async {
+        final response = await _dio.get<dynamic>(
+          '/Items',
+          queryParameters: <String, dynamic>{
+            'userId': userId,
+            'Recursive': true,
+            'Limit': 0,
+            'tags': tag,
+            'IncludeItemTypes': itemTypes.join(','),
           },
         );
         return readInt(_asMap(response.data), 'TotalRecordCount') ?? 0;

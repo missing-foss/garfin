@@ -177,6 +177,30 @@ list would be confidently wrong for exactly the children who have a cap, and
 why `SECURITY.md` and the Kids screen both show the cap next to the tags — so a
 parent can see the reason rather than concluding Garfin is broken.
 
+### Measured, 2026-08-05 — an unrated item is not a low-rated one
+
+Three movies, two labelled for a child with `AllowedTags`. Setting
+`OfficialRating=R` on one of the labelled pair and `MaxParentalRating=7` on the
+child, then asking which of them the child can see:
+
+    before the cap  -> both labelled items
+    after  the cap  -> only one of them
+
+The item that stayed visible has **no `OfficialRating` at all** — the key is
+absent, not set to something low.
+
+That is the concrete case behind ground rule 4. Locally there is no way to tell
+*"unrated, therefore fine"* from *"rated above the cap"* without reimplementing
+the server's policy evaluation, and the two land on opposite sides of the
+answer. It is why the Library grid asks the server which items a child can see
+rather than comparing an item's rating to a child's cap.
+
+**`ids=` needs no `Recursive=true`.** It is its own lookup. Measured against
+items nested inside a library, the answer is identical with and without the
+flag — three ids in, three back for the administrator and two for a child
+restricted **by tags** either way, only two of the three being labelled. Every other `/Items` call here passes `Recursive`, so the
+omission looks like an oversight and is not.
+
     GET /Users/{id}/Views     -> libraries this user can reach
 
 ## Browsing
