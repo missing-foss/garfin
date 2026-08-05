@@ -197,8 +197,8 @@ rather than comparing an item's rating to a child's cap.
 
 **`ids=` needs no `Recursive=true`.** It is its own lookup. Measured against
 items nested inside a library, the answer is identical with and without the
-flag — three ids in, three back for the administrator and two for the capped
-child either way. Every other `/Items` call here passes `Recursive`, so the
+flag — three ids in, three back for the administrator and two for a child
+restricted **by tags** either way, only two of the three being labelled. Every other `/Items` call here passes `Recursive`, so the
 omission looks like an oversight and is not.
 
     GET /Users/{id}/Views     -> libraries this user can reach

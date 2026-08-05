@@ -78,13 +78,18 @@ class LibraryRepository {
   static const pageSize = 24;
   static const filteringWindow = 96;
 
-  /// How many times to refill before giving up and returning a short screen.
+  /// How many requests one call may make before giving up and returning a
+  /// short screen: one initial page plus five refills.
   ///
   /// A library where nearly everything is shared would otherwise walk the whole
   /// thing to fill one screen. A short screen with more still to come is a
   /// worse answer than a full one, and a much better answer than a stalled UI —
   /// and the caller can simply ask again.
-  static const maxRefills = 5;
+  ///
+  /// Counted as *fetches* rather than refills because the counter increments
+  /// after every request including the first. Naming it for refills while
+  /// counting fetches is what made the old `<=` guard read as an off-by-one.
+  static const maxFetches = 6;
 
   /// At least one screenful, for [child] or for everyone when null.
   ///
@@ -108,9 +113,9 @@ class LibraryRepository {
     var cursor = startIndex;
     var total = 0;
     var hasMore = true;
-    var refills = 0;
+    var fetches = 0;
 
-    while (hasMore && collected.length < pageSize && refills <= maxRefills) {
+    while (hasMore && collected.length < pageSize && fetches < maxFetches) {
       final page = await _api.libraryPage(
         userId: _adminUserId,
         startIndex: cursor,
@@ -122,7 +127,7 @@ class LibraryRepository {
 
       final entries = await _classify(page, child: child, label: label);
       collected.addAll(filtering ? entries.where((e) => !e.isShared) : entries);
-      refills++;
+      fetches++;
 
       // Nothing came back at all — the server has run out, and looping again
       // would spin on an empty response rather than terminate.
