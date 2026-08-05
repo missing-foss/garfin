@@ -285,12 +285,36 @@ asking for every field explicitly adds nothing. The spec's original instruction 
        Tags: 18 -> 19   added=['kids-emma'] removed=[]
 
 Nothing but the intended change and the server's own `Etag`. **Removal is
-symmetric** — taking the label back out returns 52 fields and 18 tags. This is
+symmetric** — the label comes back out and the field set is unchanged. This is
 the diff every write-path change has to be able to show.
+
+**Read the claim, not the number.** An independent run on a different film
+measured **53** fields rather than 52; the count is item-dependent, so a bare
+number invites the next person to read a mismatch as a regression. What holds
+is *the same set of fields before and after, with only `Tags` and `Etag`
+differing* — which is also what the test asserts.
 
 The film arrived carrying **eighteen** provider tags before Garfin touched it —
 `bear`, `taxidermist`, `cliché`, `harsh`. The label is the nineteenth, and the
 diff above is what proves the other eighteen survive.
+
+#### Posting a list row does not merely fail — it bricks the item
+
+Measured 2026-08-05, deliberately, to find out what the rule is worth:
+
+    a list row carries 21 fields against 53 from the single-item GET
+    POST /Items/{id} with the list row      -> 400
+    GET  /Users/{uid}/Items/{id} afterwards -> 400   <- the ITEM, not the request
+
+**The damage outlives the request.** The item's detail endpoint keeps answering
+400 while the item still appears in list queries with its tags intact — so it
+looks fine on a grid and can never be edited again through the only path Garfin
+has. `POST /Items/{id}/Refresh` did not recover it within 60 seconds; a full
+`POST /Library/Refresh` did.
+
+This retires "probably just a 400" as an intuition, and it is why
+`AssignRepository` takes an item **id** rather than an item: the guarantee has
+to be structural, because the failure is not recoverable from inside the app.
 
 #### Tag casing is stored verbatim, and the filter does not care
 

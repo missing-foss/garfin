@@ -67,6 +67,20 @@ class LibraryItem {
   /// `tags=KIDS-EMMA` matches an item tagged `kids-emma`. Matching case
   /// sensitively here would disagree with the server about which items are
   /// shared, which is worse than either rule on its own.
+  /// Whether this item carries **any** of [labels].
+  ///
+  /// A child may hold more than one shortlist tag, and the server matches *any*
+  /// of them — `AllowedTags: ["kids-emma", "family-films"]` means an item
+  /// tagged either one is visible to them. Checking only the first would call
+  /// something "not given yet" that the child can already watch.
+  ///
+  /// Reading takes all of them; **writing takes one** — see
+  /// `AssignRepository.labelFor`. The asymmetry is deliberate: matching has a
+  /// right answer that the server defines, while choosing which label to add is
+  /// a choice, and the first is as good as any.
+  bool hasAnyLabel(Iterable<String> labels) =>
+      labels.any((label) => hasLabel(label));
+
   bool hasLabel(String label) {
     final wanted = label.toLowerCase();
     for (final tag in tags) {

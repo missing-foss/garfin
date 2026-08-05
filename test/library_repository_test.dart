@@ -194,6 +194,71 @@ void main() {
     });
   });
 
+  group('a child with more than one shortlist tag', () {
+    test('any of their labels counts as given, because the server matches any',
+        () async {
+      // `AllowedTags: ["kids-emma", "family-films"]` means an item tagged
+      // either one is visible to that child. Checking only the first would
+      // report "not given yet" for something they can already watch.
+      respondWith(
+        items: [
+          item('a', 'Alpha', tags: ['family-films']),
+          item('b', 'Bravo', tags: ['kids-emma']),
+          item('c', 'Charlie', tags: ['dinosaur']),
+        ],
+        visibleIds: ['a', 'b'],
+      );
+
+      final slice = await repository.fetch(
+        startIndex: 0,
+        child: child(allowed: const ['kids-emma', 'family-films']),
+      );
+
+      expect(slice.entries[0].state, LibraryItemState.given);
+      expect(slice.entries[1].state, LibraryItemState.given);
+      expect(slice.entries[2].state, LibraryItemState.notGiven);
+    });
+
+    test('block mode reads all of them too', () async {
+      server.on('/Items', json: {
+        'Items': [
+          item('a', 'Alpha', tags: ['no-horror']),
+          item('b', 'Bravo', tags: ['nothing']),
+        ],
+        'TotalRecordCount': 2,
+      });
+
+      final slice = await repository.fetch(
+        startIndex: 0,
+        child: child(allowed: const [], blocked: const ['block-sam', 'no-horror']),
+      );
+
+      expect(slice.entries[0].state, LibraryItemState.blocked);
+      expect(slice.entries[1].state, LibraryItemState.available);
+    });
+
+    test('hide-shared hides items carrying the second label as well',
+        () async {
+      // The wrong answer with the most consequence: an item the child can
+      // already watch reappearing on the to-do list.
+      respondWith(
+        items: [
+          item('a', 'Alpha', tags: ['family-films']),
+          item('b', 'Bravo', tags: ['dinosaur']),
+        ],
+        visibleIds: ['a'],
+      );
+
+      final slice = await repository.fetch(
+        startIndex: 0,
+        child: child(allowed: const ['kids-emma', 'family-films']),
+        hideShared: true,
+      );
+
+      expect(slice.entries.map((e) => e.item.name), ['Bravo']);
+    });
+  });
+
   group('block mode inverts, and asks nothing', () {
     test('the label takes it away, and its absence leaves it available',
         () async {

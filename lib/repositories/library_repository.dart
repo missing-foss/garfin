@@ -106,8 +106,8 @@ class LibraryRepository {
     JellyfinUser? child,
     bool hideShared = false,
   }) async {
-    final label = _labelFor(child);
-    final filtering = hideShared && label != null;
+    final labels = _labelsFor(child);
+    final filtering = hideShared && labels.isNotEmpty;
 
     final collected = <LibraryEntry>[];
     var cursor = startIndex;
@@ -125,7 +125,7 @@ class LibraryRepository {
       cursor = page.nextStartIndex;
       hasMore = page.hasMore;
 
-      final entries = await _classify(page, child: child, label: label);
+      final entries = await _classify(page, child: child, labels: labels);
       collected.addAll(filtering ? entries.where((e) => !e.isShared) : entries);
       fetches++;
 
@@ -151,9 +151,9 @@ class LibraryRepository {
   Future<List<LibraryEntry>> _classify(
     LibraryPage page, {
     required JellyfinUser? child,
-    required String? label,
+    required List<String> labels,
   }) async {
-    if (child == null || label == null) {
+    if (child == null || labels.isEmpty) {
       return page.items
           .map((item) =>
               LibraryEntry(item: item, state: LibraryItemState.unknown))
@@ -166,7 +166,7 @@ class LibraryRepository {
       return page.items
           .map((item) => LibraryEntry(
                 item: item,
-                state: item.hasLabel(label)
+                state: item.hasAnyLabel(labels)
                     ? LibraryItemState.blocked
                     : LibraryItemState.available,
               ))
@@ -183,7 +183,7 @@ class LibraryRepository {
           .toList(growable: false);
     }
 
-    final labelled = page.items.where((i) => i.hasLabel(label)).toList();
+    final labelled = page.items.where((i) => i.hasAnyLabel(labels)).toList();
 
     // Only the labelled ones can be in the surprising state, so only they need
     // asking about. An unlabelled item is not given, and why the server would
@@ -206,7 +206,7 @@ class LibraryRepository {
     return page.items
         .map((item) => LibraryEntry(
               item: item,
-              state: !item.hasLabel(label)
+              state: !item.hasAnyLabel(labels)
                   ? LibraryItemState.notGiven
                   : visible.contains(item.id)
                       ? LibraryItemState.given
@@ -215,14 +215,15 @@ class LibraryRepository {
         .toList(growable: false);
   }
 
-  /// The one label that defines this child's shortlist, or null when there is
-  /// no single answer.
+  /// Every label defining this child's shortlist.
   ///
-  /// Ground rule 3: a child with both lists populated has no correct verb, so
-  /// they get no label here and every tile reads as unknown.
-  static String? _labelFor(JellyfinUser? child) {
-    if (child == null) return null;
-    final tags = child.policy.shortlistTags;
-    return tags.isEmpty ? null : tags.first;
-  }
+  /// All of them, because the server matches any: a child holding
+  /// `["kids-emma", "family-films"]` can see an item tagged either. Reading
+  /// only the first would report "not given yet" for something they already
+  /// watch — a wrong answer on the screen whose whole job is that answer.
+  ///
+  /// Empty for a child with both lists populated: ground rule 3 refuses to pick
+  /// a verb, so every tile reads as unknown.
+  static List<String> _labelsFor(JellyfinUser? child) =>
+      child == null ? const [] : child.policy.shortlistTags;
 }

@@ -63,11 +63,15 @@ class AssignRepository {
     for (final child in children) {
       final label = labelFor(child);
       if (label == null) continue;
+      // Read against *all* of the child's labels — the server matches any —
+      // but write the one chosen by `labelFor`.
+      final owned =
+          child.policy.shortlistTags.map((t) => t.toLowerCase()).toSet();
       rows.add(
         AssignRow(
           child: child,
           label: label,
-          hasLabel: tags.any((t) => t.toLowerCase() == label.toLowerCase()),
+          hasLabel: tags.any((t) => owned.contains(t.toLowerCase())),
           visibleCount: await _api.visibleItemCount(userId: child.id),
           libraryTotal: libraryTotal,
         ),
@@ -176,7 +180,12 @@ class AssignRepository {
         ),
       );
 
-  /// The label defining this child's shortlist, in the policy's own casing.
+  /// The label to **write**, in the policy's own casing.
+  ///
+  /// One label, deliberately, even when the child holds several: adding a tag
+  /// is a choice and the first is as good as any. *Reading* uses all of them,
+  /// because there the server defines the right answer — see
+  /// `LibraryItem.hasAnyLabel`.
   ///
   /// Null when there is no single verb — ground rule 3 refuses to interpret an
   /// account with both lists populated, so it gets no row on the sheet.

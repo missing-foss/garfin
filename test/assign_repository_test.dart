@@ -233,6 +233,27 @@ void main() {
       expect(postedBody()['Tags'], <String>['bear']);
     });
 
+    test('a second shortlist tag counts as already given, but is not written',
+        () async {
+      // Read against all of them — the server matches any — and write the
+      // first, because adding a label is a choice rather than a match.
+      final multi = child('kid-5', 'Mia',
+          allowed: const ['kids-mia', 'family-films']);
+      server
+        ..on('/Users/admin-1/Items/item-1',
+            json: fullItem(tags: <String>['bear', 'family-films']))
+        ..fallback(json: <String, dynamic>{'TotalRecordCount': 10});
+
+      final rows =
+          await repository.rowsFor(itemId: 'item-1', children: [multi]);
+
+      // Already reachable via the second label — the toggle must show it on.
+      expect(rows.single.hasLabel, isTrue);
+      expect(rows.single.hasAccess, isTrue);
+      // And the label the sheet would write is still the first.
+      expect(rows.single.label, 'kids-mia');
+    });
+
     test('a child with both lists set gets no label, so no row', () {
       final conflicted =
           child('kid-4', 'Alex', allowed: const ['a'], blocked: const ['b']);
