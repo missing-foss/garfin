@@ -337,4 +337,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get libraryHintUnknownAge => 'No age rating';
+
+  @override
+  String get assignTitle => 'Who gets this?';
+
+  @override
+  String assignSees(String name, int visible, int total) {
+    return '$name sees $visible of $total';
+  }
+
+  @override
+  String get assignChangesHeading => 'About to change';
+
+  @override
+  String assignWillGive(String name) {
+    return 'Give to $name';
+  }
+
+  @override
+  String assignWillTake(String name) {
+    return 'Take from $name';
+  }
+
+  @override
+  String get assignApply => 'Apply';
+
+  @override
+  String assignLastItemTitle(String name) {
+    return '$name would see nothing';
+  }
+
+  @override
+  String assignLastItemBody(Object name) {
+    return 'This is the last thing labelled for $name. Take it away and their list matches nothing, so they\'ll see an empty library rather than everything.';
+  }
+
+  @override
+  String get assignLastItemConfirm => 'Take it anyway';
+
+  @override
+  String assignResult(String name, int visible, int total) {
+    return '$name now sees $visible of $total';
+  }
+
+  @override
+  String get assignUndo => 'Undo';
+
+  @override
+  String get assignUndone => 'Put back';
+
+  @override
+  String get assignNoChildren => 'No children have a shortlist set up yet.';
+
+  @override
+  String get assignCollectionNote =>
+      'Collections are handled later — this labels the collection itself, not the titles inside.';
 }

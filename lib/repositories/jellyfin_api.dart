@@ -339,6 +339,44 @@ class JellyfinApi {
         return readInt(_asMap(response.data), 'TotalRecordCount') ?? 0;
       });
 
+  /// The complete item, as the only legal source for a write.
+  ///
+  /// **Ground rule 2 starts here.** `POST /Items/{id}` replaces the whole
+  /// object, so the thing posted back has to be the whole object. Measured on
+  /// 10.11.11: this returns **52 fields with no `Fields` parameter** — asking
+  /// for every field explicitly adds nothing — while a *list* query returns
+  /// **19 of 52**, dropping `Overview`, `ProviderIds`, `Genres`, `People`,
+  /// `Studios`, `Tags`, `Path`, `SortName` and 25 more.
+  ///
+  /// Posting a list result back is the wipe the rule exists to prevent. That is
+  /// why nothing in the write path accepts an item object — see [replaceItem].
+  Future<Map<String, dynamic>> fullItem({
+    required String userId,
+    required String itemId,
+  }) =>
+      _call(() async {
+        final response = await _dio.get<dynamic>('/Users/$userId/Items/$itemId');
+        return _asMap(response.data);
+      });
+
+  /// Posts a complete item back.
+  ///
+  /// Takes the raw map deliberately, and never a typed model: a typed model is
+  /// exactly how a field goes missing from a full-object replace. Whatever came
+  /// back from [fullItem] goes back unchanged apart from the one key being
+  /// altered.
+  ///
+  /// Measured round-trip on 10.11.11 — `GET`, add one tag, `POST`, re-`GET`:
+  /// 52 fields before and after, none lost, none gained, and only `Tags` and
+  /// the server's own `Etag` different. Removal is symmetric.
+  Future<void> replaceItem({
+    required String itemId,
+    required Map<String, dynamic> item,
+  }) =>
+      _call(() async {
+        await _dio.post<dynamic>('/Items/$itemId', data: item);
+      });
+
   /// Runs one call, converting dio's exception into Garfin's.
   ///
   /// [remap] lets an endpoint say what a status code means *there*. The same

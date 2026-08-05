@@ -243,7 +243,7 @@ Undo is a forward write: fresh `GET`, remove the tag, post back. See `docs/UI-SP
 `POST /Items/{id}` **replaces the entire item**. If you post a partial object you will wipe
 fields — overviews, provider IDs, images metadata. Always round-trip the full object.
 
-### "The full object" is not one thing — and this list is not yet derived
+### "The full object" is not one thing — derived 2026-08-03, round-tripped 2026-08-05
 
 The DTO Jellyfin returns varies **by endpoint and by the `Fields` query parameter**. A `GET` that
 does not request everything returns a trimmed object, and posting *that* back is precisely the
@@ -272,6 +272,39 @@ reproduced on a second instance. Re-run on a version bump.
 
 **So: no `Fields` parameter is needed.** `GET /Users/{uid}/Items/{id}` already returns everything;
 asking for every field explicitly adds nothing. The spec's original instruction was right.
+
+#### The round-trip, performed 2026-08-05
+
+`GET /Users/{uid}/Items/{id}` → add one tag → `POST /Items/{id}` → re-`GET`:
+
+    POST /Items/{id}: 204
+    fields before: 52   after: 52
+    fields LOST : none
+    fields GAINED: none
+    fields CHANGED: ['Etag', 'Tags']
+       Tags: 18 -> 19   added=['kids-emma'] removed=[]
+
+Nothing but the intended change and the server's own `Etag`. **Removal is
+symmetric** — taking the label back out returns 52 fields and 18 tags. This is
+the diff every write-path change has to be able to show.
+
+The film arrived carrying **eighteen** provider tags before Garfin touched it —
+`bear`, `taxidermist`, `cliché`, `harsh`. The label is the nineteenth, and the
+diff above is what proves the other eighteen survive.
+
+#### Tag casing is stored verbatim, and the filter does not care
+
+    write  [..., 'KIDS-EMMA']  -> 204
+    stored ['KIDS-EMMA']        <- not folded to the policy's casing
+
+    tags=kids-emma -> 1    tags=KIDS-EMMA -> 1    tags=Kids-Emma -> 1
+
+**So ground rule 3's casing instruction is about the data, not about matching.**
+Writing the wrong casing breaks nothing Garfin does — the filter matches either
+way — it just leaves `KIDS-EMMA` beside `kids-emma` in the parent's own tag
+list in Jellyfin. Adopt the casing from the child's policy; never invent one.
+Remove case-insensitively, so a label written wrongly in the past still comes
+off cleanly.
 
 **The danger is not a missing `Fields` value — it is round-tripping a *list* result.** A list
 query returns 19 of 52 fields, dropping `Overview`, `ProviderIds`, `Genres`, `People`, `Studios`,

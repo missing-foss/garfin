@@ -17,6 +17,7 @@ import '../providers/library_providers.dart';
 import '../repositories/jellyfin_exception.dart';
 import '../repositories/library_repository.dart';
 import '../widgets/error_notice.dart';
+import '../widgets/assign_sheet.dart';
 import '../widgets/library_tile.dart';
 
 /// Build order step 4. The grid, and the child selector above it.
@@ -54,8 +55,7 @@ class LibraryScreen extends ConsumerWidget {
                         l10n,
                         error is JellyfinException
                             ? error
-                            : const JellyfinException(
-                                JellyfinErrorKind.server),
+                            : const JellyfinException(JellyfinErrorKind.server),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -68,11 +68,7 @@ class LibraryScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            data: (data) => _Grid(
-              session: session,
-              slice: data,
-              child: child,
-            ),
+            data: (data) => _Grid(session: session, slice: data, child: child),
           ),
         ),
       ],
@@ -144,13 +140,13 @@ class _PickChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: ChoiceChip(
-          label: Text(label),
-          selected: selected,
-          onSelected: (_) => onTap(),
-        ),
-      );
+    padding: const EdgeInsets.only(right: 8),
+    child: ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+    ),
+  );
 }
 
 /// The selected child's age, from the birth year the parent entered.
@@ -188,7 +184,8 @@ class _Grid extends ConsumerWidget {
 
     // The hint's two inputs (#43). Either being unavailable answers "not
     // known" for every tile, which is the honest degradation — never a pass.
-    final ladder = ref.watch(parentalRatingLadderProvider(session)).asData?.value ??
+    final ladder =
+        ref.watch(parentalRatingLadderProvider(session)).asData?.value ??
         const ParentalRatingLadder.empty();
     final childAge = _ageOf(ref, child);
 
@@ -225,7 +222,9 @@ class _Grid extends ConsumerWidget {
                   child == null
                       ? l10n.libraryItemCount(slice.totalRecordCount)
                       : l10n.libraryNotYetGiven(
-                          slice.entries.length, child!.name),
+                          slice.entries.length,
+                          child!.name,
+                        ),
                   style: theme.textTheme.bodyMedium,
                 ),
               ),
@@ -233,9 +232,11 @@ class _Grid extends ConsumerWidget {
                 TextButton(
                   onPressed: () =>
                       ref.read(hideSharedProvider.notifier).toggle(),
-                  child: Text(hideShared
-                      ? l10n.libraryShowShared
-                      : l10n.libraryHideShared),
+                  child: Text(
+                    hideShared
+                        ? l10n.libraryShowShared
+                        : l10n.libraryHideShared,
+                  ),
                 ),
             ],
           ),
@@ -255,14 +256,23 @@ class _Grid extends ConsumerWidget {
               itemCount: slice.entries.length,
               itemBuilder: (context, index) {
                 final entry = slice.entries[index];
-                return LibraryTile(
-                  entry: entry,
-                  serverUrl: session.serverUrl,
-                  childName: child?.name,
-                  suitability: suitabilityFor(
+                return InkWell(
+                  // Step 5: tapping a tile is what opens the write preview.
+                  // Nothing is written until Apply — ground rule 1.
+                  onTap: () => showAssignSheet(
+                    context,
+                    session: session,
                     item: entry.item,
-                    ladder: ladder,
-                    childAge: childAge,
+                  ),
+                  child: LibraryTile(
+                    entry: entry,
+                    serverUrl: session.serverUrl,
+                    childName: child?.name,
+                    suitability: suitabilityFor(
+                      item: entry.item,
+                      ladder: ladder,
+                      childAge: childAge,
+                    ),
                   ),
                 );
               },

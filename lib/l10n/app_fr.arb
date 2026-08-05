@@ -89,5 +89,19 @@
   "libraryCollectionCount": "{count} titres",
   "libraryRetry": "Réessayer",
   "libraryHintAboveAge": "Au-dessus de l'âge de {name}",
-  "libraryHintUnknownAge": "Pas de classification"
+  "libraryHintUnknownAge": "Pas de classification",
+  "assignTitle": "Pour qui ?",
+  "assignSees": "{name} voit {visible} sur {total}",
+  "assignChangesHeading": "Modifications à venir",
+  "assignWillGive": "Donner à {name}",
+  "assignWillTake": "Retirer à {name}",
+  "assignApply": "Appliquer",
+  "assignLastItemTitle": "{name} ne verrait plus rien",
+  "assignLastItemBody": "C'est le dernier titre étiqueté pour {name}. Si vous le retirez, sa liste ne correspond à rien : sa médiathèque sera vide, et non complète.",
+  "assignLastItemConfirm": "Retirer quand même",
+  "assignResult": "{name} voit maintenant {visible} sur {total}",
+  "assignUndo": "Annuler",
+  "assignUndone": "Rétabli",
+  "assignNoChildren": "Aucun enfant n'a encore de sélection configurée.",
+  "assignCollectionNote": "Les collections seront gérées plus tard : ceci étiquette la collection elle-même, pas les titres qu'elle contient."
 }

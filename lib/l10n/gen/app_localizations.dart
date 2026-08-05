@@ -637,6 +637,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No age rating'**
   String get libraryHintUnknownAge;
+
+  /// Title of the assign sheet, opened by tapping a title in the library.
+  ///
+  /// In en, this message translates to:
+  /// **'Who gets this?'**
+  String get assignTitle;
+
+  /// A child's current visible count on their row. Fetched from the server, never predicted.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} sees {visible} of {total}'**
+  String assignSees(String name, int visible, int total);
+
+  /// Heading above the preview of exactly what will be written.
+  ///
+  /// In en, this message translates to:
+  /// **'About to change'**
+  String get assignChangesHeading;
+
+  /// A line in the change preview: this child gains access.
+  ///
+  /// In en, this message translates to:
+  /// **'Give to {name}'**
+  String assignWillGive(String name);
+
+  /// A line in the change preview: this child loses access.
+  ///
+  /// In en, this message translates to:
+  /// **'Take from {name}'**
+  String assignWillTake(String name);
+
+  /// Writes the previewed changes.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get assignApply;
+
+  /// Title of the hard warning shown when a removal would take a child's label off the last item carrying it.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} would see nothing'**
+  String assignLastItemTitle(String name);
+
+  /// Explains the last-item case. The important part is that the child sees NOTHING, not everything — the opposite of what a parent might assume.
+  ///
+  /// In en, this message translates to:
+  /// **'This is the last thing labelled for {name}. Take it away and their list matches nothing, so they\'ll see an empty library rather than everything.'**
+  String assignLastItemBody(Object name);
+
+  /// Confirms the removal despite the last-item warning.
+  ///
+  /// In en, this message translates to:
+  /// **'Take it anyway'**
+  String get assignLastItemConfirm;
+
+  /// Reported after a write, using the count re-fetched from the server. This is also what explains a share the rating cap swallowed.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} now sees {visible} of {total}'**
+  String assignResult(String name, int visible, int total);
+
+  /// Reverses the change just made. A fresh forward write, not a restore.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get assignUndo;
+
+  /// Confirms the undo completed.
+  ///
+  /// In en, this message translates to:
+  /// **'Put back'**
+  String get assignUndone;
+
+  /// Shown on the assign sheet when no account is under shortlist control.
+  ///
+  /// In en, this message translates to:
+  /// **'No children have a shortlist set up yet.'**
+  String get assignNoChildren;
+
+  /// Shown when the item is a collection. Cascading to members is build order step 6, and pretending otherwise would silently do nothing useful.
+  ///
+  /// In en, this message translates to:
+  /// **'Collections are handled later — this labels the collection itself, not the titles inside.'**
+  String get assignCollectionNote;
 }
 
 class _AppLocalizationsDelegate

@@ -338,4 +338,60 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get libraryHintUnknownAge => 'Pas de classification';
+
+  @override
+  String get assignTitle => 'Pour qui ?';
+
+  @override
+  String assignSees(String name, int visible, int total) {
+    return '$name voit $visible sur $total';
+  }
+
+  @override
+  String get assignChangesHeading => 'Modifications à venir';
+
+  @override
+  String assignWillGive(String name) {
+    return 'Donner à $name';
+  }
+
+  @override
+  String assignWillTake(String name) {
+    return 'Retirer à $name';
+  }
+
+  @override
+  String get assignApply => 'Appliquer';
+
+  @override
+  String assignLastItemTitle(String name) {
+    return '$name ne verrait plus rien';
+  }
+
+  @override
+  String assignLastItemBody(Object name) {
+    return 'C\'est le dernier titre étiqueté pour $name. Si vous le retirez, sa liste ne correspond à rien : sa médiathèque sera vide, et non complète.';
+  }
+
+  @override
+  String get assignLastItemConfirm => 'Retirer quand même';
+
+  @override
+  String assignResult(String name, int visible, int total) {
+    return '$name voit maintenant $visible sur $total';
+  }
+
+  @override
+  String get assignUndo => 'Annuler';
+
+  @override
+  String get assignUndone => 'Rétabli';
+
+  @override
+  String get assignNoChildren =>
+      'Aucun enfant n\'a encore de sélection configurée.';
+
+  @override
+  String get assignCollectionNote =>
+      'Les collections seront gérées plus tard : ceci étiquette la collection elle-même, pas les titres qu\'elle contient.';
 }
