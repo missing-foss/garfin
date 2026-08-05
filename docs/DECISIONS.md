@@ -229,6 +229,36 @@ stale-credential-after-crash case. Accepted cost: a process kill mid-pairing mea
 **No `SCORECARD_TOKEN`.** Adding a classic PAT with `repo` scope to a public repo's secrets, to
 raise a security score, is a net loss. See `SECURITY.md`.
 
+**`FLAG_SECURE` is set, blanket, on the one window (settled 2026-08-05, from issue #26).** The
+issue deliberately refused to pick an option until the exposure had been *measured*, because
+`FLAG_SECURE` costs a legitimate user something real and the case for it had been argued from
+documented Android behaviour rather than observed. Measured 2026-08-05; numbers in `SECURITY.md`.
+
+What the measurement changed: the exposure is not a live thumbnail, it is a **file on disk** at
+`/data/system_ce/0/snapshots/<taskId>.jpg` that outlives the idle timeout byte-identical. So
+resuming demands authentication while the switcher still shows what was on screen before the app
+relocked. The gate locks on resume and the snapshot is taken on the way out, which means no
+amount of work on the gate can reach it.
+
+Rejected — **cover on `paused`**: it avoids the screenshot cost, but its correctness depends on a
+lock scrim rasterising before WindowManager takes the snapshot, and nothing in the app controls
+that ordering. `FLAG_SECURE` is refused by the system rather than beaten by timing; there is no
+race to lose. Rejected — **toggle the flag around the lifecycle**: narrower in principle, but it
+reintroduces the same race plus window-flag churn as a fresh bug source. Rejected — **accept and
+document it**: defensible while the only gated screen was a placeholder, but step 3 puts the Kids
+screen behind the gate, so accepting would mean reopening this immediately.
+
+Accepted cost, and it is a real one: the parent cannot screenshot Garfin or mirror it to another
+screen. Garfin is not a media player, so casting it was never the point; screenshots for a bug
+report are the genuine loss. Weighed against an admin token on a phone handed to children by
+design — ground rule 9's whole premise — the trade is worth making.
+
+Implemented natively in `MainActivity.onCreate`, not via a plugin. The usual plugin suggestion,
+`flutter_windowmanager`, is not an option here at all: latest is 0.2.0, published 2021-08-26, and
+its constraint is `sdk: >=2.12.0 <3.0.0` — it excludes Dart 3, and this project is on 3.12.2
+(checked 2026-08-05 against pub.dev's API). Even were it current, it would be a dependency and a
+licence review bought for a one-line platform call.
+
 ---
 
 ## Open questions
