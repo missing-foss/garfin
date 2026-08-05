@@ -6,26 +6,35 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/auth_session.dart';
 import '../models/kid_summary.dart';
+import '../models/library_item.dart';
 import '../models/tag_diff.dart';
 import '../repositories/assign_repository.dart';
 import 'app_providers.dart';
+import 'collection_providers.dart';
 import 'kids_providers.dart';
 
 /// Identifies one sheet: which server, which item.
+///
+/// Carries the tile itself, for its name, its type and the copy the sheet
+/// writes from it. **The write path still takes ids** — `AssignRepository`
+/// accepts no item object at all, which is what makes ground rule 2 structural
+/// rather than a habit.
 class AssignRequest {
-  const AssignRequest({required this.session, required this.itemId});
+  const AssignRequest({required this.session, required this.item});
 
   final AuthSession session;
-  final String itemId;
+  final LibraryItem item;
+
+  String get itemId => item.id;
 
   @override
   bool operator ==(Object other) =>
       other is AssignRequest &&
       other.session == session &&
-      other.itemId == itemId;
+      other.item.id == item.id;
 
   @override
-  int get hashCode => Object.hash(session, itemId);
+  int get hashCode => Object.hash(session, item.id);
 }
 
 final assignRepositoryProvider =
@@ -51,7 +60,20 @@ final assignRowsProvider =
       .where((u) => AssignRepository.labelFor(u) != null)
       .toList(growable: false);
 
-  return ref
-      .watch(assignRepositoryProvider(request.session))
-      .rowsFor(itemId: request.itemId, children: children);
+  // For a collection, "does the child have this" is a question about the films
+  // inside it as well as the box — see `AssignRepository.rowsFor`.
+  final set = request.item.isCollection
+      ? await ref.watch(collectionSetProvider(
+          CollectionRequest(
+            session: request.session,
+            collection: request.item,
+          ),
+        ).future)
+      : null;
+
+  return ref.watch(assignRepositoryProvider(request.session)).rowsFor(
+        itemId: request.itemId,
+        children: children,
+        members: set?.members,
+      );
 });

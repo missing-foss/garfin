@@ -2,9 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import '../logging.dart';
 import '../models/dto_json.dart';
 import '../models/jellyfin_user.dart';
+import '../models/library_item.dart';
 import '../models/tag_diff.dart';
+import 'bounded_batch.dart';
 import 'jellyfin_api.dart';
 
 /// The result of applying a diff, as the **server** reports it afterwards.
@@ -20,6 +23,63 @@ class AssignOutcome {
   final Map<String, int> counts;
 
   final TagDiff applied;
+}
+
+/// What a collection write actually did, item by item.
+///
+/// Ground rule 5's "surface the exact state — 7 of 12 tagged". There is no
+/// rolled-back variant of this class on purpose: the states it can describe are
+/// the states the app is allowed to be in.
+class BatchOutcome {
+  const BatchOutcome({
+    required this.written,
+    required this.failed,
+    required this.setMarked,
+    required this.counts,
+    required this.applied,
+  });
+
+  /// Member ids that took the change.
+  final List<String> written;
+
+  /// Member ids that did not. **These are not undone.** Retrying one is
+  /// idempotent; undoing the others is another full-object replace each, on
+  /// items that were fine.
+  final List<String> failed;
+
+  /// Whether the container itself now carries the change.
+  ///
+  /// Its own state, not a summary of the members', because the child can tell
+  /// the difference: without it they get the films and no set to find them in.
+  final bool setMarked;
+
+  /// Each child's visible count, re-fetched afterwards (ground rule 1).
+  final Map<String, int> counts;
+
+  final TagDiff applied;
+
+  /// Titles in the set. The container is not one — "7 of 12" is about films,
+  /// which is the number the parent can check for themselves.
+  int get total => written.length + failed.length;
+
+  bool get isComplete => failed.isEmpty && setMarked;
+}
+
+/// The batch was abandoned before anything was written.
+///
+/// Ground rule 5's pre-flight: every member is read first, and one unreadable
+/// member cancels the whole write. Reads are free, so this costs nothing and
+/// catches the missing item, the permission problem and the unreachable server
+/// while there is still nothing to regret.
+class CollectionPreflightException implements Exception {
+  const CollectionPreflightException(this.unreadable);
+
+  /// The ids that could not be read. Nothing was written.
+  final List<String> unreadable;
+
+  @override
+  String toString() =>
+      'CollectionPreflightException(${unreadable.length} unreadable)';
 }
 
 /// A removal that would take a child's label off the last item carrying it.
@@ -51,9 +111,28 @@ class AssignRepository {
 
   /// The sheet's rows: whether the item carries each child's label, and what
   /// each child can see right now.
+  ///
+  /// When [members] is given the item is a collection, and "the child has it"
+  /// means the whole set — the container **and** every member — rather than the
+  /// container's own tags.
+  ///
+  /// **Both halves, and the container half is measured rather than assumed.**
+  /// On 10.11.11, for an allow-list child:
+  ///
+  /// | container tagged | members tagged | films seen | the set itself |
+  /// |---|---|---|---|
+  /// | no  | yes | all of them | **absent**, and browsing it answers 401 |
+  /// | yes | no  | none        | present, and **empty** |
+  /// | yes | yes | all of them | present, with its films |
+  ///
+  /// So a set with only its members labelled is not finished: the child holds
+  /// the films and cannot reach the set. Reporting that as given would put a
+  /// half-shared set in the "done" pile, which is what `docs/DECISIONS.md`
+  /// § Collections exists to prevent.
   Future<List<AssignRow>> rowsFor({
     required String itemId,
     required List<JellyfinUser> children,
+    List<LibraryItem>? members,
   }) async {
     final item = await _api.fullItem(userId: _adminUserId, itemId: itemId);
     final tags = readStringList(item, 'Tags');
@@ -65,13 +144,19 @@ class AssignRepository {
       if (label == null) continue;
       // Read against *all* of the child's labels — the server matches any —
       // but write the one chosen by `labelFor`.
-      final owned =
-          child.policy.shortlistTags.map((t) => t.toLowerCase()).toSet();
+      final owned = child.policy.shortlistTags;
+      final ownedLower = owned.map((t) => t.toLowerCase()).toSet();
       rows.add(
         AssignRow(
           child: child,
           label: label,
-          hasLabel: tags.any((t) => owned.contains(t.toLowerCase())),
+          hasLabel: members == null
+              ? tags.any((t) => ownedLower.contains(t.toLowerCase()))
+              // The container's tags come from the fresh read above rather than
+              // from a list row, so the toggle reflects the server now.
+              : members.isNotEmpty &&
+                  tags.any((t) => ownedLower.contains(t.toLowerCase())) &&
+                  members.every((m) => m.hasAnyLabel(owned)),
           visibleCount: await _api.visibleItemCount(userId: child.id),
           libraryTotal: libraryTotal,
         ),
@@ -129,26 +214,149 @@ class AssignRepository {
     required String itemId,
     required TagDiff diff,
   }) async {
-    if (!diff.isEmpty) {
-      final item = await _api.fullItem(userId: _adminUserId, itemId: itemId);
+    if (!diff.isEmpty) await _writeOne(itemId, diff);
+    return AssignOutcome(counts: await _countsFor(diff), applied: diff);
+  }
 
-      // Mutate one key. Everything else in the map is carried back verbatim —
-      // no typed model in between, because a typed model is how a field goes
-      // missing from a full-object replace.
-      item['Tags'] = diff.applyTo(readStringList(item, 'Tags'));
-
-      await _api.replaceItem(itemId: itemId, item: item);
+  /// Writes [diff] across a whole collection: every member, and the container.
+  ///
+  /// **The container is not decoration.** Measured on 10.11.11 for an allow-list
+  /// child: labelling only the members hands over the films while the set itself
+  /// stays absent and browsing it answers 401, and labelling only the container
+  /// hands over an **empty** set. Both halves, or the parent has not given what
+  /// they think they gave.
+  ///
+  /// Three phases, in this order, and the order is the point:
+  ///
+  /// 1. **the container's removals** — before any member loses its label, so the
+  ///    set stops claiming to be complete first;
+  /// 2. **every member**, [batchConcurrency] at a time, each its own full-object
+  ///    round-trip;
+  /// 3. **the container's additions — last, and only if every member landed.**
+  ///
+  /// Phase 3 is what makes the container's label mean "the whole set is here".
+  /// A partly-failed batch therefore leaves it off, the set reads as not-given
+  /// on the grid, and it stays in the to-do list instead of looking finished —
+  /// which is what `docs/DECISIONS.md` § Collections asks for, at the cost of no
+  /// extra query.
+  ///
+  /// Nothing that succeeded is ever undone (ground rule 5). The failures come
+  /// back in [BatchOutcome.failed] for the user to finish or reverse, both of
+  /// which are idempotent and both of which they choose.
+  ///
+  /// Throws [CollectionPreflightException] — having written **nothing** — when
+  /// any item cannot be read first.
+  Future<BatchOutcome> applyToCollection({
+    required String collectionId,
+    required List<String> memberIds,
+    required TagDiff diff,
+  }) async {
+    if (diff.isEmpty) {
+      return BatchOutcome(
+        written: const [],
+        failed: const [],
+        setMarked: true,
+        counts: await _countsFor(diff),
+        applied: diff,
+      );
     }
 
-    // Ground rule 1: the count Garfin reports afterwards is the server's, asked
-    // again, not the one it expected.
+    // Pre-flight, ground rule 5. Reads are free; a write is not.
+    final unreadable = await _preflight(<String>[collectionId, ...memberIds]);
+    if (unreadable.isNotEmpty) {
+      log.warning('collection write abandoned: ${unreadable.length} of '
+          '${memberIds.length + 1} items could not be read');
+      throw CollectionPreflightException(unreadable);
+    }
+
+    final removals = TagDiff(diff.removals.toList(growable: false));
+    final additions = TagDiff(diff.additions.toList(growable: false));
+
+    var setMarked = true;
+    if (!removals.isEmpty) {
+      setMarked = await _tryWrite(collectionId, removals);
+    }
+
+    final results = await mapBounded<String, ({String id, bool ok})>(
+      memberIds,
+      (id) async => (id: id, ok: await _tryWrite(id, diff)),
+    );
+    final written = [for (final r in results) if (r.ok) r.id];
+    final failed = [for (final r in results) if (!r.ok) r.id];
+
+    if (!additions.isEmpty) {
+      // Only when the whole set is actually there. This is the marker, so
+      // writing it over a half-tagged set would be a lie the grid then repeats.
+      if (failed.isNotEmpty) {
+        setMarked = false;
+      } else if (!await _tryWrite(collectionId, additions)) {
+        setMarked = false;
+      }
+    }
+
+    return BatchOutcome(
+      written: written,
+      failed: failed,
+      setMarked: setMarked,
+      counts: await _countsFor(diff),
+      applied: diff,
+    );
+  }
+
+  /// Reads every item in the batch, and keeps none of them.
+  ///
+  /// **The bodies are discarded deliberately.** Handing a pre-flight body to the
+  /// write would be re-posting a captured object — the thing ground rule 2 and
+  /// the Undo rule both forbid — and it would be stale by exactly as long as the
+  /// batch takes. Every write below fetches its own. This returns ids, so there
+  /// is no body to be tempted by.
+  Future<List<String>> _preflight(List<String> itemIds) async {
+    final results = await mapBounded<String, String?>(itemIds, (id) async {
+      try {
+        await _api.fullItem(userId: _adminUserId, itemId: id);
+        return null;
+      } on Object {
+        return id;
+      }
+    });
+    return results.whereType<String>().toList(growable: false);
+  }
+
+  /// One full-object round-trip. The only place this app writes an item.
+  Future<void> _writeOne(String itemId, TagDiff diff) async {
+    final item = await _api.fullItem(userId: _adminUserId, itemId: itemId);
+
+    // Mutate one key. Everything else in the map is carried back verbatim —
+    // no typed model in between, because a typed model is how a field goes
+    // missing from a full-object replace.
+    item['Tags'] = diff.applyTo(readStringList(item, 'Tags'));
+
+    await _api.replaceItem(itemId: itemId, item: item);
+  }
+
+  /// [_writeOne], reporting rather than throwing, so one failure does not
+  /// discard what the rest of the batch did.
+  Future<bool> _tryWrite(String itemId, TagDiff diff) async {
+    try {
+      await _writeOne(itemId, diff);
+      return true;
+    } on Object catch (error) {
+      // No id in the log line: it is a library item, but it is still the
+      // parent's data and the failure is legible without it.
+      log.warning('a collection member write failed: ${error.runtimeType}');
+      return false;
+    }
+  }
+
+  /// Ground rule 1: the count Garfin reports afterwards is the server's, asked
+  /// again, not the one it expected.
+  Future<Map<String, int>> _countsFor(TagDiff diff) async {
     final counts = <String, int>{};
     for (final change in diff.changes) {
       counts[change.child.id] =
           await _api.visibleItemCount(userId: change.child.id);
     }
-
-    return AssignOutcome(counts: counts, applied: diff);
+    return counts;
   }
 
   /// Reverses [diff] as a **fresh forward write**.
@@ -167,17 +375,33 @@ class AssignRepository {
     required String itemId,
     required TagDiff diff,
   }) =>
-      apply(
-        itemId: itemId,
-        diff: TagDiff(
-          diff.changes
-              .map((c) => TagChange(
-                    child: c.child,
-                    label: c.label,
-                    adding: !c.adding,
-                  ))
-              .toList(growable: false),
-        ),
+      apply(itemId: itemId, diff: reverse(diff));
+
+  /// Undo across a whole set, which is the same forward write repeated.
+  ///
+  /// Reversing an addition makes it a removal, so [applyToCollection]'s
+  /// ordering flips with it on its own: the container's label comes **off
+  /// first**, and the set stops claiming to hold films it is about to lose.
+  Future<BatchOutcome> undoCollection({
+    required String collectionId,
+    required List<String> memberIds,
+    required TagDiff diff,
+  }) =>
+      applyToCollection(
+        collectionId: collectionId,
+        memberIds: memberIds,
+        diff: reverse(diff),
+      );
+
+  /// The same changes, pointing the other way.
+  static TagDiff reverse(TagDiff diff) => TagDiff(
+        diff.changes
+            .map((c) => TagChange(
+                  child: c.child,
+                  label: c.label,
+                  adding: !c.adding,
+                ))
+            .toList(growable: false),
       );
 
   /// The label to **write**, in the policy's own casing.

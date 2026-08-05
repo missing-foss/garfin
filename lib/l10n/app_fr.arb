@@ -103,5 +103,18 @@
   "assignUndo": "Annuler",
   "assignUndone": "Rétabli",
   "assignNoChildren": "Aucun enfant n'a encore de sélection configurée.",
-  "assignCollectionNote": "Les collections seront gérées plus tard : ceci étiquette la collection elle-même, pas les titres qu'elle contient."
+  "assignCollectionNote": "Les étiquettes sont posées sur les {count} titres de la collection, et sur la collection elle-même.",
+  "assignPartOfSet": "Fait partie de {name} — {count} titres dans l'ensemble.",
+  "assignSetTogetherTitle": "Garder l'ensemble complet ?",
+  "assignSetTogetherBody": "{title} fait partie de {name}. Le reste de l'ensemble peut suivre en même temps.",
+  "assignSetTogetherJustThis": "Seulement celui-ci",
+  "assignSetTogetherAll": "Les {count}",
+  "assignBatchPartial": "{done} titres modifiés sur {total}.",
+  "assignBatchSetIncomplete": "Les {count} titres ont été modifiés, mais pas la collection elle-même.",
+  "assignBatchSetIncompleteAdded": "Les {count} titres sont étiquetés, mais pas la collection elle-même. Les films sont là ; l'ensemble ne l'est pas.",
+  "assignBatchSetIncompleteRemoved": "Les étiquettes ont été retirées des {count} titres, mais pas de la collection. Les films ne sont plus là ; l'ensemble y est encore, et il paraîtra vide.",
+  "assignBatchPutBack": "Tout remettre",
+  "assignBatchFinish": "Terminer le reste",
+  "assignBatchRemoveAll": "Tout retirer",
+  "assignBatchPreflightFailed": "Rien n'a été modifié. {count} titres de cet ensemble n'ont pas pu être lus : Garfin a laissé l'ensemble intact."
 }

@@ -48,6 +48,24 @@ class TagChange {
       };
 }
 
+/// Which way a diff points, once it has to be described rather than performed.
+///
+/// A half-finished collection write is reported in words, and the words are not
+/// symmetric: labels left **on** the container mean the child sees an empty
+/// set, labels left **off** it mean they see the films but cannot reach the
+/// set. Describing one as the other is worse than saying nothing, because it
+/// sends the parent to check the wrong thing.
+enum DiffDirection {
+  /// Labels went on.
+  added,
+
+  /// Labels came off.
+  removed,
+
+  /// Both, across different children. Nothing directional can be said.
+  mixed,
+}
+
 /// Every pending change for one item, across all the children on the sheet.
 class TagDiff {
   const TagDiff(this.changes);
@@ -61,6 +79,24 @@ class TagDiff {
   Iterable<TagChange> get additions => changes.where((c) => c.adding);
 
   Iterable<TagChange> get removals => changes.where((c) => !c.adding);
+
+  /// Which way this diff points, for copy that has to say what happened.
+  ///
+  /// **On the labels, not on access.** Ground rule 3 makes those different
+  /// things — adding a label gives access in allow mode and takes it away in
+  /// block mode — and this is used to describe *the item*, which is where the
+  /// labels went on or came off. What the change means to a child is
+  /// [TagChange.givesAccess], and that is what the preview lines above the
+  /// button use.
+  ///
+  /// An empty diff answers [DiffDirection.mixed], the direction that claims
+  /// nothing. Nothing should ask: an empty diff is never written.
+  DiffDirection get direction {
+    if (isEmpty) return DiffDirection.mixed;
+    if (removals.isEmpty) return DiffDirection.added;
+    if (additions.isEmpty) return DiffDirection.removed;
+    return DiffDirection.mixed;
+  }
 
   /// Applies this diff to a tag list, preserving everything else on it.
   ///

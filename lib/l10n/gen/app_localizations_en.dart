@@ -390,6 +390,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assignNoChildren => 'No children have a shortlist set up yet.';
 
   @override
-  String get assignCollectionNote =>
-      'Collections are handled later — this labels the collection itself, not the titles inside.';
+  String assignCollectionNote(int count) {
+    return 'Labels land on all $count titles inside, and on the collection itself.';
+  }
+
+  @override
+  String assignPartOfSet(String name, int count) {
+    return 'Part of $name — $count titles in the set.';
+  }
+
+  @override
+  String get assignSetTogetherTitle => 'Keep the set together?';
+
+  @override
+  String assignSetTogetherBody(String title, String name) {
+    return '$title is part of $name. The rest of the set can go at the same time.';
+  }
+
+  @override
+  String get assignSetTogetherJustThis => 'Just this one';
+
+  @override
+  String assignSetTogetherAll(int count) {
+    return 'All $count';
+  }
+
+  @override
+  String assignBatchPartial(int done, int total) {
+    return '$done of $total titles changed.';
+  }
+
+  @override
+  String assignBatchSetIncomplete(int count) {
+    return 'All $count titles changed, but the collection itself didn\'t.';
+  }
+
+  @override
+  String assignBatchSetIncompleteAdded(int count) {
+    return 'All $count titles are labelled, but the collection itself isn\'t. The films are there; the set isn\'t.';
+  }
+
+  @override
+  String assignBatchSetIncompleteRemoved(int count) {
+    return 'All $count titles are unlabelled, but the collection itself still is. The films are gone; the set is still there, and it will look empty.';
+  }
+
+  @override
+  String get assignBatchPutBack => 'Put it all back';
+
+  @override
+  String get assignBatchFinish => 'Finish the rest';
+
+  @override
+  String get assignBatchRemoveAll => 'Remove all';
+
+  @override
+  String assignBatchPreflightFailed(int count) {
+    return 'Nothing was changed. $count titles in this set couldn\'t be read, so Garfin left the whole set alone.';
+  }
 }

@@ -44,8 +44,10 @@ never persisted to survive it.
 
 ## Assign sheet (modal bottom sheet)
 
-Cover, title, metadata. For a collection: a note that labels land on all N films inside. For a
-film in a collection: a softer note naming the set.
+Cover, title, metadata. For a collection: a note that labels land on all N titles inside **and on
+the collection itself** — measured, a set whose members alone are labelled hands the child the
+films without the set, and browsing it answers 401. For a film in a collection: a softer note
+naming the set, **one per set**, because a film can belong to several.
 
 One row per label-controlled child, the selected one first. Rows above the child's rating cap are
 flagged. Each row carries that child's **current** visible count — "Emma sees 24 of 400" —
@@ -74,9 +76,21 @@ Result: a Snackbar with Undo, carrying the **re-fetched** count — "Emma now se
 That is the server's answer after the write, so it is also what explains a share the rating cap
 swallowed: the tag landed, the number didn't move, and the app says so rather than looking broken.
 
-If a collection write partly fails, the sheet reports the exact state — "7 of 12 tagged" — and
-offers *finish the rest* or *remove all*. It never silently undoes what succeeded; see ground
-rule 5.
+If a collection write partly fails, the sheet reports the exact state — "7 of 12" — and offers
+*finish the rest* or *remove all*, in place of Apply and without closing over the top of it. It
+never silently undoes what succeeded; see ground rule 5. *Finish the rest* is the same write again,
+which is safe because tag writes are idempotent.
+
+If the **pre-flight** fails instead, the sheet says so in different words — nothing was written at
+all, and the difference between "untouched" and "half done" is the whole reason the pre-flight
+exists.
+
+**That report is written per direction, and it has to be.** A removal reaches it too — the
+container's label comes off first, so a container write that fails while every title succeeds ends
+there. Labels left *on* the container mean the child keeps a collection that is now empty; labels
+left *off* it mean they have the films and no set to find them in. Those are opposite sentences,
+and the reversing button is "remove all" after an addition and "put it all back" after a removal —
+naming the other one would name the opposite of what pressing it does.
 
 ### How Undo works — everywhere it appears
 

@@ -392,6 +392,62 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucun enfant n\'a encore de sélection configurée.';
 
   @override
-  String get assignCollectionNote =>
-      'Les collections seront gérées plus tard : ceci étiquette la collection elle-même, pas les titres qu\'elle contient.';
+  String assignCollectionNote(int count) {
+    return 'Les étiquettes sont posées sur les $count titres de la collection, et sur la collection elle-même.';
+  }
+
+  @override
+  String assignPartOfSet(String name, int count) {
+    return 'Fait partie de $name — $count titres dans l\'ensemble.';
+  }
+
+  @override
+  String get assignSetTogetherTitle => 'Garder l\'ensemble complet ?';
+
+  @override
+  String assignSetTogetherBody(String title, String name) {
+    return '$title fait partie de $name. Le reste de l\'ensemble peut suivre en même temps.';
+  }
+
+  @override
+  String get assignSetTogetherJustThis => 'Seulement celui-ci';
+
+  @override
+  String assignSetTogetherAll(int count) {
+    return 'Les $count';
+  }
+
+  @override
+  String assignBatchPartial(int done, int total) {
+    return '$done titres modifiés sur $total.';
+  }
+
+  @override
+  String assignBatchSetIncomplete(int count) {
+    return 'Les $count titres ont été modifiés, mais pas la collection elle-même.';
+  }
+
+  @override
+  String assignBatchSetIncompleteAdded(int count) {
+    return 'Les $count titres sont étiquetés, mais pas la collection elle-même. Les films sont là ; l\'ensemble ne l\'est pas.';
+  }
+
+  @override
+  String assignBatchSetIncompleteRemoved(int count) {
+    return 'Les étiquettes ont été retirées des $count titres, mais pas de la collection. Les films ne sont plus là ; l\'ensemble y est encore, et il paraîtra vide.';
+  }
+
+  @override
+  String get assignBatchPutBack => 'Tout remettre';
+
+  @override
+  String get assignBatchFinish => 'Terminer le reste';
+
+  @override
+  String get assignBatchRemoveAll => 'Tout retirer';
+
+  @override
+  String assignBatchPreflightFailed(int count) {
+    return 'Rien n\'a été modifié. $count titres de cet ensemble n\'ont pas pu être lus : Garfin a laissé l\'ensemble intact.';
+  }
 }
