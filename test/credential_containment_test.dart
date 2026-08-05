@@ -11,6 +11,7 @@ import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/models/authentication_result.dart';
 import 'package:garfin/models/quick_connect.dart';
 import 'package:garfin/repositories/auth_repository.dart';
+import 'package:garfin/repositories/birth_year_store.dart';
 import 'package:garfin/repositories/device_identity.dart';
 import 'package:garfin/repositories/jellyfin_api.dart';
 import 'package:garfin/repositories/quick_connect_session.dart';
@@ -75,6 +76,7 @@ void main() {
       apiFactory: JellyfinApiFactory(identity: identity, adapter: server),
       tokenStore: const SecureTokenStore(FlutterSecureStorage()),
       settings: ServerSettingsStore(prefs),
+      birthYears: BirthYearStore(prefs),
     );
 
     // Everything, including `fine` — the Quick Connect poll logs at that level.

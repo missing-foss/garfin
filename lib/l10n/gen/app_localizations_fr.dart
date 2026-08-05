@@ -199,4 +199,80 @@ class AppLocalizationsFr extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get kidsTitle => 'Enfants';
+
+  @override
+  String get kidsNoShortlistHeading => 'Pas encore de sélection';
+
+  @override
+  String get kidsNoShortlistExplanation =>
+      'Créez d\'abord leur sélection dans Jellyfin, puis revenez ici.';
+
+  @override
+  String kidsVisibleOfTotal(int visible, int total) {
+    return '$visible sur $total titres visibles';
+  }
+
+  @override
+  String get kidsModeAllowList => 'Sélection';
+
+  @override
+  String get kidsModeBlockList => 'Liste d\'exclusion';
+
+  @override
+  String get kidsModeConflicting => 'Les deux listes sont définies';
+
+  @override
+  String get kidsModeConflictingDetail =>
+      'Ce compte a une sélection et une liste d\'exclusion en même temps. Corrigez cela dans Jellyfin — Garfin ne peut pas deviner laquelle s\'applique.';
+
+  @override
+  String kidsAgeYears(int years) {
+    return '$years ans';
+  }
+
+  @override
+  String get kidsAgeUnknown => 'Ajouter une année de naissance';
+
+  @override
+  String kidsRatingCap(String rating) {
+    return 'Jusqu\'à $rating';
+  }
+
+  @override
+  String kidsRatingCapValue(int value) {
+    return 'Limite d\'âge $value';
+  }
+
+  @override
+  String get kidsRatingCapNone => 'Aucune limite d\'âge';
+
+  @override
+  String get kidsBirthYearTitle => 'Année de naissance';
+
+  @override
+  String get kidsBirthYearHelp =>
+      'Jellyfin ne l\'enregistre pas, Garfin la garde donc sur ce téléphone. L\'année suffit.';
+
+  @override
+  String kidsBirthYearInvalid(int min, int max) {
+    return 'Saisissez une année entre $min et $max.';
+  }
+
+  @override
+  String get kidsBirthYearClear => 'Supprimer';
+
+  @override
+  String get kidsEmpty => 'Aucun compte sur ce serveur pour le moment.';
+
+  @override
+  String get kidsRetry => 'Réessayer';
+
+  @override
+  String get saveAction => 'Enregistrer';
+
+  @override
+  String get cancelAction => 'Annuler';
 }

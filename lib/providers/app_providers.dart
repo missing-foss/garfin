@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../repositories/auth_repository.dart';
+import '../repositories/birth_year_store.dart';
 import '../repositories/device_identity.dart';
 import '../repositories/jellyfin_api.dart';
 import '../repositories/server_settings_store.dart';
@@ -40,6 +41,10 @@ final tokenStoreProvider = Provider<TokenStore>(
   (ref) => SecureTokenStore(ref.watch(secureStorageProvider)),
 );
 
+final birthYearStoreProvider = Provider<BirthYearStore>(
+  (ref) => BirthYearStore(ref.watch(sharedPreferencesProvider)),
+);
+
 final serverSettingsStoreProvider = Provider<ServerSettingsStore>(
   (ref) => ServerSettingsStore(ref.watch(sharedPreferencesProvider)),
 );
@@ -53,5 +58,6 @@ final authRepositoryProvider = Provider<AuthRepository>(
     apiFactory: ref.watch(jellyfinApiFactoryProvider),
     tokenStore: ref.watch(tokenStoreProvider),
     settings: ref.watch(serverSettingsStoreProvider),
+    birthYears: ref.watch(birthYearStoreProvider),
   ),
 );

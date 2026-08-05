@@ -6,7 +6,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/authentication_result.dart';
+import '../models/dto_json.dart';
 import '../models/jellyfin_user.dart';
+import '../models/parental_rating.dart';
 import '../models/quick_connect.dart';
 import 'device_identity.dart';
 import 'jellyfin_exception.dart';
@@ -159,6 +161,68 @@ class JellyfinApi {
   Future<JellyfinUser> currentUser() => _call(() async {
         final response = await _dio.get<dynamic>('/Users/Me');
         return JellyfinUser.fromJson(_asMap(response.data));
+      });
+
+  /// Every user on the server, with their policy.
+  ///
+  /// Measured on 10.11.11: this answers **200 with every user's `Policy`
+  /// populated even for a non-admin token** — there is no 403. So nothing here
+  /// can be relied on to catch a wrong account; ground rule 7's check at
+  /// sign-in is the only thing standing between one and a Kids screen that
+  /// looks entirely functional.
+  Future<List<JellyfinUser>> users() => _call(() async {
+        final response = await _dio.get<dynamic>('/Users');
+        final data = response.data;
+        if (data is! List) {
+          throw const JellyfinException(
+            JellyfinErrorKind.server,
+            message: 'unexpected response shape',
+          );
+        }
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(JellyfinUser.fromJson)
+            .toList(growable: false);
+      });
+
+  /// The server's parental rating ladder for this install's locale.
+  ///
+  /// Fetched, never hardcoded — the list differs by locale, and entry zero has
+  /// no `Value`. See [ParentalRatingLadder].
+  Future<ParentalRatingLadder> parentalRatings() => _call(() async {
+        final response = await _dio.get<dynamic>('/Localization/ParentalRatings');
+        final data = response.data;
+        if (data is! List) {
+          throw const JellyfinException(
+            JellyfinErrorKind.server,
+            message: 'unexpected response shape',
+          );
+        }
+        return ParentalRatingLadder.fromJson(data);
+      });
+
+  /// How many items [userId] can see, **as the server counts them**.
+  ///
+  /// Ground rule 4: never compute visibility client-side. This asks the server
+  /// twice — once as the admin for the total, once as the child — and lets it
+  /// apply the policy, including the rating cap that silently overrides tags.
+  /// A `Limit=0` query returns no items at all, just the count, so this is
+  /// cheap enough to do per child.
+  ///
+  /// `Recursive=true` is required or the count covers only top-level items.
+  Future<int> visibleItemCount({required String userId}) => _call(() async {
+        final response = await _dio.get<dynamic>(
+          '/Items',
+          queryParameters: <String, dynamic>{
+            'userId': userId,
+            'Recursive': true,
+            'Limit': 0,
+            // Folders and collections would inflate the number with things a
+            // parent does not think of as "titles".
+            'IncludeItemTypes': 'Movie,Series',
+          },
+        );
+        return readInt(_asMap(response.data), 'TotalRecordCount') ?? 0;
       });
 
   /// Runs one call, converting dio's exception into Garfin's.
