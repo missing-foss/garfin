@@ -229,6 +229,45 @@ stale-credential-after-crash case. Accepted cost: a process kill mid-pairing mea
 **No `SCORECARD_TOKEN`.** Adding a classic PAT with `repo` scope to a public repo's secrets, to
 raise a security score, is a net loss. See `SECURITY.md`.
 
+## Nothing syncs to a cloud account (settled 2026-08-05, from issue #35)
+
+**Garfin is a tool for self-hosters, and nothing it stores leaves the device for anyone's cloud.**
+This is a standing principle, not a manifest attribute. It is the same instinct as the app having
+no backend, no account system and no telemetry: someone who runs their own media server did that
+on purpose, and an app for them should not quietly post their household's shape to Google.
+
+Implemented as `android:allowBackup="false"` **plus** a `dataExtractionRules` file excluding
+everything from both `<cloud-backup>` and `<device-transfer>`. Both are required —
+`allowBackup="false"` alone leaves device-to-device transfer enabled on some manufacturers'
+devices for apps targeting API 31+, per Android's own documentation, which is a gap that would
+hold on whichever handset it was tested on and not on someone else's.
+
+Rejected — **excluding selectively**, keeping the server URL and unlock settings while dropping
+`device_id` and the account fields. It is the most precise option and the least durable: at
+`minSdk 26` it needs two files saying the same thing, and worse, it creates a **standing
+obligation that fails silently**. Every key added later becomes "did anyone remember to exclude
+it?", and the first one due is the child's birth year in step 3. Blanket exclusion is correct by
+default for keys nobody has written yet.
+
+Rejected — **leaving it on**, on the grounds that it is the user's own account and Android
+encrypts the backup with a key derived from their device credential. Both true, and the reason
+this needed deciding rather than assuming. What decided it: the restore is *already* incomplete,
+because `flutter_secure_storage`'s master key lives in the Keystore and is not backed up, so the
+token cannot come back and the user signs in again regardless. Backup was therefore buying a
+pre-filled hostname and two settings — and restoring `device_id` alongside them, which is
+actively wrong, since Jellyfin keys a session on it and a restored phone would present the same
+`DeviceId` as the old one.
+
+Accepted cost, and it is real: a reinstall or a new phone loses the server address and the unlock
+preferences. For an app whose job is being convenient about a fiddly task that is not nothing —
+but it lands on a path that already requires signing in again.
+
+One consequence worth keeping: an undecryptable secure-storage blob makes `TokenStore.read()`
+throw rather than return null. `allowBackup="false"` removes the restore path that would cause
+it, but not the others — changing the device credential or re-enrolling biometrics can invalidate
+the Keystore key the same way. `app_root.dart` renders that `AsyncError` as the sign-in screen,
+deliberately, and `test/widget_test.dart` now pins it.
+
 **`FLAG_SECURE` is set, blanket, on the one window (settled 2026-08-05, from issue #26).** The
 issue deliberately refused to pick an option until the exposure had been *measured*, because
 `FLAG_SECURE` costs a legitimate user something real and the case for it had been argued from

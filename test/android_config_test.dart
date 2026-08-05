@@ -60,6 +60,18 @@ void main() {
           .readAsStringSync()
           .replaceAll(RegExp(r'//[^\n]*|/\*.*?\*/', dotAll: true), '');
 
+  /// The data-extraction rules with `<!-- … -->` removed.
+  ///
+  /// Same reason again, and sharper here than anywhere else in this file: that
+  /// file's comment quotes the Android documentation at length and therefore
+  /// contains the literal strings `<device-transfer>`, `exclude`, `root` and
+  /// `device_root` in prose. Unstripped, every assertion below would pass on a
+  /// file whose rules had been deleted entirely.
+  final extractionRules =
+      File('android/app/src/main/res/xml/data_extraction_rules.xml')
+          .readAsStringSync()
+          .replaceAll(RegExp(r'<!--.*?-->', dotAll: true), '');
+
   test('no cleartext exemption is granted', () {
     // Measured on GrapheneOS / Android 17 with a control build: plain HTTP to a
     // LAN Jellyfin works without either of these. Android's policy is enforced
@@ -138,11 +150,67 @@ void main() {
     // half is the device measurement in SECURITY.md — background the app and
     // pull /data/system_ce/0/snapshots/<taskId>.jpg — and a green test here
     // must not be read as standing in for it.
+    //
+    // Tolerant about the argument, strict about the call. An earlier version
+    // pinned the exact single-argument form, which would have gone red on two
+    // *correct* edits: combining flags as `addFlags(FLAG_SECURE or …)`, which
+    // is idiomatic, and `addFlags(FLAG_SECURE)` after a static import. Both
+    // measured, along with the two that must stay caught — clearFlags beside
+    // an addFlags of something else, and the call deleted.
+    expect(activity, matches(RegExp(r'addFlags\([^)]*\bFLAG_SECURE\b')));
+  });
+
+  test('backup and device-to-device transfer are both off', () {
+    // Issue #35. Nothing Garfin stores syncs to a cloud account — the standing
+    // principle, not just this attribute. See docs/DECISIONS.md.
+    //
+    // `allowBackup="false"` alone is not enough and is the trap this guards.
+    // Per Android's documentation, for apps targeting API 31+ it disables
+    // cloud backup on some manufacturers' devices "but doesn't disable
+    // device-to-device transfers for the app" — so a build checked on one
+    // handset can be wrong on another. Both attributes, or neither works.
+    expect(effective, contains('android:allowBackup="false"'));
     expect(
-      activity,
-      matches(
-        RegExp(r'addFlags\(\s*WindowManager\.LayoutParams\.FLAG_SECURE\s*\)'),
-      ),
+      effective,
+      contains('android:dataExtractionRules="@xml/data_extraction_rules"'),
     );
+
+    // And the rules file has to actually exclude things. An EMPTY section is
+    // not "off", it is fully ON: "If there are no rules for a particular
+    // backup mode, such as if the <device-transfer> section is missing, that
+    // mode is fully enabled for all content except for no-backup and cache
+    // directories." So `<device-transfer />` reads like a disable and is the
+    // opposite of one, which is exactly the mistake worth a gate.
+    //
+    // Asserted per section rather than over the whole file, because the two
+    // sections are what differ: excluding everything from <cloud-backup> while
+    // leaving <device-transfer> empty is the plausible half-fix, and a
+    // whole-file `contains` would pass it.
+    for (final section in ['cloud-backup', 'device-transfer']) {
+      final body = RegExp(
+        '<$section>(.*?)</$section>',
+        dotAll: true,
+      ).firstMatch(extractionRules)?.group(1);
+
+      expect(
+        body,
+        isNotNull,
+        reason: '<$section> is missing, which enables that mode entirely',
+      );
+      // `path` is required on every rule; one without it is invalid rather
+      // than broader. `root` covers credential-protected storage, where
+      // shared_preferences lives; `device_root` is a separate location that
+      // `root` does not reach.
+      expect(
+        body,
+        contains('<exclude domain="root" path="." />'),
+        reason: '<$section> does not exclude the app\'s private directory',
+      );
+      expect(
+        body,
+        contains('<exclude domain="device_root" path="." />'),
+        reason: '<$section> does not exclude device-protected storage',
+      );
+    }
   });
 }
