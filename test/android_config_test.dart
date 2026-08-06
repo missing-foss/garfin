@@ -261,10 +261,21 @@ void main() {
 
       expect(effective, contains('android:icon="@mipmap/ic_launcher"'));
       expect(effective, contains('android:roundIcon="@mipmap/ic_launcher_round"'));
+      // Round has the anydpi-v26 XML and deliberately *no* legacy PNG: at
+      // minSdk 26 every device resolves the XML, so a round bitmap would be
+      // five files nothing reads. Written down because its absence looks like
+      // an oversight to anyone auditing the mipmap folders.
       expect(
         File('android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml')
             .existsSync(),
         isTrue,
+      );
+      expect(
+        File('android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png')
+            .existsSync(),
+        isFalse,
+        reason: 'a legacy round PNG is unreachable at minSdk 26 — if one is '
+            'wanted, the XML and the manifest are what decide, not this file',
       );
     });
 
