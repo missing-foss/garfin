@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -52,8 +53,14 @@ void main() {
     return find.byType(SnackBar).evaluate().isNotEmpty;
   }
 
-  SnackBar toast({VoidCallback? onUndo}) => assignResultToast(
-        message: 'Emma can now see 13 of 40',
+  SnackBar toast({VoidCallback? onUndo, Future<Map<String, int>>? counts}) =>
+      assignResultToast(
+        pending: 'Shared with Emma',
+        verified: (c) => 'Emma now sees ${c['kid-1']} of 40',
+        // #68: the count arrives after the toast does. A future that never
+        // completes is the honest default here — it is what a slow server looks
+        // like, and it keeps these tests about the toast's lifetime.
+        counts: counts ?? Completer<Map<String, int>>().future,
         undoLabel: 'Undo',
         onUndo: onUndo ?? () {},
       );
@@ -144,6 +151,92 @@ void main() {
           'without it "it stayed" cannot be told from "the harness never '
           'waited properly"',
     );
+  });
+
+  group('the count arrives after the toast (#68)', () {
+    testWidgets('it says what is true before the number is known',
+        (tester) async {
+      // The write is done in ~18 ms; the count costs 19 ms to 538 ms depending
+      // on how much the child can already see. The old code awaited the count
+      // before closing the sheet, so the parent watched a spinner for work
+      // that had already happened.
+      late BuildContext ctx;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(builder: (context) {
+              ctx = context;
+              return const SizedBox.expand();
+            }),
+          ),
+        ),
+      );
+      final counts = Completer<Map<String, int>>();
+      ScaffoldMessenger.of(ctx).showSnackBar(toast(counts: counts.future));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Shared with Emma'), findsOneWidget);
+      expect(find.textContaining('now sees'), findsNothing);
+
+      counts.complete(<String, int>{'kid-1': 13});
+      await tester.pumpAndSettle();
+
+      expect(find.text('Emma now sees 13 of 40'), findsOneWidget);
+      expect(find.text('Shared with Emma'), findsNothing);
+    });
+
+    testWidgets('a verification that fails leaves a true sentence, not a gap',
+        (tester) async {
+      // The repository answers an empty map rather than throwing, because this
+      // future is handed to the UI unawaited and an unawaited failure is a
+      // crash report for a *successful* write.
+      late BuildContext ctx;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(builder: (context) {
+              ctx = context;
+              return const SizedBox.expand();
+            }),
+          ),
+        ),
+      );
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        toast(counts: Future<Map<String, int>>.value(const <String, int>{})),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Shared with Emma'), findsOneWidget);
+    });
+
+    testWidgets('a count slower than the toast does not resurrect it',
+        (tester) async {
+      // Eight seconds is the toast's life (#65). A count that lands afterwards
+      // has nowhere to go, and must not throw on a disposed element.
+      late BuildContext ctx;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(builder: (context) {
+              ctx = context;
+              return const SizedBox.expand();
+            }),
+          ),
+        ),
+      );
+      final counts = Completer<Map<String, int>>();
+      ScaffoldMessenger.of(ctx).showSnackBar(toast(counts: counts.future));
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsOneWidget, reason: 'control');
+
+      await tester.pump(const Duration(seconds: 12));
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+
+      counts.complete(<String, int>{'kid-1': 13});
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+    });
   });
 
   test('every action-bearing toast in lib/ sets persist', () {

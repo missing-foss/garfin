@@ -880,4 +880,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get unlockChoiceNotNow => 'Not now';
+
+  @override
+  String assignDonePendingAdded(Object name) {
+    return 'Shared with $name';
+  }
+
+  @override
+  String assignDonePendingRemoved(Object name) {
+    return 'Taken back from $name';
+  }
+
+  @override
+  String get assignDonePendingMixed => 'Changes applied';
 }

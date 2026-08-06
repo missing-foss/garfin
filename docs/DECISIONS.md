@@ -559,6 +559,43 @@ rather than a stub, because a tap counter that opens nothing is dead code no tes
 
 ---
 
+## The verified count arrives after the sheet closes (settled 2026-08-06, from issue #68)
+
+Ground rule 1 says report the **verified** count — the server's, re-read after the write, never
+predicted. That is unchanged and not negotiable: it is what explains a share the rating cap
+swallowed, where the tag landed and the number did not move.
+
+What changed is who waits for it. The write is two round trips and costs ~18 ms, flat. The
+verification is one query whose cost tracks **what the child can already see**: 19 ms at one
+title, 214 ms at a thousand, 538 ms at two thousand, measured. So the sheet was holding a spinner
+over work that had already finished, for a duration that grows the more successfully the app is
+used.
+
+The sheet now closes when the write succeeds. The toast appears immediately saying what is true —
+*Shared with Emma*, or *Taken back from Emma*, direction-aware because both reach it — and the
+sentence is replaced by the counted one when the server answers. Rule 1 holds: the number is still
+the server's, still after the write, still never guessed.
+
+**The pending sentence is not a placeholder.** If the count fails, or is slower than the eight
+seconds the toast lives for (#65), it simply stays — it was a complete true statement on its own,
+and the Kids screen carries the verified count regardless. A design where the first sentence is a
+lie without the second would not be acceptable here.
+
+Two related things fell out of the same measurement:
+
+- **Undo asked for counts nobody read.** It routed through `apply`, which verifies; the sheet's
+  Undo takes a `Future<void>` and the toast after it names no number. On a large library that was
+  half a second of the server's time requested and discarded after every Undo. It no longer asks.
+- **Two serial loops of that query became bounded-parallel** — the per-child counts after a write,
+  and the Kids screen's own load. Both were `for` loops with an `await` inside, and `mapBounded`
+  (limit 4) was already the house pattern a few dozen lines away in one of the same files.
+
+Rejected: `/Items/Counts`, which does answer the same question — verified in four cases that could
+have told them apart — but is roughly flat where `/Items` scales, so it would make the common case
+four times slower to make the extreme case twice as fast.
+
+---
+
 ## Open questions
 
 - Whether to offer a migration when the tag prefix changes, or just document it

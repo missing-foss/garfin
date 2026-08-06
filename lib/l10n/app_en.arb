@@ -1237,5 +1237,17 @@
   "unlockChoiceNotNow": "Not now",
   "@unlockChoiceNotNow": {
     "description": "Turns the gate off. Not 'never': Settings can turn it back on, and the wording should not imply the choice is final."
+  },
+  "assignDonePendingAdded": "Shared with {name}",
+  "@assignDonePendingAdded": {
+    "description": "The assign toast before the verified count lands (#68). The write is done in ~18ms; the count takes as long as the child's visible library is large. True on its own, not a placeholder."
+  },
+  "assignDonePendingRemoved": "Taken back from {name}",
+  "@assignDonePendingRemoved": {
+    "description": "The same moment, for a removal. Separate string because 'Shared with' is a lie about a removal and both directions reach this toast."
+  },
+  "assignDonePendingMixed": "Changes applied",
+  "@assignDonePendingMixed": {
+    "description": "A diff that gives to one child and takes from another \u2014 DiffDirection.mixed. No name, because there is more than one and nothing directional can be said."
   }
 }

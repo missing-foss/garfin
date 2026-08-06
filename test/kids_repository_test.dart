@@ -53,6 +53,7 @@ void main() {
   Future<void> build({
     List<Map<String, dynamic>> users = const [],
     bool ratingsFail = false,
+    Duration? countDelay,
   }) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
@@ -81,7 +82,10 @@ void main() {
                 <String, dynamic>{'Name': 'TV-PG', 'Value': 10},
               ],
       )
-      ..fallback(json: <String, dynamic>{'TotalRecordCount': 10});
+      ..fallback(
+        json: <String, dynamic>{'TotalRecordCount': 10},
+        delay: countDelay,
+      );
 
     repository = KidsRepository(
       api: JellyfinApiFactory(identity: identity, adapter: server)
@@ -243,6 +247,40 @@ void main() {
 
       expect(overview.shortlisted.single.user.policy.isDisabled, isTrue);
       expect(overview.withoutShortlist, isEmpty);
+    });
+  });
+
+  group('how long the screen takes (#68)', () {
+    test('the children are counted together, not one after another', () async {
+      // Each child's count is a whole-library query whose cost tracks what
+      // that child can see — measured at 538 ms against a well-supplied child
+      // on a 2000-film library. Four of those in a `for` loop with an `await`
+      // in it was two seconds before the Kids screen drew anything, every time
+      // it loaded or was invalidated after a write.
+      //
+      // Serial and bounded-parallel make the *same requests in the same
+      // order*. Only the timing tells them apart, which is why the fake can be
+      // told to take its time.
+      await build(
+        users: [
+          user('k1', 'Emma', allowed: ['t']),
+          user('k2', 'Sam', allowed: ['t']),
+          user('k3', 'Ana', allowed: ['t']),
+          user('k4', 'Zoe', allowed: ['t']),
+        ],
+        countDelay: const Duration(milliseconds: 300),
+      );
+
+      final started = DateTime.now();
+      final overview = await repository.load();
+      final elapsed = DateTime.now().difference(started);
+
+      expect(overview.shortlisted, hasLength(4), reason: 'control: it loaded');
+      // Serial would be at least four 300ms counts plus the admin's total.
+      // Four at a time is one round of children alongside it.
+      expect(elapsed, lessThan(const Duration(milliseconds: 1000)),
+          reason: 'serial would be 1.5s of counts; '
+              'took ${elapsed.inMilliseconds}ms');
     });
   });
 

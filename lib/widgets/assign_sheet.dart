@@ -511,7 +511,9 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
 
       _reportAndClose(
         diff: diff,
-        counts: outcome.counts,
+        // Already resolved: a collection write is many writes, so the single
+        // count at the end is a small share of it and deferring gains nothing.
+        counts: Future<Map<String, int>>.value(outcome.counts),
         libraryTotal: libraryTotal,
         undo: () => repository.undoCollection(
           collectionId: set.collection.id,
@@ -555,7 +557,7 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
   /// looking broken.
   void _reportAndClose({
     required TagDiff diff,
-    required Map<String, int> counts,
+    required Future<Map<String, int>> counts,
     required int libraryTotal,
     required Future<void> Function() undo,
   }) {
@@ -567,11 +569,22 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
     navigator.pop();
     messenger.showSnackBar(
       assignResultToast(
-        message: l10n.assignResult(
+        // Direction-aware, because this sentence is said before any number is
+        // known and "shared" is a lie about a removal. #51's review caught this
+        // exact shape once already: copy written for one direction that reaches
+        // both.
+        pending: switch (diff.direction) {
+          DiffDirection.added => l10n.assignDonePendingAdded(first.child.name),
+          DiffDirection.removed =>
+            l10n.assignDonePendingRemoved(first.child.name),
+          DiffDirection.mixed => l10n.assignDonePendingMixed,
+        },
+        verified: (counts) => l10n.assignResult(
           first.child.name,
           counts[first.child.id] ?? 0,
           libraryTotal,
         ),
+        counts: counts,
         undoLabel: l10n.assignUndo,
         onUndo: () async {
           // A fresh forward write, never a restore (ground rule 5).

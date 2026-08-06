@@ -301,8 +301,14 @@ class JellyfinApi {
   /// Ground rule 4: never compute visibility client-side. This asks the server
   /// twice — once as the admin for the total, once as the child — and lets it
   /// apply the policy, including the rating cap that silently overrides tags.
-  /// A `Limit=0` query returns no items at all, just the count, so this is
-  /// cheap enough to do per child.
+  /// `Limit=0` returns no items at all, just the count. **That makes the
+  /// payload small, not the work** — this comment used to draw the second
+  /// conclusion from the first and say it was "cheap enough to do per child",
+  /// which was never measured and is false. Measured on 10.11.11: 19 ms when
+  /// the child can see 1 title, 214 ms at 1000, 538 ms at 2000, and the same
+  /// again for the administrator, who sees everything. The cost tracks the
+  /// **result set**, so it grows as a parent shares more. See
+  /// `docs/JELLYFIN-API.md` § Counting what a user can see, and #68.
   ///
   /// `Recursive=true` is required or the count covers only top-level items.
   Future<int> visibleItemCount({required String userId}) => _call(() async {

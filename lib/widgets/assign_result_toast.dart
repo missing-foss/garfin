@@ -34,15 +34,55 @@ import 'package:flutter/material.dart';
 /// a list that has moved on.
 const assignToastDuration = Duration(seconds: 8);
 
+/// [pending] is what it says while the verification is still in flight, and
+/// [verified] builds the sentence once the count lands (#68).
+///
+/// The number arrives *into* the toast rather than gating it. The write takes
+/// ~18 ms and does not grow; the count costs 19 ms when the child can see one
+/// title and 538 ms when they can see 2000, measured on 10.11.11. Waiting for
+/// it before saying anything left the parent watching a spinner for work that
+/// had already happened.
+///
+/// If the count never lands — the request failed, or it is slower than the
+/// eight seconds this toast lives for — the pending sentence stays. It is not a
+/// placeholder for a number that is owed: it is true on its own, and the Kids
+/// screen carries the verified count regardless.
 SnackBar assignResultToast({
-  required String message,
+  required String pending,
+  required String Function(Map<String, int> counts) verified,
+  required Future<Map<String, int>> counts,
   required String undoLabel,
   required VoidCallback onUndo,
 }) =>
     SnackBar(
-      content: Text(message),
+      content:
+          _FillingText(pending: pending, verified: verified, counts: counts),
       duration: assignToastDuration,
       // Explicit, and load-bearing: without it this toast never leaves.
       persist: false,
       action: SnackBarAction(label: undoLabel, onPressed: onUndo),
     );
+
+class _FillingText extends StatelessWidget {
+  const _FillingText({
+    required this.pending,
+    required this.verified,
+    required this.counts,
+  });
+
+  final String pending;
+  final String Function(Map<String, int> counts) verified;
+  final Future<Map<String, int>> counts;
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, int>>(
+        future: counts,
+        builder: (context, snapshot) {
+          final data = snapshot.data;
+          // An empty map is the repository's "asked, could not verify", which
+          // is the same case as still waiting as far as what can be said.
+          if (data == null || data.isEmpty) return Text(pending);
+          return Text(verified(data));
+        },
+      );
+}

@@ -22,7 +22,18 @@ class AssignOutcome {
   /// is also what explains a share the rating cap swallowed — the tag landed,
   /// the number did not move, and the app can say so rather than looking
   /// broken.
-  final Map<String, int> counts;
+  ///
+  /// **A future, and that is the point (#68).** When this object exists the
+  /// write has already happened; the verification is still in flight. Measured
+  /// on 10.11.11: the write is 18 ms and does not grow, while this call costs
+  /// 19 ms when the child can see one title and 538 ms when they can see 2000
+  /// — it tracks *what the child can see*, so it gets slower as a parent shares
+  /// more, which is the app succeeding. Awaiting it before closing the sheet
+  /// made the parent watch a spinner for work that was already done.
+  ///
+  /// Rule 1 is untouched: the number still comes from the server, still after
+  /// the write, and is still never predicted. What changed is who waits for it.
+  final Future<Map<String, int>> counts;
 
   final TagDiff applied;
 }
@@ -237,7 +248,9 @@ class AssignRepository {
       final name = await _writeOne(itemId, diff);
       await _record(diff: diff, itemId: itemId, itemName: name);
     }
-    return AssignOutcome(counts: await _countsFor(diff), applied: diff);
+    // Deliberately not awaited: the write is finished, and the caller decides
+    // when to wait for the verification. See [AssignOutcome.counts].
+    return AssignOutcome(counts: _countsFor(diff), applied: diff);
   }
 
   /// Writes [diff] across a whole collection: every member, and the container.
@@ -452,13 +465,46 @@ class AssignRepository {
 
   /// Ground rule 1: the count Garfin reports afterwards is the server's, asked
   /// again, not the one it expected.
+  ///
+  /// **Bounded-parallel, not serial (#68).** This was a `for` loop with an
+  /// `await` in it, which is fine when the call is cheap and this one is not:
+  /// measured on 10.11.11 against a 2000-film library, one child's verified
+  /// count costs 19 ms when they can see 1 title, 214 ms at 1000 and 538 ms at
+  /// 2000. **The cost tracks what the child can see, not the library** — so it
+  /// grows as a parent shares more, which is the app working. Three children
+  /// with well-stocked shortlists was three of those, end to end.
+  ///
+  /// `mapBounded` is the house pattern and already used twice in this file. The
+  /// limit stays at 4 for the reason `bounded_batch.dart` gives: a parent's
+  /// phone should not flood the server it is asking about.
+  ///
+  /// This does nothing for the single-child case, which is the one that was
+  /// reported. That one is fixed by not making the sheet wait — see
+  /// `assign_sheet.dart`.
   Future<Map<String, int>> _countsFor(TagDiff diff) async {
-    final counts = <String, int>{};
-    for (final change in diff.changes) {
-      counts[change.child.id] =
-          await _api.visibleItemCount(userId: change.child.id);
+    // **Never throws.** This future is now handed to the UI unawaited, and an
+    // unawaited future that errors is an unhandled async error — a crash report
+    // for a verification that failed, on a write that succeeded. The toast
+    // keeps its "done, no number yet" sentence instead, which is exactly what
+    // is true.
+    try {
+      return await _countsOrThrow(diff);
+    } on Object catch (error) {
+      log.warning('could not verify the counts: ${error.runtimeType}');
+      return const <String, int>{};
     }
-    return counts;
+  }
+
+  Future<Map<String, int>> _countsOrThrow(TagDiff diff) async {
+    final children = diff.changes.map((change) => change.child).toList();
+    final counts = await mapBounded<JellyfinUser, ({String id, int count})>(
+      children,
+      (child) async => (
+        id: child.id,
+        count: await _api.visibleItemCount(userId: child.id),
+      ),
+    );
+    return <String, int>{for (final entry in counts) entry.id: entry.count};
   }
 
   /// Reverses [diff] as a **fresh forward write**.
@@ -473,11 +519,20 @@ class AssignRepository {
   /// the item and inverts the change against whatever is there *now*, so a
   /// concurrent edit by someone else survives instead of being clobbered by a
   /// stale snapshot.
-  Future<AssignOutcome> undo({
+  /// **No counts.** Nothing reads them on this path — the sheet's Undo takes a
+  /// `Future<void>` and the toast that follows names no number — and on a large
+  /// library that was half a second of the server's time asked for and thrown
+  /// away after every Undo. The Kids screen re-reads the counts anyway when it
+  /// is invalidated.
+  Future<void> undo({
     required String itemId,
     required TagDiff diff,
-  }) =>
-      apply(itemId: itemId, diff: reverse(diff));
+  }) async {
+    final reversed = reverse(diff);
+    if (reversed.isEmpty) return;
+    final name = await _writeOne(itemId, reversed);
+    await _record(diff: reversed, itemId: itemId, itemName: name);
+  }
 
   /// Undo across a whole set, which is the same forward write repeated.
   ///

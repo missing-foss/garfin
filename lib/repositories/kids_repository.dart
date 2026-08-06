@@ -6,6 +6,7 @@ import '../models/jellyfin_user.dart';
 import '../models/kid_summary.dart';
 import '../models/parental_rating.dart';
 import 'birth_year_store.dart';
+import 'bounded_batch.dart';
 import 'jellyfin_api.dart';
 
 /// Assembles the Kids screen.
@@ -54,36 +55,41 @@ class KidsRepository {
     // the administrator can see, not a number this app added up.
     final libraryTotal = await _api.visibleItemCount(userId: _adminUserId);
 
-    final shortlisted = <KidSummary>[];
-    final withoutShortlist = <UnshortlistedUser>[];
-
-    for (final user in users) {
-      if (user.policy.shortlistMode == ShortlistMode.none) {
-        // The picture is resolved here too (#79). It used to be built only for
-        // shortlisted kids, so the unmanaged half of the same screen showed a
-        // letter for people who had an avatar set.
-        withoutShortlist.add(
+    final withoutShortlist = <UnshortlistedUser>[
+      for (final user in users)
+        if (user.policy.shortlistMode == ShortlistMode.none)
+          // The picture is resolved here too (#79). It used to be built only
+          // for shortlisted kids, so the unmanaged half of the same screen
+          // showed a letter for people who had an avatar set.
           UnshortlistedUser(user: user, avatarUrl: avatarUrlFor(user)),
-        );
-        continue;
-      }
+    ];
+    final withShortlist = users
+        .where((u) => u.policy.shortlistMode != ShortlistMode.none)
+        .toList();
 
-      // Ground rule 4, the child half. Asked as the administrator but *for*
-      // this user, so the server applies their policy — tags and the rating cap
-      // together, which is the combination no client-side sum can reproduce.
-      final visible = await _api.visibleItemCount(userId: user.id);
-
-      shortlisted.add(
-        KidSummary(
-          user: user,
-          visibleCount: visible,
-          libraryTotal: libraryTotal,
-          ratingCapName: ladder.nameFor(user.policy.maxParentalRating),
-          birthYear: _birthYears.read(user.id),
-          avatarUrl: avatarUrlFor(user),
-        ),
-      );
-    }
+    // **Bounded-parallel, not serial (#68).** Partition first, then ask for the
+    // counts together. This was one `for` loop with an `await` in it, and the
+    // call inside is the expensive one: measured on 10.11.11, a child's count
+    // costs 19 ms when they can see 1 title, 538 ms at 2000 and 8.7 s at 6000.
+    // It tracks **what the child can see**, so a household whose children are
+    // well supplied paid that per child, one after another, every time this
+    // screen loaded or was invalidated after a write.
+    //
+    // Ground rule 4, the child half, is untouched: still asked as the
+    // administrator but *for* that user, so the server applies their policy —
+    // tags and the rating cap together, which no client-side sum reproduces.
+    final counted = await mapBounded<JellyfinUser, KidSummary>(
+      withShortlist,
+      (user) async => KidSummary(
+        user: user,
+        visibleCount: await _api.visibleItemCount(userId: user.id),
+        libraryTotal: libraryTotal,
+        ratingCapName: ladder.nameFor(user.policy.maxParentalRating),
+        birthYear: _birthYears.read(user.id),
+        avatarUrl: avatarUrlFor(user),
+      ),
+    );
+    final shortlisted = counted.toList();
 
     return KidsOverview(
       shortlisted: shortlisted,
