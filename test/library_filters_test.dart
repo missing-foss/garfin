@@ -106,6 +106,20 @@ void main() {
       expect(query.containsKey('maxOfficialRating'), isFalse);
     });
 
+    test('a cap of zero is a cap, and is sent', () async {
+      // Zero is a real value on the measured ladder — `G`, `U`, `E`, `All` and
+      // `0+` all share it — so it belongs to the youngest and most restricted
+      // children. Dart has no truthiness, so the code is right today; the
+      // reason this is pinned is that the plausible edit is
+      // `maxParentalRating != null && maxParentalRating > 0`, or a port that
+      // reads 0 as absent. Every other test in this file survives that
+      // mutation, and the failure direction is the bad one: the filter
+      // silently stops applying for exactly the children it matters most for.
+      final query =
+          await queryFor(const LibraryFilters(withinCap: true), cap: 0);
+      expect(query['maxOfficialRating'], 0);
+    });
+
     test('the cap is not sent when the child has none', () async {
       // A child with no cap and the toggle somehow on must not send a null,
       // which measured filters *nothing* — silently, so it would look like the
