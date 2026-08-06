@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import '../models/authentication_result.dart';
 import '../models/dto_json.dart';
 import '../models/jellyfin_user.dart';
+import '../models/library_filters.dart';
 import '../models/library_item.dart';
 import '../models/library_page.dart';
 import '../models/parental_rating.dart';
@@ -232,11 +233,20 @@ class JellyfinApi {
   /// `Fields=Tags` is not optional: without it the `Tags` key is **absent**
   /// from every item, and the grid's whole shared/not-shared partition is
   /// computed from it. Measured on 10.11.11.
+  ///
+  /// [filters] are applied by the **server**. The delimiters are measured, not
+  /// guessed, and they disagree with each other: `genres=` takes `|` and reads a
+  /// comma as part of the value (`genres=Family,Comedy` answers **0**), while
+  /// `years=` takes a comma and answers **400** to a pipe. `IncludeItemTypes`
+  /// takes a comma. One wrong delimiter fails loudly and the other silently, so
+  /// each is pinned by a test.
   Future<LibraryPage> libraryPage({
     required String userId,
     required int startIndex,
     required int limit,
     List<String> itemTypes = const ['Movie', 'Series', 'BoxSet'],
+    LibraryFilters filters = const LibraryFilters(),
+    int? maxParentalRating,
   }) =>
       _call(() async {
         final response = await _dio.get<dynamic>(
@@ -246,7 +256,19 @@ class JellyfinApi {
             'Recursive': true,
             'StartIndex': startIndex,
             'Limit': limit,
-            'IncludeItemTypes': itemTypes.join(','),
+            'IncludeItemTypes':
+                (filters.type == null ? itemTypes : [filters.type!]).join(','),
+            if (filters.genre != null) 'genres': filters.genre,
+            if (filters.decade != null)
+              'years': filters.decadeYears.join(','),
+            // The child's cap goes out as the **number** from their policy.
+            // Measured: `maxOfficialRating` accepts the numeric value as well
+            // as a name, and this locale's ladder has five names sharing value
+            // 0 — so a name would mean choosing one of them arbitrarily. It
+            // also fails safe against the other measured behaviour: a value the
+            // server cannot parse filters *nothing*, silently.
+            if (filters.withinCap && maxParentalRating != null)
+              'maxOfficialRating': maxParentalRating,
             // `ChildCount` is **absent** without asking for it, the same way
             // `Tags` is. Measured on 10.11.11: `Fields=Tags` alone returns no
             // `ChildCount` at all, so `LibraryItem.childCount` was always null
@@ -270,6 +292,45 @@ class JellyfinApi {
           totalRecordCount: readInt(data, 'TotalRecordCount') ?? 0,
           startIndex: startIndex,
         );
+      });
+
+  /// The genres present in this library, for the filter chip.
+  ///
+  /// Measured: this is an **index**, not a scan of the items — after writing
+  /// genres onto items directly it answered empty until a library refresh ran,
+  /// then listed them within five seconds. So an empty answer means "nothing
+  /// indexed", which is not the same as "no genres", and the chip hides itself
+  /// rather than claiming the library has none.
+  Future<List<String>> genres({required String userId}) => _call(() async {
+        final response = await _dio.get<dynamic>(
+          '/Genres',
+          queryParameters: <String, dynamic>{
+            'userId': userId,
+            'Recursive': true,
+            'IncludeItemTypes': 'Movie,Series',
+            'SortBy': 'SortName',
+          },
+        );
+        return _itemsOf(response.data)
+            .map((item) => item.name)
+            .where((name) => name.isNotEmpty)
+            .toList(growable: false);
+      });
+
+  /// The production years present, which the Decade chip groups by ten.
+  Future<List<int>> years({required String userId}) => _call(() async {
+        final response = await _dio.get<dynamic>(
+          '/Years',
+          queryParameters: <String, dynamic>{
+            'userId': userId,
+            'Recursive': true,
+            'SortBy': 'SortName',
+          },
+        );
+        return _itemsOf(response.data)
+            .map((item) => int.tryParse(item.name))
+            .whereType<int>()
+            .toList(growable: false);
       });
 
   /// Of [ids], the ones the server shows to [userId].

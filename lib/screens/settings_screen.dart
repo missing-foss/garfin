@@ -74,7 +74,7 @@ class SettingsScreen extends ConsumerWidget {
             // offer than to explain when a change made in Jellyfin's own admin
             // has not appeared here yet.
             ref.invalidate(kidsOverviewProvider(session));
-            ref.invalidate(librarySliceProvider(session));
+            ref.invalidate(libraryControllerProvider(session));
             ref.invalidate(collectionIndexProvider(session));
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(l10n.settingsRefreshCacheDone)),

@@ -785,5 +785,69 @@
   "assignSeriesNote": "Everything inside the series follows it — seasons and episodes included.",
   "@assignSeriesNote": {
     "description": "Shown when the item is a series. Measured on 10.11.11 (#53): the policy filter inherits from the series, so labelling it is enough for the child to reach every episode. Says what happens rather than promising anything, because it is a statement about the server's behaviour on a measured version."
+  },
+  "filterAll": "Filters",
+  "@filterAll": {
+    "description": "The tune button's tooltip, and the title of the sheet that opens every filter group at once."
+  },
+  "filterReset": "Reset",
+  "@filterReset": {
+    "description": "Clears every filter. Disabled when none is set."
+  },
+  "filterAny": "Any",
+  "@filterAny": {
+    "description": "The unset option inside a filter group — no restriction on this one."
+  },
+  "filterType": "Type",
+  "@filterType": {
+    "description": "Filter chip: film, series or collection. Shows this word when unset."
+  },
+  "filterTypeMovie": "Films",
+  "@filterTypeMovie": {
+    "description": "Type filter value."
+  },
+  "filterTypeSeries": "Series",
+  "@filterTypeSeries": {
+    "description": "Type filter value."
+  },
+  "filterTypeCollection": "Collections",
+  "@filterTypeCollection": {
+    "description": "Type filter value."
+  },
+  "filterGenre": "Genre",
+  "@filterGenre": {
+    "description": "Filter chip: the genre, from the server's own list. Hidden when the server indexes none."
+  },
+  "filterDecade": "Decade",
+  "@filterDecade": {
+    "description": "Filter chip: which ten years. Hidden when the server lists no production years."
+  },
+  "filterDecadeValue": "{decade}s",
+  "@filterDecadeValue": {
+    "description": "A decade as a label — 1990 becomes 1990s.",
+    "placeholders": {
+      "decade": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "filterWithinCap": "Within {name}'s limit",
+  "@filterWithinCap": {
+    "description": "The rating filter, shown only when a child with a rating cap is selected. Deliberately NOT 'what they can see': the server applies this as maxOfficialRating over the administrator's view, and measured, an unrated title passes every cap here while a child whose policy blocks unrated items cannot see it. Ground rule 4.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "filterActiveCount": "{count}",
+  "@filterActiveCount": {
+    "description": "The number on the tune button's badge — how many filters are set. A string of nothing but the placeholder on purpose: it is a number, and numbers are formatted per locale, so it goes through the catalogue rather than through string interpolation.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

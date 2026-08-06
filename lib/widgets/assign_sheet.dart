@@ -543,7 +543,7 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
   /// the sheet's own rows.
   void _refreshEverything() {
     ref.invalidate(assignRowsProvider(_request));
-    ref.invalidate(librarySliceProvider(widget.session));
+    ref.invalidate(libraryControllerProvider(widget.session));
     ref.invalidate(kidsOverviewProvider(widget.session));
   }
 
@@ -576,7 +576,7 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
           onPressed: () async {
             // A fresh forward write, never a restore (ground rule 5).
             await undo();
-            ref.invalidate(librarySliceProvider(widget.session));
+            ref.invalidate(libraryControllerProvider(widget.session));
             ref.invalidate(kidsOverviewProvider(widget.session));
             messenger.showSnackBar(SnackBar(content: Text(l10n.assignUndone)));
           },

@@ -991,6 +991,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Everything inside the series follows it — seasons and episodes included.'**
   String get assignSeriesNote;
+
+  /// The tune button's tooltip, and the title of the sheet that opens every filter group at once.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get filterAll;
+
+  /// Clears every filter. Disabled when none is set.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get filterReset;
+
+  /// The unset option inside a filter group — no restriction on this one.
+  ///
+  /// In en, this message translates to:
+  /// **'Any'**
+  String get filterAny;
+
+  /// Filter chip: film, series or collection. Shows this word when unset.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get filterType;
+
+  /// Type filter value.
+  ///
+  /// In en, this message translates to:
+  /// **'Films'**
+  String get filterTypeMovie;
+
+  /// Type filter value.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get filterTypeSeries;
+
+  /// Type filter value.
+  ///
+  /// In en, this message translates to:
+  /// **'Collections'**
+  String get filterTypeCollection;
+
+  /// Filter chip: the genre, from the server's own list. Hidden when the server indexes none.
+  ///
+  /// In en, this message translates to:
+  /// **'Genre'**
+  String get filterGenre;
+
+  /// Filter chip: which ten years. Hidden when the server lists no production years.
+  ///
+  /// In en, this message translates to:
+  /// **'Decade'**
+  String get filterDecade;
+
+  /// A decade as a label — 1990 becomes 1990s.
+  ///
+  /// In en, this message translates to:
+  /// **'{decade}s'**
+  String filterDecadeValue(int decade);
+
+  /// The rating filter, shown only when a child with a rating cap is selected. Deliberately NOT 'what they can see': the server applies this as maxOfficialRating over the administrator's view, and measured, an unrated title passes every cap here while a child whose policy blocks unrated items cannot see it. Ground rule 4.
+  ///
+  /// In en, this message translates to:
+  /// **'Within {name}\'s limit'**
+  String filterWithinCap(String name);
+
+  /// The number on the tune button's badge — how many filters are set. A string of nothing but the placeholder on purpose: it is a number, and numbers are formatted per locale, so it goes through the catalogue rather than through string interpolation.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}'**
+  String filterActiveCount(int count);
 }
 
 class _AppLocalizationsDelegate

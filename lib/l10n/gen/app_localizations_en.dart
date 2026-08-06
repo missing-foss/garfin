@@ -551,4 +551,51 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get assignSeriesNote =>
       'Everything inside the series follows it — seasons and episodes included.';
+
+  @override
+  String get filterAll => 'Filters';
+
+  @override
+  String get filterReset => 'Reset';
+
+  @override
+  String get filterAny => 'Any';
+
+  @override
+  String get filterType => 'Type';
+
+  @override
+  String get filterTypeMovie => 'Films';
+
+  @override
+  String get filterTypeSeries => 'Series';
+
+  @override
+  String get filterTypeCollection => 'Collections';
+
+  @override
+  String get filterGenre => 'Genre';
+
+  @override
+  String get filterDecade => 'Decade';
+
+  @override
+  String filterDecadeValue(int decade) {
+    final intl.NumberFormat decadeNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String decadeString = decadeNumberFormat.format(decade);
+
+    return '${decadeString}s';
+  }
+
+  @override
+  String filterWithinCap(String name) {
+    return 'Within $name\'s limit';
+  }
+
+  @override
+  String filterActiveCount(int count) {
+    return '$count';
+  }
 }

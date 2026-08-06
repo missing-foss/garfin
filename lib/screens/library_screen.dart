@@ -7,8 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
 import '../models/auth_session.dart';
-import '../models/jellyfin_user.dart';
 import '../models/age_suitability.dart';
+import '../models/jellyfin_user.dart';
 import '../models/kid_summary.dart';
 import '../models/parental_rating.dart';
 import '../providers/app_providers.dart';
@@ -17,9 +17,9 @@ import '../providers/library_providers.dart';
 import '../providers/settings_providers.dart';
 import '../repositories/app_settings_store.dart';
 import '../repositories/jellyfin_exception.dart';
-import '../repositories/library_repository.dart';
-import '../widgets/error_notice.dart';
 import '../widgets/assign_sheet.dart';
+import '../widgets/error_notice.dart';
+import '../widgets/library_filter_bar.dart';
 import '../widgets/library_tile.dart';
 
 /// Build order step 4. The grid, and the child selector above it.
@@ -36,15 +36,16 @@ class LibraryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final slice = ref.watch(librarySliceProvider(session));
+    final feed = ref.watch(libraryControllerProvider(session));
     final child = ref.watch(pickedChildProvider(session));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _PickingForRow(session: session),
+        LibraryFilterBar(session: session),
         Expanded(
-          child: slice.when(
+          child: feed.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => Center(
               child: Padding(
@@ -63,14 +64,14 @@ class LibraryScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: () =>
-                          ref.invalidate(librarySliceProvider(session)),
+                          ref.invalidate(libraryControllerProvider(session)),
                       child: Text(l10n.libraryRetry),
                     ),
                   ],
                 ),
               ),
             ),
-            data: (data) => _Grid(session: session, slice: data, child: child),
+            data: (data) => _Grid(session: session, feed: data, child: child),
           ),
         ),
       ],
@@ -169,12 +170,12 @@ int? _ageOf(WidgetRef ref, JellyfinUser? child) {
 class _Grid extends ConsumerWidget {
   const _Grid({
     required this.session,
-    required this.slice,
+    required this.feed,
     required this.child,
   });
 
   final AuthSession session;
-  final LibrarySlice slice;
+  final LibraryFeed feed;
   final JellyfinUser? child;
 
   @override
@@ -194,14 +195,14 @@ class _Grid extends ConsumerWidget {
         const ParentalRatingLadder.empty();
     final childAge = _ageOf(ref, child);
 
-    if (slice.entries.isEmpty) {
+    if (feed.entries.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
             // "Nothing left to give" and "nothing here at all" are different
             // facts, and only one of them is a reason to check the server.
-            hideShared && child != null && slice.totalRecordCount > 0
+            hideShared && child != null && feed.totalRecordCount > 0
                 ? l10n.libraryNothingLeft(child!.name)
                 : l10n.libraryEmpty,
             textAlign: TextAlign.center,
@@ -225,9 +226,9 @@ class _Grid extends ConsumerWidget {
                   // together, and claiming it here is what ground rule 4
                   // forbids.
                   child == null
-                      ? l10n.libraryItemCount(slice.totalRecordCount)
+                      ? l10n.libraryItemCount(feed.totalRecordCount)
                       : l10n.libraryNotYetGiven(
-                          slice.entries.length,
+                          feed.entries.length,
                           child!.name,
                         ),
                   style: theme.textTheme.bodyMedium,
@@ -249,41 +250,84 @@ class _Grid extends ConsumerWidget {
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async =>
-                ref.invalidate(librarySliceProvider(session)),
-            child: GridView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                childAspectRatio: 0.58,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: slice.entries.length,
-              itemBuilder: (context, index) {
-                final entry = slice.entries[index];
-                return InkWell(
-                  // Step 5: tapping a tile is what opens the write preview.
-                  // Nothing is written until Apply — ground rule 1.
-                  onTap: () => showAssignSheet(
-                    context,
-                    session: session,
-                    item: entry.item,
-                  ),
-                  child: LibraryTile(
-                    entry: entry,
-                    serverUrl: session.serverUrl,
-                    childName: child?.name,
-                    suitability: suitabilityFor(
-                      item: entry.item,
-                      ladder: ladder,
-                      childAge: childAge,
-                    ),
-                  ),
-                );
+                ref.invalidate(libraryControllerProvider(session)),
+            child: NotificationListener<ScrollNotification>(
+              // Paging by scroll position rather than by a sentinel widget:
+              // the last tile of a 3-wide grid can be built long before it is
+              // anywhere near the viewport, and asking then would fetch pages
+              // nobody has scrolled to.
+              onNotification: (notification) {
+                final metrics = notification.metrics;
+                if (metrics.axis != Axis.vertical) return false;
+                if (metrics.pixels >= metrics.maxScrollExtent - 600) {
+                  ref
+                      .read(libraryControllerProvider(session).notifier)
+                      .loadMore();
+                }
+                return false;
               },
+              child: GridView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
+                  childAspectRatio: 0.58,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: feed.entries.length,
+                itemBuilder: (context, index) {
+                  final entry = feed.entries[index];
+                  return InkWell(
+                    // Step 5: tapping a tile is what opens the write preview.
+                    // Nothing is written until Apply — ground rule 1.
+                    onTap: () => showAssignSheet(
+                      context,
+                      session: session,
+                      item: entry.item,
+                    ),
+                    child: LibraryTile(
+                      entry: entry,
+                      serverUrl: session.serverUrl,
+                      childName: child?.name,
+                      suitability: suitabilityFor(
+                        item: entry.item,
+                        ladder: ladder,
+                        childAge: childAge,
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ),
+        // The tail: a spinner while the next page is on its way, or a retry if
+        // it failed. The tiles already fetched stay on screen either way —
+        // throwing the grid away because page four did not arrive would be a
+        // worse answer than a slow one.
+        if (feed.loadingMore)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: Center(
+              child: SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else if (feed.moreFailed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Center(
+              child: TextButton(
+                onPressed: () => ref
+                    .read(libraryControllerProvider(session).notifier)
+                    .loadMore(),
+                child: Text(l10n.libraryRetry),
+              ),
+            ),
+          ),
       ],
     );
   }
