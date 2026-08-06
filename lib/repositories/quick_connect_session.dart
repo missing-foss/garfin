@@ -170,6 +170,10 @@ class QuickConnectSession {
       return status.authenticated;
     } on JellyfinException catch (error) {
       switch (error.kind) {
+        // `unusableUserId` is Garfin refusing to *approve* without a user id
+        // (#40). Polling never sends one, so it cannot arrive here — named
+        // rather than defaulted, so a future kind still fails to compile.
+        case JellyfinErrorKind.unusableUserId:
         case JellyfinErrorKind.unreachable:
         case JellyfinErrorKind.timeout:
         case JellyfinErrorKind.server:

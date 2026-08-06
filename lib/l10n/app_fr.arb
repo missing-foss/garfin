@@ -181,5 +181,6 @@
   "deviceSignInConfirmCode": "Code {code}",
   "deviceSignInUnverified": "Garfin ne peut pas vérifier de quel appareil vient ce code. N'approuvez qu'un code que vous venez de voir sur l'écran de {name}.",
   "deviceSignInDone": "{name} est connecté sur cet appareil.",
-  "errorQuickConnectRefused": "Le serveur a refusé ce code. S'il a déjà servi, demandez-en un nouveau sur son appareil."
+  "errorQuickConnectRefused": "Le serveur a refusé ce code. S'il a déjà servi, demandez-en un nouveau sur son appareil.",
+  "errorUnusableUserId": "Garfin n'a pas d'identifiant utilisable pour cet enfant : rien n'a été approuvé. Actualisez ce que Garfin a en mémoire, dans les Réglages, puis réessayez."
 }

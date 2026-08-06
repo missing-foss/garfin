@@ -708,4 +708,8 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get errorQuickConnectRefused =>
       'Le serveur a refusé ce code. S\'il a déjà servi, demandez-en un nouveau sur son appareil.';
+
+  @override
+  String get errorUnusableUserId =>
+      'Garfin n\'a pas d\'identifiant utilisable pour cet enfant : rien n\'a été approuvé. Actualisez ce que Garfin a en mémoire, dans les Réglages, puis réessayez.';
 }

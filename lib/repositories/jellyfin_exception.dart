@@ -50,6 +50,17 @@ enum JellyfinErrorKind {
 
   /// The request was cancelled — a dispose, or a user backing out.
   cancelled,
+
+  /// Garfin does not hold a usable account id for the child it was asked to
+  /// act for, so it refused to ask the server (#40).
+  ///
+  /// Its own refusal rather than the server's, and deliberately not folded into
+  /// [server]: measured on 10.11.11, `POST /QuickConnect/Authorize` with an
+  /// empty, absent or all-zero `userId` answers **200 true** and signs the
+  /// device in as **the approving administrator**. On a child's device, that is
+  /// the exact inversion of what this app is for, and it is silent in both
+  /// directions.
+  unusableUserId,
 }
 
 /// A failure from the Jellyfin layer, already stripped of anything sensitive.

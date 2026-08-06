@@ -32,6 +32,7 @@ String jellyfinErrorText(AppLocalizations l10n, JellyfinException error) =>
       JellyfinErrorKind.notAdministrator =>
         l10n.errorNotAdministrator(error.detail ?? ''),
       JellyfinErrorKind.cancelled => l10n.errorCancelled,
+      JellyfinErrorKind.unusableUserId => l10n.errorUnusableUserId,
     };
 
 /// An inline error block. Not a SnackBar: sign-in errors need to stay on screen

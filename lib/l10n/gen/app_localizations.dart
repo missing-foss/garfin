@@ -1189,6 +1189,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The server wouldn\'t take that code. If it\'s already been used, ask for a fresh one on their device.'**
   String get errorQuickConnectRefused;
+
+  /// Garfin's own refusal, not the server's. Measured: POST /QuickConnect/Authorize with an empty or all-zero userId answers 200 and signs the device in as the approving administrator — so an unusable id must stop the request rather than be sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin doesn\'t have a usable account id for that child, so it hasn\'t approved anything. Refresh what Garfin has cached, in Settings, and try again.'**
+  String get errorUnusableUserId;
 }
 
 class _AppLocalizationsDelegate

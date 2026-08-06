@@ -222,6 +222,61 @@ void main() {
     expect(request.queryParameters, {'code': '652316', 'userId': 'kid-1'});
   });
 
+  group('an unusable user id never reaches the server', () {
+    // **`Authorize` fails open to the approving administrator.** Measured on
+    // 10.11.11, each on its own fresh code:
+    //
+    //     userId=<child>      -> 200, the device gets the CHILD's session
+    //     userId=<all zeroes> -> 200, the device gets the ADMIN's session
+    //     userId omitted      -> 200, the device gets the ADMIN's session
+    //     userId=             -> 200, the device gets the ADMIN's session
+    //
+    // Nothing errors, and `JellyfinUser.fromJson` defaults a missing `Id` to
+    // `''` — so one malformed `/Users` row would turn a child's card into a
+    // button that hands an administrator session to the child's own tablet
+    // while the sheet reports the child was signed in. The request must not
+    // leave the phone.
+    for (final (label, id) in [
+      ('an empty id', ''),
+      ('whitespace', '   '),
+      ('the all-zero GUID', '00000000000000000000000000000000'),
+      ('the all-zero GUID with dashes', '00000000-0000-0000-0000-000000000000'),
+    ]) {
+      test('$label is refused before the call', () async {
+        final server = FakeJellyfinServer()..fallback(json: true);
+        final api = JellyfinApiFactory(
+          identity: const DeviceIdentity(deviceId: 'd', deviceName: 't'),
+          adapter: server,
+        ).create(baseUrl: 'http://host:8096');
+
+        await expectLater(
+          api.approveQuickConnect(code: '652316', userId: id),
+          throwsA(isA<JellyfinException>().having(
+              (e) => e.kind, 'kind', JellyfinErrorKind.unusableUserId)),
+        );
+        expect(server.requests, isEmpty,
+            reason: 'the approval must not leave the phone');
+      });
+    }
+
+    test('a real id is not caught by the guard', () async {
+      // The guard is narrow on purpose: it refuses ids Garfin never meant to
+      // send, not ids it does not recognise the shape of.
+      final server = FakeJellyfinServer()..fallback(json: true);
+      final api = JellyfinApiFactory(
+        identity: const DeviceIdentity(deviceId: 'd', deviceName: 't'),
+        adapter: server,
+      ).create(baseUrl: 'http://host:8096');
+
+      await api.approveQuickConnect(
+        code: '652316',
+        userId: '5690bebbcd5f4b3d9c34ed7ee4194985',
+      );
+
+      expect(server.requests, hasLength(1));
+    });
+  });
+
   test('a 403 is not swallowed — the server owns the privilege check',
       () async {
     // Measured: a non-admin pointing userId at an administrator is refused with

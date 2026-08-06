@@ -986,5 +986,9 @@
   "errorQuickConnectRefused": "The server wouldn't take that code. If it's already been used, ask for a fresh one on their device.",
   "@errorQuickConnectRefused": {
     "description": "Measured: a reused code and a userId that no longer exists both answer 500, so 'already used' is offered as the likely reason rather than asserted as fact."
+  },
+  "errorUnusableUserId": "Garfin doesn't have a usable account id for that child, so it hasn't approved anything. Refresh what Garfin has cached, in Settings, and try again.",
+  "@errorUnusableUserId": {
+    "description": "Garfin's own refusal, not the server's. Measured: POST /QuickConnect/Authorize with an empty or all-zero userId answers 200 and signs the device in as the approving administrator — so an unusable id must stop the request rather than be sent."
   }
 }

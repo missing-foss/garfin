@@ -219,15 +219,40 @@ told.
 | **non-admin approves with `userId=<admin>`** | **403** |
 | non-admin approves for themselves, no `userId` | 200 — ordinary Quick Connect |
 | a code nobody asked for | 404 |
-| **the same code twice** | **500** |
-| **a `userId` that does not exist** | **500** |
+| a well-formed `userId` that does not exist | **400** |
+| the same code twice | **500** |
 
 The 403 is load-bearing: **the privilege boundary is the server's**, so Garfin does not re-implement
 it — a check it implemented would be the one that could be wrong.
 
-The two 500s matter for copy rather than for code: the server does not distinguish "already used"
-from "no such user", so neither can the app. It offers the likelier reason rather than asserting
-it, the same way the grid offers a reason for a held-back title.
+> **An earlier version of this table said the last two both answered 500.** That was a confounded
+> measurement: the absent-user case reused a code an earlier step had already spent, so the 500 came
+> from the code rather than from the id. Re-run with **a fresh code per case**, they are 400 and 500
+> and the server tells them apart perfectly well. Caught in review of #40. The lesson is the cheap
+> one — a sweep that reuses a single-use value measures the value, not the variable.
+
+### `Authorize` fails open to the approving administrator
+
+**The finding that shapes the code.** Measured, each case on its own fresh code, following the
+device through to the session it actually receives:
+
+| `userId` sent | approve | the session the device gets |
+|---|---|---|
+| `<child>` | 200 `true` | **the child**, `IsAdministrator: false` |
+| the all-zero GUID | 200 `true` | **the administrator**, `IsAdministrator: true` |
+| omitted entirely | 200 `true` | **the administrator** |
+| the empty string | 200 `true` | **the administrator** |
+
+No error anywhere in that. The device shows a code, the parent approves it on a child's card, and
+the tablet receives an **administrator** session while the app reports the child was signed in —
+the exact inversion of what this app is for, silent in both directions.
+
+`JellyfinUser.fromJson` defaults a missing `Id` to `''`, so one malformed `/Users` row is all it
+would take. `approveQuickConnect` therefore refuses an empty or all-zero `userId` **before** the
+request. That is not re-implementing the server's privilege check — that check is the 403, and it
+stays the server's — it is declining to send a request whose meaning Garfin does not intend. It is
+the same family as `fullItem` comparing the id it got back with the one it asked for: the all-zero
+GUID again, on a route that mints sessions rather than returning a folder.
 
 **Nothing can be shown about the device being approved.** Only `Authorize` takes a code; the one
 route carrying `DeviceName`, `AppName` and `AppVersion` is `GET /QuickConnect/Connect`, which needs
