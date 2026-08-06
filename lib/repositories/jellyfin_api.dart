@@ -140,6 +140,50 @@ class JellyfinApi {
         },
       );
 
+  /// Approves a Quick Connect code **on another user's behalf** (#40).
+  ///
+  /// The parent types the six digits their child's device is showing, Garfin
+  /// approves it as the administrator, and the child's device exchanges its own
+  /// secret for a token belonging to the **child**. Measured on 10.11.11: the
+  /// resulting session is the child's, `IsAdministrator: false`, and no password
+  /// is typed on the child's device — one the child need never be told.
+  ///
+  /// **`userId` is the whole feature, and the privilege boundary is the
+  /// server's.** A non-admin token pointing `userId` at an administrator is
+  /// refused with **403**; the same token approving for itself succeeds. Garfin
+  /// does not re-implement that check, because a check it implemented would be
+  /// the one that could be wrong.
+  ///
+  /// This is not a policy write. `Authorize` mints a session; ground rule 8 is
+  /// about `POST /Users/{id}/Policy` and its full-object replace, and none of
+  /// that risk is in play here.
+  ///
+  /// **Garfin never sees the secret.** Only the requesting device holds it,
+  /// which is also why nothing can be shown about the device being approved —
+  /// see the failure map below and `docs/JELLYFIN-API.md`.
+  Future<void> approveQuickConnect({
+    required String code,
+    required String userId,
+  }) =>
+      _call(
+        () async {
+          await _dio.post<dynamic>(
+            '/QuickConnect/Authorize',
+            queryParameters: <String, dynamic>{'code': code, 'userId': userId},
+          );
+        },
+        // Measured, and the interesting part is what the server does *not*
+        // distinguish: an unknown or expired code answers 404, while a code
+        // already used and a `userId` that does not exist **both** answer 500.
+        // So "already used" is not a state Garfin can report as fact — the UI
+        // offers it as the likely reason rather than asserting it.
+        remap: const {
+          JellyfinErrorKind.notFound: JellyfinErrorKind.quickConnectExpired,
+          JellyfinErrorKind.unauthorized:
+              JellyfinErrorKind.quickConnectUnavailable,
+        },
+      );
+
   /// The password fallback.
   Future<AuthenticationResult> authenticateByName({
     required String username,

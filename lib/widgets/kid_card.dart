@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
+import 'device_sign_in_sheet.dart';
 import '../models/auth_session.dart';
 import '../models/jellyfin_user.dart';
 import '../models/kid_summary.dart';
@@ -96,6 +97,31 @@ class KidCard extends ConsumerWidget {
               l10n.kidsVisibleOfTotal(kid.visibleCount, kid.libraryTotal),
               style: theme.textTheme.bodySmall,
             ),
+
+            // Signing this child in on one of their devices (#40). On their own
+            // card on purpose: the child is then chosen by construction, and
+            // approving for the wrong child — the failure that matters here,
+            // and a silent one — has no list to happen in.
+            //
+            // Absent for a conflicting account, which Garfin refuses to
+            // interpret at all (ground rule 3). Minting a session for an
+            // account it cannot describe would be acting past the point where
+            // it stopped understanding.
+            if (!conflicting) ...[
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.phonelink_lock_outlined, size: 18),
+                  label: Text(l10n.deviceSignInAction),
+                  onPressed: () => showDeviceSignInSheet(
+                    context,
+                    session: session,
+                    child: kid.user,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

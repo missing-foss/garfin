@@ -666,4 +666,46 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get activityUndoUnknown =>
       'Ce compte n\'a plus de sélection : Garfin ne peut pas savoir ce que défaire signifierait.';
+
+  @override
+  String get deviceSignInAction => 'Connecter un appareil';
+
+  @override
+  String deviceSignInTitle(String name) {
+    return 'Connecter un appareil pour $name';
+  }
+
+  @override
+  String get deviceSignInHow =>
+      'Sur son appareil, ouvrez Jellyfin et choisissez Quick Connect. Saisissez ici les six chiffres affichés.';
+
+  @override
+  String get deviceSignInCodeLabel => 'Code à six chiffres';
+
+  @override
+  String get deviceSignInApprove => 'Approuver';
+
+  @override
+  String deviceSignInConfirmTitle(String name) {
+    return 'Connecter $name ?';
+  }
+
+  @override
+  String deviceSignInConfirmCode(String code) {
+    return 'Code $code';
+  }
+
+  @override
+  String deviceSignInUnverified(String name) {
+    return 'Garfin ne peut pas vérifier de quel appareil vient ce code. N\'approuvez qu\'un code que vous venez de voir sur l\'écran de $name.';
+  }
+
+  @override
+  String deviceSignInDone(Object name) {
+    return '$name est connecté sur cet appareil.';
+  }
+
+  @override
+  String get errorQuickConnectRefused =>
+      'Le serveur a refusé ce code. S\'il a déjà servi, demandez-en un nouveau sur son appareil.';
 }

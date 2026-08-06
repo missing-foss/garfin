@@ -203,6 +203,50 @@ omission looks like an oversight and is not.
 
     GET /Users/{id}/Views     -> libraries this user can reach
 
+### Approving a code on someone else's behalf (#40)
+
+    POST /QuickConnect/Authorize?code={code}&userId={childId}    -> 200 true
+
+**Measured on 10.11.11**, re-run 2026-08-06. `userId` is an optional, admin-only parameter on the
+server's own OpenAPI, and it is the whole of this feature: the parent approves, the **child's**
+device exchanges its own secret, and the session that comes out is the child's with
+`IsAdministrator: false`. No password is typed on the child's device — one the child need never be
+told.
+
+| attempt | result |
+|---|---|
+| admin approves with `userId=<child>` | 200, the child's device gets a child session |
+| **non-admin approves with `userId=<admin>`** | **403** |
+| non-admin approves for themselves, no `userId` | 200 — ordinary Quick Connect |
+| a code nobody asked for | 404 |
+| **the same code twice** | **500** |
+| **a `userId` that does not exist** | **500** |
+
+The 403 is load-bearing: **the privilege boundary is the server's**, so Garfin does not re-implement
+it — a check it implemented would be the one that could be wrong.
+
+The two 500s matter for copy rather than for code: the server does not distinguish "already used"
+from "no such user", so neither can the app. It offers the likelier reason rather than asserting
+it, the same way the grid offers a reason for a held-back title.
+
+**Nothing can be shown about the device being approved.** Only `Authorize` takes a code; the one
+route carrying `DeviceName`, `AppName` and `AppVersion` is `GET /QuickConnect/Connect`, which needs
+the **secret** — held solely by the requesting device. Asking it for a code answers 404. The five
+Quick Connect routes and their parameters are the whole surface:
+
+    POST /QuickConnect/Authorize   code, userId
+    GET  /QuickConnect/Connect     secret
+    GET  /QuickConnect/Enabled     —
+    POST /QuickConnect/Initiate    —
+    POST /Users/AuthenticateWithQuickConnect
+
+This is the same blindness as approving in Jellyfin's own web UI, so it is not a regression — but a
+parent can be talked into approving a code that is not their child's device, and the confirmation
+says so rather than implying anything was checked.
+
+**This is not a policy write.** `Authorize` mints a session; ground rule 8 is about
+`POST /Users/{id}/Policy` and its full-object replace, and none of that risk is in play.
+
 ## Browsing
 
     GET /Items?userId={admin}&Recursive=true
