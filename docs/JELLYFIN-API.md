@@ -57,7 +57,34 @@ The checks are cheap and none of them is clever:
 Both #40 and #55 were caught in review rather than by the person running the sweep, and in both
 cases the reviewer's own run had avoided the trap by accident rather than by design — a loop that
 happened to generate a fresh value each time, distinct device ids chosen for unrelated reasons. A
-confound you dodge by luck is one that returns when the loop is written differently.
+confound you dodge by luck is one that returns when the loop is written differently. Which is the
+argument for **independent reproduction** rather than for care: a second harness fails in different
+places, and one person running one sweep twice is not a substitute for that.
+
+### The harder case: a claim that was never measured at all
+
+Every trap above is a measurement that answered the wrong question. There is a second failure in
+this file's history, and it is worse in one specific way — **nothing ran**:
+
+| #60 | "Jellyfin retires a device's previous token when a new session claims the same id" — a rule about the server, inferred from a 401 cascade that several mechanisms would explain |
+| #41 | "passing the wrong id answers 204 and ends nothing" — only the *correct* id had ever been sent |
+
+Both were stated in the same voice as the measurements around them, and **a prose claim sitting
+between two code blocks inherits their authority**. No control catches this, because there is no
+confound to find: the checks above defend against measuring the wrong thing, and this is not
+measuring at all.
+
+The only defence is marking which lines are observations and which are inferences — which is what
+**"measured on 10.11.11"** is for, and why it appears as often as it does.
+
+**That marker is a convention from here on, not a property of the file today.** Counted at the time
+of writing: 42 sections, 22 carrying a marker and 20 not, and fifteen of the unmarked ones state
+hard facts in code blocks — several of which two people have independently re-measured. So an
+unmarked line means **unaudited, not doubtful**, and a rule that told you to distrust half the
+document would simply be ignored. The marker is applied as sections are revisited, and accumulates.
+
+What it buys, from here on: **a line that states a server behaviour and carries no marker is the
+line to check first** — including, and especially, your own.
 
 ## Auth
 
