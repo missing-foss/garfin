@@ -865,4 +865,22 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsAbout => 'À propos de Garfin';
+
+  @override
+  String get unlockChoiceTitle =>
+      'Demander votre empreinte avant d\'ouvrir Garfin ?';
+
+  @override
+  String get unlockChoiceBody =>
+      'Garfin reste connecté à votre serveur en tant qu\'administrateur. C\'est le téléphone que vous confiez à vos enfants : il peut donc demander qui vous êtes avant de s\'ouvrir.';
+
+  @override
+  String get unlockChoiceChangeable =>
+      'Vous pouvez changer cela à tout moment dans les réglages.';
+
+  @override
+  String get unlockChoiceAsk => 'Demander à chaque fois';
+
+  @override
+  String get unlockChoiceNotNow => 'Pas maintenant';
 }

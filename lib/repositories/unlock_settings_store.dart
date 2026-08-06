@@ -17,6 +17,7 @@ class UnlockSettingsStore {
 
   static const _requiredKey = 'unlock_required';
   static const _idleTimeoutKey = 'unlock_idle_timeout_seconds';
+  static const _askedKey = 'unlock_choice_made';
 
   /// Two minutes, and the number is the whole point of the setting.
   ///
@@ -43,6 +44,20 @@ class UnlockSettingsStore {
   bool get required => _prefs.getBool(_requiredKey) ?? true;
 
   Future<void> setRequired(bool value) => _prefs.setBool(_requiredKey, value);
+
+  /// Whether the parent has been offered the choice, once, in words.
+  ///
+  /// Separate from [required] because "on, and they chose it" and "on, because
+  /// nobody has been asked yet" are different states and only one of them
+  /// should produce a screen. False on a fresh install; true forever after the
+  /// first answer, whichever way it went.
+  bool get choiceRecorded => _prefs.getBool(_askedKey) ?? false;
+
+  /// Records the answer and the fact that it was given, in that order.
+  Future<void> recordChoice({required bool required}) async {
+    await setRequired(required);
+    await _prefs.setBool(_askedKey, true);
+  }
 
   Duration get idleTimeout {
     final seconds = _prefs.getInt(_idleTimeoutKey);

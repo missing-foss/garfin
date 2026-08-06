@@ -1447,6 +1447,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'About Garfin'**
   String get settingsAbout;
+
+  /// The one-time unlock question, asked right after the first sign-in (#69) — the first moment at which Garfin holds anything worth asking about.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask for your fingerprint before opening Garfin?'**
+  String get unlockChoiceTitle;
+
+  /// Why the gate exists, in the present tense, at the moment it becomes true. Says what the app holds rather than making a promise about safety — docs/DECISIONS.md § Voice bans 'safe', 'protected' and 'secure'.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin stays signed in to your server as an administrator. This is the phone you hand to your children, so it can ask who you are before it opens.'**
+  String get unlockChoiceBody;
+
+  /// The setting has always existed; before this it lived behind the prompt it controls.
+  ///
+  /// In en, this message translates to:
+  /// **'You can change this any time in Settings.'**
+  String get unlockChoiceChangeable;
+
+  /// Turns the gate on. The default, and the first button.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask every time'**
+  String get unlockChoiceAsk;
+
+  /// Turns the gate off. Not 'never': Settings can turn it back on, and the wording should not imply the choice is final.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get unlockChoiceNotNow;
 }
 
 class _AppLocalizationsDelegate

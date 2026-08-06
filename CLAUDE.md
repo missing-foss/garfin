@@ -127,7 +127,12 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
 9. **The app itself is gated behind device auth.** Garfin holds an admin token on a phone that
    gets handed to children by design — that is the product's normal interaction, and it is
    precisely the case device lock does not cover. Biometric/PIN on cold start and on resume
-   after an idle timeout, which is a Settings option.
+   after an idle timeout, which is a Settings option. **The gate starts where the token does** —
+   inside the signed-in branch, never over sign-in, where there is no token, no server address and
+   no children to protect (#69). The one-time "ask every time / not now" choice is offered only
+   after an *interactive* sign-in; a restored session is gated without being asked, because
+   offering "not now" to whoever picked the phone up is offering to skip the gate to the person it
+   exists for.
 
 ## Conventions
 
@@ -175,9 +180,10 @@ Analytics are off (`flutter --disable-analytics`, `FLUTTER_SUPPRESS_ANALYTICS=tr
 
 ## Status
 
-Sign-in works, behind the device unlock gate. `lib/main.dart` resolves `SharedPreferences` and the
-device identity, then hands off to `UnlockGate` wrapping `lib/screens/app_root.dart`, which shows
-the sign-in screen or the (placeholder) home depending on whether a session restores.
+Sign-in works; the app behind it is gated. `lib/main.dart` resolves `SharedPreferences` and the
+device identity, then hands off to `lib/screens/app_root.dart`, which shows the sign-in screen, the
+one-time unlock question, or `UnlockGate` around the home screen depending on whether a session
+restores and how it was reached (#69).
 `lib/repositories/` holds the Jellyfin client, the auth repository, the Quick Connect pairing and
 the device-unlock wrapper; `lib/providers/` wires them into Riverpod. Tracked in the build-order
 epic; phases get their own issue when they are next.

@@ -12,9 +12,23 @@ Bottom navigation, four destinations: **Library · Kids · Activity · Settings*
 
 ## Unlock
 
-Before anything else, on cold start and on resume after the idle timeout: biometric, falling back
-to device PIN/pattern. Garfin holds an admin token on a phone that gets handed to children as its
-normal mode of use, so device lock alone doesn't cover the case the app itself creates.
+On cold start with a session already stored, and on resume after the idle timeout: biometric,
+falling back to device PIN/pattern. Garfin holds an admin token on a phone that gets handed to
+children as its normal mode of use, so device lock alone doesn't cover the case the app itself
+creates.
+
+**Not over sign-in.** The gate starts where the token does. Before a session there is nothing to
+gate, and asking for biometrics before a server address has been typed protects an empty app.
+
+**The question, once (#69).** Straight after an interactive sign-in — and only then — a full-screen
+choice: *Ask every time* (recommended, and what a fresh install does anyway) or *Not now*, with the
+note that Settings can change it later. Answering "ask every time" drops straight to the lock
+screen; answering "not now" opens the app. Either answer is remembered, and the screen never
+appears again.
+
+A **restored** session skips the question entirely and goes to the lock screen. The question is put
+only to someone who has just proved they hold the Jellyfin credentials; anyone else holding the
+phone is the reason the gate exists.
 
 Below API 28 there is no `BiometricPrompt`, so 26–27 go straight to device credential. If the
 device has no credential set at all, say so plainly and let the user continue — a lock Garfin

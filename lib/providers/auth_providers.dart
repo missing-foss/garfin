@@ -38,10 +38,22 @@ class AuthSignedIn extends AuthState {
     required this.session,
     required this.verified,
     this.offlineReason,
+    this.justSignedIn = false,
   });
 
   final AuthSession session;
   final bool verified;
+
+  /// Whether this session was created by someone signing in just now, rather
+  /// than restored from storage at launch.
+  ///
+  /// It decides one thing: whether the unlock question may be asked (#69). A
+  /// *restored* session belongs to a phone that has been closed and reopened —
+  /// possibly by someone who should not have it — so offering "not now" there
+  /// would be offering to skip the gate to whoever is holding the phone. Right
+  /// after an interactive sign-in there is no such doubt: they have just proved
+  /// they hold the Jellyfin credentials.
+  final bool justSignedIn;
 
   /// Why the session could not be confirmed. Present means "showing what we
   /// already knew"; absent with [verified] true means the server agreed.
@@ -57,6 +69,10 @@ class AuthSignedIn extends AuthState {
         verified: verified ?? this.verified,
         offlineReason:
             clearOfflineReason ? null : (offlineReason ?? this.offlineReason),
+        // Carried, not reset: `refreshSession` copies the state a moment after
+        // sign-in, and dropping this would retract the right to ask the unlock
+        // question before it had been asked.
+        justSignedIn: justSignedIn,
       );
 }
 
@@ -130,7 +146,9 @@ class AuthController extends AsyncNotifier<AuthState> {
   /// Adopts a session that has already passed the admin check in
   /// [AuthRepository.completeSignIn].
   void adopt(AuthSession session) {
-    state = AsyncData(AuthSignedIn(session: session, verified: true));
+    state = AsyncData(
+      AuthSignedIn(session: session, verified: true, justSignedIn: true),
+    );
   }
 
   Future<void> signOut() async {

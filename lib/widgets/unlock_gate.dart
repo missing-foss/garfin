@@ -8,12 +8,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/unlock_providers.dart';
 import '../screens/lock_screen.dart';
 
-/// Wraps the whole app in the device unlock gate — ground rule 9.
+/// Wraps the signed-in app in the device unlock gate — ground rule 9.
 ///
-/// It sits above sign-in as well as above everything after it, because
-/// `docs/UI-SPEC.md` puts Unlock "before anything else", and because building
-/// it in later would mean retrofitting every screen that had shipped in the
-/// meantime (issue #18's reason for doing this at step 2).
+/// **Not sign-in.** It used to sit above that too, on the reading that
+/// `docs/UI-SPEC.md` put Unlock "before anything else". Before a session there
+/// is no token, no server address and no children, so that guarded an empty app
+/// and asked for biometrics from someone who had not typed an address yet; #69
+/// moved it into `AppRoot`'s signed-in branch, where the rule's premise is
+/// actually true. What has not changed is that it was built at step 2 rather
+/// than retrofitted later (issue #18).
 ///
 /// The app stays in the tree behind the gate rather than being swapped out, so
 /// locking on resume does not throw away the grid position or the sheet someone

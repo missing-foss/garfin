@@ -263,6 +263,22 @@ app restricts. Biometric/PIN on cold start and on resume after an idle timeout. 
 every write, which would cost the one-tap promise the product is built on while still leaving
 every child's policy readable.
 
+> **Amendment, 2026-08-05 (issue #69).** The gate sat *above* the whole app, so it also guarded
+> sign-in — where Garfin holds no token, no server address and no children. It demanded biometrics
+> from someone who had not yet typed a server address, to protect an empty app. The premise of the
+> rule is "Garfin holds an admin token", and that becomes true the instant a session exists, which
+> is now where the gate starts: inside the signed-in branch of `AppRoot`, never over sign-in.
+>
+> The same change puts the choice to a new parent once, on first sign-in: keep asking, or not now.
+> **It is only ever offered to someone who has just signed in interactively.** A *restored* session
+> is gated with no question asked — whoever picked the phone up has proved nothing, and offering
+> them "not now" would be offering to skip the gate to exactly the person it exists for. That
+> asymmetry is the whole point of the screen and is the case `test/unlock_start_test.dart` guards
+> hardest.
+>
+> Answering "keep asking" leaves the app **locked**, not open behind the answered question: the
+> gate has not run this session, so it stands exactly as a cold start would leave it.
+
 **Previews show the current count, never a predicted one.** A `− Frozen` line does not tell a
 parent that the library is about to go dark. But predicting the resulting count means simulating
 the server's policy evaluation locally, which is the one thing "never compute visibility
