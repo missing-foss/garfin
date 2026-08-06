@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import '../repositories/app_settings_store.dart';
 import 'library_item.dart';
 import 'tag_diff.dart';
 
@@ -47,6 +48,40 @@ class CollectionSet {
 /// Asked **before** the sets are looked up, not after, so a removal does not
 /// pay for an index it is forbidden to use.
 bool cascadeAsks(TagDiff diff) => diff.additions.isNotEmpty;
+
+/// What to do about the sets a film belongs to, before any dialog appears.
+///
+/// Ground rule 6 first, the parent's preference second: a removal never
+/// cascades whatever Settings says, because that rule is about the app being
+/// predictable rather than about taste.
+///
+/// [CascadePlan.none] is also what makes *just the one title* cheap — with no
+/// cascade possible there is nothing to look up, and the collection index costs
+/// 1 + N requests.
+CascadePlan cascadePlanFor({
+  required TagDiff diff,
+  required CollectionPrompt prompt,
+}) {
+  if (!cascadeAsks(diff)) return CascadePlan.none;
+  return switch (prompt) {
+    CollectionPrompt.never => CascadePlan.none,
+    CollectionPrompt.always => CascadePlan.all,
+    CollectionPrompt.ask => CascadePlan.ask,
+  };
+}
+
+/// The three answers to "does this write cover the rest of the set?".
+enum CascadePlan {
+  /// No set is touched, and none is looked up.
+  none,
+
+  /// Every set the film belongs to, without asking — the parent answered in
+  /// Settings.
+  all,
+
+  /// Ask, once per set, listing the other titles and their ratings.
+  ask,
+}
 
 /// Every collection on the server, with its membership.
 ///

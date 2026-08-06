@@ -18,6 +18,7 @@ import '../providers/assign_providers.dart';
 import '../providers/collection_providers.dart';
 import '../providers/kids_providers.dart';
 import '../providers/library_providers.dart';
+import '../providers/settings_providers.dart';
 import '../repositories/assign_repository.dart';
 import 'batch_result_notice.dart';
 import 'collection_prompt.dart';
@@ -391,11 +392,23 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
   /// Null means the parent dismissed a dialog rather than answering it, which
   /// cancels the whole write — a dismissal is not "just this one".
   Future<List<CollectionSet>?> _askAboutSets(TagDiff diff) async {
-    if (!cascadeAsks(diff)) return const [];
+    // Ground rule 6 and Settings → Labels, in one place. `none` decides without
+    // a lookup, which is what keeps *just the one title* cheap.
+    final plan = cascadePlanFor(
+      diff: diff,
+      prompt: ref.read(settingsProvider).collectionPrompt,
+    );
+    if (plan == CascadePlan.none) return const [];
+
     final accepted = <CollectionSet>[];
     final candidates = await _sets();
     if (!mounted) return null;
     for (final set in candidates) {
+      if (plan == CascadePlan.all) {
+        // The parent has already answered this question, once, in Settings.
+        accepted.add(set);
+        continue;
+      }
       if (!mounted) return null;
       final answer = await askKeepSetTogether(
         context,

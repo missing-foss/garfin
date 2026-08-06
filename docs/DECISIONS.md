@@ -88,6 +88,14 @@ forcing `kids-` would orphan every label they have. The setting rewrites what th
 previews, so what you see is what gets written. Changing the prefix does not retag the library —
 offer a one-off migration instead of silently rewriting thousands of items.
 
+> **Superseded 2026-08-05 (#52).** The *concern* was right and is now met by construction: Garfin
+> never invents a label, so it cannot force `kids-` on anybody. It reads the child's existing label
+> out of `Policy.AllowedTags` and writes that string back, casing included. Which means the
+> **setting itself cannot exist** — there is nothing to prefix, and no migration to offer, because
+> Garfin does not own the naming. That follows from ground rule 8 (a first label is a policy write)
+> exactly as "a child's first label is set up in Jellyfin" does. Removed from `UI-SPEC.md`
+> § Settings, where the reasoning is repeated for anyone reading the spec rather than this file.
+
 **Two independent cascades.** "Cascade to episodes" walks down a series; "cascade to collection
 members" walks across a set. Separate switches, separate concerns.
 

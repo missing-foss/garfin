@@ -799,6 +799,192 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Nothing was changed. {count} titles in this set couldn\'t be read, so Garfin left the whole set alone.'**
   String assignBatchPreflightFailed(int count);
+
+  /// The fourth navigation destination, and the title of its screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// Settings section: which Jellyfin, signed in as whom.
+  ///
+  /// In en, this message translates to:
+  /// **'Server'**
+  String get settingsSectionServer;
+
+  /// Settings section: how writing labels behaves.
+  ///
+  /// In en, this message translates to:
+  /// **'Labels'**
+  String get settingsSectionLabels;
+
+  /// Settings section: how the Library opens.
+  ///
+  /// In en, this message translates to:
+  /// **'Picking'**
+  String get settingsSectionPicking;
+
+  /// Settings section: theme, colour and poster size.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks'**
+  String get settingsSectionLooks;
+
+  /// Settings section: version, licence, source.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get settingsSectionAbout;
+
+  /// Throws away the loaded library, children and collections so everything is asked for again.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh what Garfin has cached'**
+  String get settingsRefreshCache;
+
+  /// Confirms the cache was dropped.
+  ///
+  /// In en, this message translates to:
+  /// **'Asking the server again'**
+  String get settingsRefreshCacheDone;
+
+  /// Setting for the keep-the-set-together question. Additions only — removing a label never cascades.
+  ///
+  /// In en, this message translates to:
+  /// **'When a title belongs to a collection'**
+  String get settingsCollectionPrompt;
+
+  /// The default. Jurassic Park and Jurassic Park III are not the same decision.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask each time'**
+  String get settingsCollectionPromptAsk;
+
+  /// Answers the question once, here, in favour of the set.
+  ///
+  /// In en, this message translates to:
+  /// **'Hand over the whole set'**
+  String get settingsCollectionPromptAlways;
+
+  /// Answers it in favour of the single title. Never cascades.
+  ///
+  /// In en, this message translates to:
+  /// **'Just the one title'**
+  String get settingsCollectionPromptNever;
+
+  /// Asks Jellyfin to re-read the item's metadata after a write.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh the title after labelling it'**
+  String get settingsRefreshAfterWrite;
+
+  /// The cost of the setting above, stated plainly. One extra server round-trip per title.
+  ///
+  /// In en, this message translates to:
+  /// **'Slower. Makes the change show up in Jellyfin straight away.'**
+  String get settingsRefreshAfterWriteSubtitle;
+
+  /// Which child is picked when the app starts.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the Library on'**
+  String get settingsStartingChild;
+
+  /// No child picked at startup. Matches the Everyone chip on the Library.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone'**
+  String get settingsStartingChildEveryone;
+
+  /// The stored default for the Library's Show/Hide shared button, which turns the grid into a to-do list.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide what a child already has'**
+  String get settingsHideShared;
+
+  /// Light, dark or follow the phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get settingsTheme;
+
+  /// Theme option: whatever the system is set to.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow the phone'**
+  String get settingsThemeSystem;
+
+  /// Theme option.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get settingsThemeLight;
+
+  /// Theme option, and the default.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get settingsThemeDark;
+
+  /// Material You. Off means Garfin's own purple.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the phone\'s colours'**
+  String get settingsDynamicColour;
+
+  /// How many posters fit across the Library grid.
+  ///
+  /// In en, this message translates to:
+  /// **'Poster size'**
+  String get settingsPosterSize;
+
+  /// Poster size option: fewest per row.
+  ///
+  /// In en, this message translates to:
+  /// **'Large'**
+  String get settingsPosterLarge;
+
+  /// Poster size option, and the default.
+  ///
+  /// In en, this message translates to:
+  /// **'Regular'**
+  String get settingsPosterRegular;
+
+  /// Poster size option: most per row.
+  ///
+  /// In en, this message translates to:
+  /// **'Small'**
+  String get settingsPosterSmall;
+
+  /// The app version, on the About section.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version}'**
+  String settingsVersion(String version);
+
+  /// The licence line. Stays plain — docs/DECISIONS.md § Voice.
+  ///
+  /// In en, this message translates to:
+  /// **'GPL-3.0-or-later. Garfin is free software, and comes with no warranty.'**
+  String get settingsLicence;
+
+  /// The non-affiliation line, required by BRANDING.md and kept plain.
+  ///
+  /// In en, this message translates to:
+  /// **'Not affiliated with the Jellyfin project. Jellyfin is a trademark of Jellyfin, Inc.'**
+  String get settingsNotAffiliated;
+
+  /// Label for the repository address.
+  ///
+  /// In en, this message translates to:
+  /// **'Source code'**
+  String get settingsSource;
+
+  /// Opens Flutter's licence page, which lists every bundled package.
+  ///
+  /// In en, this message translates to:
+  /// **'Open-source licences'**
+  String get settingsLicences;
 }
 
 class _AppLocalizationsDelegate

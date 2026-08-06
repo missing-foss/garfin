@@ -167,8 +167,29 @@ sheet's *How Undo works* above, which is why an entry stays safely undoable howe
   again on resume. Default 2 minutes. Long enough not to nag while the parent is picking, short
   enough that handing the phone over expires the session in practice.
 - **Server** — host, signed-in user, sign out, refresh cache
-- **Labels** — prefix on/off, the prefix itself, cascade to episodes, cascade to collection
-  members, collection prompt behaviour, refresh metadata after write
-- **Picking** — starting child, hide shared, respect age cap, libraries to browse
+- **Labels** — collection prompt behaviour (ask each time / the whole set / just the one title),
+  refresh metadata after write
+- **Picking** — starting child, hide shared
 - **Looks** — theme, dynamic colour, poster size
 - **About** — version, GPL-3.0, non-affiliation, source, licences
+
+### Three switches this list used to carry, and why they are gone
+
+Each was written before the rule that rules it out was settled. A switch that controls nothing
+reads as a promise, so they are recorded here rather than left on the screen (#52).
+
+- **Tag prefix, on/off and the prefix itself.** Garfin never composes a label: it reads the child's
+  existing one out of `Policy.AllowedTags` and writes that string back in the policy's own casing.
+  There is nothing to prefix. Giving a child their *first* label is a policy write, which ground
+  rule 8 forbids — the same consequence as the Kids screen's "set their shortlist up in Jellyfin
+  first".
+- **Cascade to collection members.** `docs/DECISIONS.md` § Collections: a collection **always**
+  writes to its members, and #50 measured what the alternative does — the child gets a visible,
+  empty collection. Off is not a preference, it is a broken write.
+- **Cascade to episodes.** A real gap: a tag on a Series does not reach its Seasons or Episodes.
+  It needs a write path of its own, with the same pre-flight and fix-forward machinery, and its own
+  measurement of what a child sees. Tracked in #53; the switch arrives with the feature.
+
+**Respect age cap** is the filter bar's rating toggle (#44), not a setting, and **libraries to
+browse** waits on the same grid work — `/Items` takes one `parentId`, so more than one library is
+a pagination question rather than a preference.

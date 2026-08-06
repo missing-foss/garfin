@@ -462,6 +462,31 @@ class JellyfinApi {
         await _dio.post<dynamic>('/Items/$itemId', data: item);
       });
 
+  /// Asks the server to re-read an item's metadata after a write.
+  ///
+  /// Settings → Labels → *refresh metadata after write*, and it is optional
+  /// because it is slow, not because it is risky — **as long as it stays this
+  /// exact call**. Measured on 10.11.11:
+  ///
+  /// | call | Garfin's tag |
+  /// |---|---|
+  /// | `Refresh?metadataRefreshMode=FullRefresh` | **survives** |
+  /// | the same, plus `replaceAllMetadata=true` | **wiped** |
+  ///
+  /// So the dangerous parameter is not a flag on this method, not a default,
+  /// and not reachable from a caller: it is absent. A refresh that deleted the
+  /// label the write had just created would be the app undoing its own work,
+  /// silently, and the only sign would be a child who cannot see the film they
+  /// were just given.
+  Future<void> refreshItem({required String itemId}) => _call(() async {
+        await _dio.post<dynamic>(
+          '/Items/$itemId/Refresh',
+          queryParameters: <String, dynamic>{
+            'metadataRefreshMode': 'FullRefresh',
+          },
+        );
+      });
+
   /// Runs one call, converting dio's exception into Garfin's.
   ///
   /// [remap] lets an endpoint say what a status code means *there*. The same

@@ -22,6 +22,7 @@
 //     GARFIN_SERVER=http://127.0.0.1:18099 \
 //     GARFIN_TOKEN=… GARFIN_ADMIN_ID=… GARFIN_COLLECTION_ID=… \
 //     GARFIN_CHILD_ID=… GARFIN_LABEL=kids-emma \
+//     GARFIN_REFRESH_AFTER_WRITE=true \
 //     ~/sdk/flutter/bin/flutter test dev/live_collection_roundtrip.dart
 //
 // A developer machine may already be running a real Jellyfin on the default
@@ -47,6 +48,10 @@ void main() {
   // The count re-fetched after a write (ground rule 1) is asked *as the child*,
   // so this has to be a user the server knows: an invented id answers 400.
   final childId = env['GARFIN_CHILD_ID'];
+  // Settings -> Labels -> refresh metadata after write. Worth running both
+  // ways: the refresh is the one optional call that could delete the label the
+  // write just created, and `docs/JELLYFIN-API.md` says so from a measurement.
+  final refreshAfterWrite = env['GARFIN_REFRESH_AFTER_WRITE'] == 'true';
 
   test('a collection write, round-tripped against a live server', () async {
     if (server == null ||
@@ -67,7 +72,11 @@ void main() {
     ).create(baseUrl: server, readToken: () => token);
 
     final collections = CollectionRepository(api: api, adminUserId: adminId);
-    final assign = AssignRepository(api: api, adminUserId: adminId);
+    final assign = AssignRepository(
+      api: api,
+      adminUserId: adminId,
+      refreshAfterWrite: refreshAfterWrite,
+    );
 
     final index = await collections.index();
     final set = index.byId(collectionId);
@@ -123,7 +132,8 @@ void main() {
     }
 
     stdout.writeln('collection "${set.collection.name}", '
-        '${set.size} members, label "$label"');
+        '${set.size} members, label "$label", '
+        'refreshAfterWrite=$refreshAfterWrite');
 
     final before = await snapshot();
     final outcome = await assign.applyToCollection(

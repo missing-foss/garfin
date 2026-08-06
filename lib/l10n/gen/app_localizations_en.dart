@@ -448,4 +448,103 @@ class AppLocalizationsEn extends AppLocalizations {
   String assignBatchPreflightFailed(int count) {
     return 'Nothing was changed. $count titles in this set couldn\'t be read, so Garfin left the whole set alone.';
   }
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsSectionServer => 'Server';
+
+  @override
+  String get settingsSectionLabels => 'Labels';
+
+  @override
+  String get settingsSectionPicking => 'Picking';
+
+  @override
+  String get settingsSectionLooks => 'Looks';
+
+  @override
+  String get settingsSectionAbout => 'About';
+
+  @override
+  String get settingsRefreshCache => 'Refresh what Garfin has cached';
+
+  @override
+  String get settingsRefreshCacheDone => 'Asking the server again';
+
+  @override
+  String get settingsCollectionPrompt => 'When a title belongs to a collection';
+
+  @override
+  String get settingsCollectionPromptAsk => 'Ask each time';
+
+  @override
+  String get settingsCollectionPromptAlways => 'Hand over the whole set';
+
+  @override
+  String get settingsCollectionPromptNever => 'Just the one title';
+
+  @override
+  String get settingsRefreshAfterWrite =>
+      'Refresh the title after labelling it';
+
+  @override
+  String get settingsRefreshAfterWriteSubtitle =>
+      'Slower. Makes the change show up in Jellyfin straight away.';
+
+  @override
+  String get settingsStartingChild => 'Open the Library on';
+
+  @override
+  String get settingsStartingChildEveryone => 'Everyone';
+
+  @override
+  String get settingsHideShared => 'Hide what a child already has';
+
+  @override
+  String get settingsTheme => 'Theme';
+
+  @override
+  String get settingsThemeSystem => 'Follow the phone';
+
+  @override
+  String get settingsThemeLight => 'Light';
+
+  @override
+  String get settingsThemeDark => 'Dark';
+
+  @override
+  String get settingsDynamicColour => 'Use the phone\'s colours';
+
+  @override
+  String get settingsPosterSize => 'Poster size';
+
+  @override
+  String get settingsPosterLarge => 'Large';
+
+  @override
+  String get settingsPosterRegular => 'Regular';
+
+  @override
+  String get settingsPosterSmall => 'Small';
+
+  @override
+  String settingsVersion(String version) {
+    return 'Version $version';
+  }
+
+  @override
+  String get settingsLicence =>
+      'GPL-3.0-or-later. Garfin is free software, and comes with no warranty.';
+
+  @override
+  String get settingsNotAffiliated =>
+      'Not affiliated with the Jellyfin project. Jellyfin is a trademark of Jellyfin, Inc.';
+
+  @override
+  String get settingsSource => 'Source code';
+
+  @override
+  String get settingsLicences => 'Open-source licences';
 }
