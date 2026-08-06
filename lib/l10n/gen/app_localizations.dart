@@ -1063,6 +1063,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count}'**
   String filterActiveCount(int count);
+
+  /// The third navigation destination: what Garfin has written.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get activityTitle;
+
+  /// Shown when Garfin has not written anything on this phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing handed over yet.'**
+  String get activityEmpty;
+
+  /// The honesty note. Measured for #57: Jellyfin records nothing for a metadata edit, so there is no history to read back — a log that looked complete would be worse than no log.
+  ///
+  /// In en, this message translates to:
+  /// **'This is what Garfin did on this phone. Changes made in Jellyfin, or from another phone, aren\'t here.'**
+  String get activityScope;
+
+  /// An entry where the child gained access. By what it did to the child, never by what it did to the tag — ground rule 3.
+  ///
+  /// In en, this message translates to:
+  /// **'Handed to {name}'**
+  String activityHandedTo(String name);
+
+  /// An entry where the child lost access.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken from {name}'**
+  String activityTakenFrom(String name);
+
+  /// Relative time, under a minute.
+  ///
+  /// In en, this message translates to:
+  /// **'Just now'**
+  String get activityJustNow;
+
+  /// Relative time in minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 minute ago} other{{count} minutes ago}}'**
+  String activityMinutesAgo(int count);
+
+  /// Relative time in hours.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 hour ago} other{{count} hours ago}}'**
+  String activityHoursAgo(int count);
+
+  /// Relative time in days, up to a week; older entries show a date.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Yesterday} other{{count} days ago}}'**
+  String activityDaysAgo(int count);
+
+  /// A collection entry: when it happened, and how many titles it covered. One entry per action, not per title.
+  ///
+  /// In en, this message translates to:
+  /// **'{when} · {count} titles'**
+  String activityWhenCollection(String when, int count);
+
+  /// Shown when the entry's child no longer has a shortlist Garfin can interpret. Ground rule 3 forbids guessing a verb, so the undo is refused rather than attempted.
+  ///
+  /// In en, this message translates to:
+  /// **'That account isn\'t on the shortlist any more, so Garfin can\'t tell what undoing would mean.'**
+  String get activityUndoUnknown;
 }
 
 class _AppLocalizationsDelegate

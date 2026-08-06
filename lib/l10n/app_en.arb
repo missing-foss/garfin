@@ -849,5 +849,82 @@
         "type": "int"
       }
     }
+  },
+  "activityTitle": "Activity",
+  "@activityTitle": {
+    "description": "The third navigation destination: what Garfin has written."
+  },
+  "activityEmpty": "Nothing handed over yet.",
+  "@activityEmpty": {
+    "description": "Shown when Garfin has not written anything on this phone."
+  },
+  "activityScope": "This is what Garfin did on this phone. Changes made in Jellyfin, or from another phone, aren't here.",
+  "@activityScope": {
+    "description": "The honesty note. Measured for #57: Jellyfin records nothing for a metadata edit, so there is no history to read back — a log that looked complete would be worse than no log."
+  },
+  "activityHandedTo": "Handed to {name}",
+  "@activityHandedTo": {
+    "description": "An entry where the child gained access. By what it did to the child, never by what it did to the tag — ground rule 3.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "activityTakenFrom": "Taken from {name}",
+  "@activityTakenFrom": {
+    "description": "An entry where the child lost access.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "activityJustNow": "Just now",
+  "@activityJustNow": {
+    "description": "Relative time, under a minute."
+  },
+  "activityMinutesAgo": "{count, plural, =1{1 minute ago} other{{count} minutes ago}}",
+  "@activityMinutesAgo": {
+    "description": "Relative time in minutes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "activityHoursAgo": "{count, plural, =1{1 hour ago} other{{count} hours ago}}",
+  "@activityHoursAgo": {
+    "description": "Relative time in hours.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "activityDaysAgo": "{count, plural, =1{Yesterday} other{{count} days ago}}",
+  "@activityDaysAgo": {
+    "description": "Relative time in days, up to a week; older entries show a date.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "activityWhenCollection": "{when} · {count} titles",
+  "@activityWhenCollection": {
+    "description": "A collection entry: when it happened, and how many titles it covered. One entry per action, not per title.",
+    "placeholders": {
+      "when": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "activityUndoUnknown": "That account isn't on the shortlist any more, so Garfin can't tell what undoing would mean.",
+  "@activityUndoUnknown": {
+    "description": "Shown when the entry's child no longer has a shortlist Garfin can interpret. Ground rule 3 forbids guessing a verb, so the undo is refused rather than attempted."
   }
 }

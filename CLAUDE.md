@@ -191,7 +191,7 @@ become a skipped check that still reports green.
 5. [x] Assign sheet with tag diff, counts, and the write path
 6. [x] Collections, pre-flight and fix-forward
 7. [x] Settings — minus three switches that turn out to control nothing; see `docs/UI-SPEC.md`
-8. Activity log
+8. [x] Activity log — Garfin's own record; the server keeps none
 
 `local_auth` landed with step 2. Its licence was read from the package's own shipped `LICENSE`
 file rather than from pub.dev, per the § Licence note above: **BSD-3-Clause**, Copyright 2013 The

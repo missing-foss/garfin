@@ -598,4 +598,69 @@ class AppLocalizationsEn extends AppLocalizations {
   String filterActiveCount(int count) {
     return '$count';
   }
+
+  @override
+  String get activityTitle => 'Activity';
+
+  @override
+  String get activityEmpty => 'Nothing handed over yet.';
+
+  @override
+  String get activityScope =>
+      'This is what Garfin did on this phone. Changes made in Jellyfin, or from another phone, aren\'t here.';
+
+  @override
+  String activityHandedTo(String name) {
+    return 'Handed to $name';
+  }
+
+  @override
+  String activityTakenFrom(String name) {
+    return 'Taken from $name';
+  }
+
+  @override
+  String get activityJustNow => 'Just now';
+
+  @override
+  String activityMinutesAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count minutes ago',
+      one: '1 minute ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String activityHoursAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count hours ago',
+      one: '1 hour ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String activityDaysAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days ago',
+      one: 'Yesterday',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String activityWhenCollection(String when, int count) {
+    return '$when · $count titles';
+  }
+
+  @override
+  String get activityUndoUnknown =>
+      'That account isn\'t on the shortlist any more, so Garfin can\'t tell what undoing would mean.';
 }

@@ -160,5 +160,16 @@
   "filterDecade": "Décennie",
   "filterDecadeValue": "Années {decade}",
   "filterWithinCap": "Dans la limite de {name}",
-  "filterActiveCount": "{count}"
+  "filterActiveCount": "{count}",
+  "activityTitle": "Activité",
+  "activityEmpty": "Rien n'a encore été donné.",
+  "activityScope": "Voici ce que Garfin a fait depuis ce téléphone. Les modifications faites dans Jellyfin, ou depuis un autre téléphone, n'y figurent pas.",
+  "activityHandedTo": "Donné à {name}",
+  "activityTakenFrom": "Retiré à {name}",
+  "activityJustNow": "À l'instant",
+  "activityMinutesAgo": "{count, plural, =1{il y a 1 minute} other{il y a {count} minutes}}",
+  "activityHoursAgo": "{count, plural, =1{il y a 1 heure} other{il y a {count} heures}}",
+  "activityDaysAgo": "{count, plural, =1{Hier} other{il y a {count} jours}}",
+  "activityWhenCollection": "{when} · {count} titres",
+  "activityUndoUnknown": "Ce compte n'a plus de sélection : Garfin ne peut pas savoir ce que défaire signifierait."
 }

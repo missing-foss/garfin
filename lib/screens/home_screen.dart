@@ -10,6 +10,7 @@ import '../providers/auth_providers.dart';
 import '../widgets/error_notice.dart';
 import 'kids_screen.dart';
 import 'library_screen.dart';
+import 'activity_screen.dart';
 import 'settings_screen.dart';
 
 /// Where a signed-in session lands.
@@ -43,7 +44,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final l10n = AppLocalizations.of(context);
     final state = widget.state;
 
-    final titles = [l10n.libraryTitle, l10n.kidsTitle, l10n.settingsTitle];
+    final titles = [
+      l10n.libraryTitle,
+      l10n.kidsTitle,
+      l10n.activityTitle,
+      l10n.settingsTitle,
+    ];
 
     return Scaffold(
       // No actions: Unlock and sign-out are Settings' job from step 7 on, and
@@ -62,6 +68,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: switch (_tab) {
                 0 => LibraryScreen(session: state.session),
                 1 => KidsScreen(session: state.session),
+                2 => ActivityScreen(session: state.session),
                 _ => SettingsScreen(session: state.session),
               },
             ),
@@ -82,8 +89,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             selectedIcon: const Icon(Icons.people),
             label: l10n.kidsTitle,
           ),
-          // Activity is step 8 and gets the third slot then — `docs/UI-SPEC.md`
-          // § Product shape orders them Library · Kids · Activity · Settings.
+          // `docs/UI-SPEC.md` § Product shape: Library · Kids · Activity ·
+          // Settings.
+          NavigationDestination(
+            icon: const Icon(Icons.history_outlined),
+            selectedIcon: const Icon(Icons.history),
+            label: l10n.activityTitle,
+          ),
           NavigationDestination(
             icon: const Icon(Icons.settings_outlined),
             selectedIcon: const Icon(Icons.settings),

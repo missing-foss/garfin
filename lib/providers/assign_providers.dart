@@ -9,6 +9,7 @@ import '../models/kid_summary.dart';
 import '../models/library_item.dart';
 import '../models/tag_diff.dart';
 import '../repositories/assign_repository.dart';
+import 'activity_providers.dart';
 import 'app_providers.dart';
 import 'collection_providers.dart';
 import 'kids_providers.dart';
@@ -48,6 +49,7 @@ final assignRepositoryProvider =
     api: api,
     adminUserId: session.userId,
     refreshAfterWrite: ref.watch(settingsProvider).refreshAfterWrite,
+    activity: ref.watch(activityStoreProvider),
   );
 });
 

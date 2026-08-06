@@ -680,6 +680,25 @@ however long the batch takes. Every write does its own fresh `GET`. In the code 
 **And "the read succeeded" is not the check.** It is "the item that came back is the item asked
 for" — see the all-zero GUID answering 200 with the root folder, in § Collections above.
 
+## The server keeps no history of a metadata write
+
+**Measured 2026-08-06 for #57.** The obvious source for an Activity screen is Jellyfin's own log.
+It does not contain what that screen needs:
+
+    GET /System/ActivityLog/Entries    -> 3 entries
+       AuthenticationSucceeded · SessionStarted · UserPasswordChanged
+    POST /Items/{id}  with a tag added -> 204
+    GET /System/ActivityLog/Entries    -> 3 entries      <- unchanged
+
+Sessions, authentication and playback; **nothing for a library write**. Its filters are
+`startIndex`, `limit`, `minDate` and `hasUserId`, and it requires elevation.
+
+So Garfin's Activity log is **its own, on the device**, and the consequence is a product one rather
+than a technical one: it records what *this app* did, and a label added from the web admin or from
+a second phone can never appear in it. The screen says so — a log that looked complete and was not
+would be worse than no log at all, and it is the same class of honesty as the grid's *hasn't got
+yet* versus *can't see*.
+
 ## Gotchas
 
 - Tags are case-sensitive in some server versions. Compare case-insensitively — but **do not

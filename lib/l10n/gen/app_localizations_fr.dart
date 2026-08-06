@@ -601,4 +601,69 @@ class AppLocalizationsFr extends AppLocalizations {
   String filterActiveCount(int count) {
     return '$count';
   }
+
+  @override
+  String get activityTitle => 'Activité';
+
+  @override
+  String get activityEmpty => 'Rien n\'a encore été donné.';
+
+  @override
+  String get activityScope =>
+      'Voici ce que Garfin a fait depuis ce téléphone. Les modifications faites dans Jellyfin, ou depuis un autre téléphone, n\'y figurent pas.';
+
+  @override
+  String activityHandedTo(String name) {
+    return 'Donné à $name';
+  }
+
+  @override
+  String activityTakenFrom(String name) {
+    return 'Retiré à $name';
+  }
+
+  @override
+  String get activityJustNow => 'À l\'instant';
+
+  @override
+  String activityMinutesAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'il y a $count minutes',
+      one: 'il y a 1 minute',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String activityHoursAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'il y a $count heures',
+      one: 'il y a 1 heure',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String activityDaysAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'il y a $count jours',
+      one: 'Hier',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String activityWhenCollection(String when, int count) {
+    return '$when · $count titres';
+  }
+
+  @override
+  String get activityUndoUnknown =>
+      'Ce compte n\'a plus de sélection : Garfin ne peut pas savoir ce que défaire signifierait.';
 }
