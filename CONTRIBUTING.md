@@ -78,13 +78,45 @@ no artifact, deliberately.
 Then build and sign locally — the signing key never exists in CI:
 
 ```bash
+export GARFIN_KEYSTORE=~/keys/garfin/garfin-release.jks
+export GARFIN_KEY_ALIAS=garfin
+export GARFIN_KEYSTORE_PASSWORD='<the store password>'
+
+# Clear stale artifacts first — see below, this is not housekeeping.
+rm -f build/app/outputs/flutter-apk/*.apk
 flutter build apk --release --split-per-abi
-gh release upload vX.Y.Z build/app/outputs/flutter-apk/*.apk
+
+# Verify before uploading. Every APK must print the published digest:
+for apk in build/app/outputs/flutter-apk/*-release.apk; do
+  apksigner verify --print-certs "$apk" | grep 'SHA-256 digest' || echo "NOT SIGNED: $apk"
+done
+# 2e815848c120b612589a5999a43e0c30555b0f2a1c7d46abae2fc181c1819f95
+
+# The same glob that was verified — never a wider one.
+gh release upload vX.Y.Z build/app/outputs/flutter-apk/*-release.apk
 gh release edit vX.Y.Z --draft=false
 ```
 
-The guard in `android/app/build.gradle.kts` verifies the keystore fingerprint
-during that build and refuses to proceed if it doesn't match the pinned value.
+**Those exports are the whole of it, and their absence is silent.** The guard in
+`android/app/build.gradle.kts` refuses to build with a keystore whose
+fingerprint is not the pinned one — but with no password exported there is no
+keystore to check, so it is skipped rather than triggered and the build happily
+produces an **unsigned** APK. The guard cannot catch its own absence, which is
+why the verify step above is part of the procedure rather than a precaution.
+
+**Why the `rm` and why the globs match.** `--split-per-abi` writes
+`app-arm64-v8a-release.apk` and two siblings; it does **not** write or overwrite
+`app-release.apk`. A plain `flutter build apk --release` — which `dev/verify.sh`
+runs, with no keystore, on every pre-push check — leaves exactly that file
+sitting there **unsigned**. Uploading `*.apk` would then attach it to the
+release beside the three signed ones. Found by running this procedure rather
+than reading it: the verify loop printed `NOT SIGNED: …/app-release.apk` against
+a directory that looked fine.
+
+So the build starts from an empty output directory, and the glob that is
+uploaded is the glob that was verified. Checking one list and shipping another
+is how a check stops meaning anything.
+
 Nothing is public until you publish the draft.
 
 **Don't remove `protect-release-tags`' bypass while tidying rulesets.** The

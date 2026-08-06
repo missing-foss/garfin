@@ -454,7 +454,22 @@ deliberately, so CI and contributors can build release at all, which is what #30
 needs. An unsigned APK cannot be installed as an update and must not be
 distributed, so check before publishing rather than assuming:
 
-    apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
+    for apk in build/app/outputs/flutter-apk/*-release.apk; do
+      apksigner verify --print-certs "$apk" | grep 'SHA-256 digest' || echo "NOT SIGNED: $apk"
+    done
+
+A loop rather than a filename: the release build is `--split-per-abi`, which
+produces `app-arm64-v8a-release.apk` and two siblings, while a plain
+`flutter build apk --release` produces `app-release.apk`. Naming a file the
+release procedure does not produce is how a check gets skipped for looking
+broken.
+
+**And the loop is over a directory, which can hold artifacts this build did not
+make.** `--split-per-abi` does not overwrite `app-release.apk`, so the unsigned
+one `dev/verify.sh` leaves behind on every pre-push run stays there — measured,
+the loop reports `NOT SIGNED: …/app-release.apk` in a directory that otherwise
+looks correct. `CONTRIBUTING.md`'s procedure therefore clears the output
+directory before building and uploads the same glob it verified.
 
 Release builds became newly *easy* to produce in #29/#30, which is why this is
 written down: the thing that used to stop an unpublishable artifact existing was
