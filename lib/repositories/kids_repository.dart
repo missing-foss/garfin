@@ -44,16 +44,20 @@ class KidsRepository {
     // without the name is far better than an error page. `nameFor` on an empty
     // ladder simply answers null, which is the same path as a rung that is not
     // in the list.
-    ParentalRatingLadder ladder;
-    try {
-      ladder = await _api.parentalRatings();
-    } on Object {
-      ladder = const ParentalRatingLadder.empty();
-    }
+    //
+    // **Started, not awaited (#68).** This and the admin's total below are
+    // independent of each other and of the children's counts, and the total is
+    // the single most expensive call the app makes: measured on a settled
+    // 6000-item library, **7.6 seconds**, against 526 ms at 2000 and 15 ms at
+    // 100. Awaiting each in turn made the Kids screen the sum of them.
+    final ladderRequest = _api.parentalRatings().then<ParentalRatingLadder>(
+          (value) => value,
+          onError: (_, _) => const ParentalRatingLadder.empty(),
+        );
 
     // Ground rule 4, the admin half: the denominator is what the *server* says
     // the administrator can see, not a number this app added up.
-    final libraryTotal = await _api.visibleItemCount(userId: _adminUserId);
+    final totalRequest = _api.visibleItemCount(userId: _adminUserId);
 
     final withoutShortlist = <UnshortlistedUser>[
       for (final user in users)
@@ -78,18 +82,30 @@ class KidsRepository {
     // Ground rule 4, the child half, is untouched: still asked as the
     // administrator but *for* that user, so the server applies their policy —
     // tags and the rating cap together, which no client-side sum reproduces.
-    final counted = await mapBounded<JellyfinUser, KidSummary>(
+    final countRequest = mapBounded<JellyfinUser, ({JellyfinUser user, int seen})>(
       withShortlist,
-      (user) async => KidSummary(
+      (user) async => (
         user: user,
-        visibleCount: await _api.visibleItemCount(userId: user.id),
-        libraryTotal: libraryTotal,
-        ratingCapName: ladder.nameFor(user.policy.maxParentalRating),
-        birthYear: _birthYears.read(user.id),
-        avatarUrl: avatarUrlFor(user),
+        seen: await _api.visibleItemCount(userId: user.id),
       ),
     );
-    final shortlisted = counted.toList();
+
+    // Everything is in flight by here; this is where the screen waits, once.
+    final ladder = await ladderRequest;
+    final libraryTotal = await totalRequest;
+    final counted = await countRequest;
+
+    final shortlisted = <KidSummary>[
+      for (final entry in counted)
+        KidSummary(
+          user: entry.user,
+          visibleCount: entry.seen,
+          libraryTotal: libraryTotal,
+          ratingCapName: ladder.nameFor(entry.user.policy.maxParentalRating),
+          birthYear: _birthYears.read(entry.user.id),
+          avatarUrl: avatarUrlFor(entry.user),
+        ),
+    ];
 
     return KidsOverview(
       shortlisted: shortlisted,
