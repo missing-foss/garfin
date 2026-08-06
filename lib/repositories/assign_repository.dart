@@ -377,6 +377,10 @@ class AssignRepository {
     item['Tags'] = diff.applyTo(readStringList(item, 'Tags'));
 
     await _api.replaceItem(itemId: itemId, item: item);
+    // Empty rather than null for a nameless item, and that is load-bearing:
+    // `_tryWrite` reads null as **the write failed**, so a missing `Name` would
+    // mark a set incomplete, suppress its log entry, and report "1 of 12" with
+    // nothing connecting it to a title that has no name.
     final name = readString(item, 'Name') ?? '';
 
     if (_refreshAfterWrite) {
