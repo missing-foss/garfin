@@ -104,5 +104,18 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- The About screen's four links (#66). From API 30 an app cannot see
+             which activities handle a VIEW intent unless it declares that it
+             wants to: without this, url_launcher's canLaunchUrl answers false
+             on a phone that has three browsers installed, and the failure is
+             silent — a tap that does nothing at all. Garfin does not call
+             canLaunchUrl, so the practical effect here is smaller than the
+             plugin's README implies; it is declared anyway because the next
+             person to reach for that method should not have to find this out
+             from a bug report. Assertion in test/android_config_test.dart. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>

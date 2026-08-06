@@ -476,6 +476,54 @@ licence review bought for a one-line platform call.
 
 ---
 
+## The About screen, and two reversals it forced (settled 2026-08-06, from issue #66)
+
+Garfin had no About screen — it had four tiles at the bottom of Settings. The screen is now
+the trobar-android shape: the mark, the wordmark in Fredoka, the version, a manual update
+check, four links, and the licences. Two things that had been settled the other way had to
+change for it, and both are recorded here rather than left in a diff.
+
+**Links open now, and that reverses a deliberate decision.** The old code *showed* the source
+address, with a comment saying why: launching a browser meant another dependency and another
+licence review for one address. That reasoning was sound and it aged badly — a URL you cannot
+tap on a phone is close to no link at all, and there are four of them now rather than one.
+`url_launcher` **6.3.2** is taken; read from the package's own shipped `LICENSE`, as § Licence
+in `CLAUDE.md` requires, it is **BSD-3-Clause, Copyright 2013 The Flutter Authors** — the same
+text `local_auth` ships, byte-identical in the `url_launcher_android` case. `externalApplication`
+mode, deliberately: an in-app web view would put a browser inside an app holding an admin token,
+which is more surface than four static links are worth.
+
+**The update check contacts a host that is not the user's server**, which SECURITY.md's "exactly
+one host" sentence had to be rewritten for. The shape is what makes it acceptable: one request,
+on a button press, never automatic; anonymous, with no token and no cookie; and on a *separate*
+`Dio` with no interceptors, because Garfin's Jellyfin client attaches an admin token to
+everything it sends and reusing it here would post that token to GitHub. GitHub learns the IP
+address of whoever presses the button. That is the entire cost, it is not recoverable by design,
+and it is why this is a button and not a poll.
+
+**`/releases`, not `/releases/latest` — measured, not assumed.** The obvious endpoint answers
+**404** for this repository: it excludes pre-releases, and every Garfin release so far is one. A
+check built on it would have told every beta user "no releases published yet", forever, while
+looking like a working feature. `/releases?per_page=1` sees them, newest first.
+
+**The version comparison is three integers and nothing else.** Pre-release suffixes are ignored,
+so `v0.2.0-beta.1` and `v0.2.0` compare equal. The asymmetry is deliberate: it can say "up to
+date" a day early, and it cannot invent an update that does not exist. The tag is read with a
+regex rather than by stripping a leading `v`, because the sibling project tags releases
+`android-v2.14.0` and a parser that only survives its own repository's convention fails silently
+— by reporting that everything is fine.
+
+**Kept:** Flutter's built-in `showLicensePage`, rather than rendering a bundled
+`THIRD_PARTY_NOTICES.md` the way trobar does. The built-in already knows every package compiled
+in and cannot go stale; shipping a second list means shipping a list that can disagree with the
+first.
+
+**Deferred:** the tap-the-mark Easter egg. trobar's five-tap tic-tac-toe transfers as a
+mechanism, but Garfin's mark is a fish and the game should not be a copy. It is a follow-up
+rather than a stub, because a tap counter that opens nothing is dead code no test can cover.
+
+---
+
 ## Open questions
 
 - Whether to offer a migration when the tag prefix changes, or just document it

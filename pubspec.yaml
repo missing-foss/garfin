@@ -46,6 +46,7 @@ dependencies:
   # No print() anywhere — and never log tokens, passwords, or Quick Connect secrets.
   logging: ^1.3.0
   local_auth: ^3.0.2
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +61,10 @@ flutter:
 
   assets:
     - assets/fonts/
+    # The mark, for the About screen. Output of brand/make-app-assets.sh — the
+    # SVG in brand/svg/ is the source. Declaring the directory picks up the
+    # 2.0x/ and 3.0x/ variants automatically.
+    - assets/brand/
 
   # All three families are SIL OFL 1.1, so the bundled fonts impose no licence
   # constraint of their own. Variable fonts: wght is driven by TextStyle.fontWeight.

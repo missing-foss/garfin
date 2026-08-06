@@ -811,4 +811,55 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get librarySearchClear => 'Clear search';
+
+  @override
+  String get aboutTitle => 'About';
+
+  @override
+  String get aboutCheckUpdates => 'Check for updates';
+
+  @override
+  String aboutUpdateAvailable(Object tag) {
+    return '$tag is available';
+  }
+
+  @override
+  String get aboutUpdateUpToDate => 'Garfin is up to date';
+
+  @override
+  String get aboutUpdateNone => 'No releases published yet';
+
+  @override
+  String get aboutUpdateRateLimited =>
+      'GitHub is rate-limiting this connection. Try again in a while.';
+
+  @override
+  String get aboutUpdateOffline => 'Couldn\'t reach GitHub.';
+
+  @override
+  String get aboutUpdateFailed => 'Couldn\'t read GitHub\'s answer.';
+
+  @override
+  String get aboutOpenRelease => 'Open';
+
+  @override
+  String get aboutSectionLinks => 'Links';
+
+  @override
+  String get aboutSectionLicences => 'Licences';
+
+  @override
+  String get aboutDocs => 'Documentation';
+
+  @override
+  String get aboutIssues => 'Report an issue';
+
+  @override
+  String get aboutReleases => 'Releases';
+
+  @override
+  String get aboutOpenFailed => 'Couldn\'t open that link.';
+
+  @override
+  String get settingsAbout => 'About Garfin';
 }

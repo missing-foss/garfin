@@ -1351,6 +1351,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Clear search'**
   String get librarySearchClear;
+
+  /// Top bar of the About screen (#66), reached from Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get aboutTitle;
+
+  /// Button. One call to GitHub per press, never automatic — the copy says 'check', not 'checking automatically', because the distinction is the point.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get aboutCheckUpdates;
+
+  /// Result: a newer release exists. Shows GitHub's own tag verbatim so it matches the releases page.
+  ///
+  /// In en, this message translates to:
+  /// **'{tag} is available'**
+  String aboutUpdateAvailable(Object tag);
+
+  /// Result: asked, answered, nothing newer.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin is up to date'**
+  String get aboutUpdateUpToDate;
+
+  /// Result: the repository has releases turned on but nothing published. True of Garfin itself until the first one ships, so it is not phrased as a failure.
+  ///
+  /// In en, this message translates to:
+  /// **'No releases published yet'**
+  String get aboutUpdateNone;
+
+  /// Result: 60 anonymous requests an hour per address, measured.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub is rate-limiting this connection. Try again in a while.'**
+  String get aboutUpdateRateLimited;
+
+  /// Result: the request never arrived. Distinct from a bad answer, because the fix is different.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach GitHub.'**
+  String get aboutUpdateOffline;
+
+  /// Result: it arrived and made no sense. Says what happened rather than blaming the network.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t read GitHub\'s answer.'**
+  String get aboutUpdateFailed;
+
+  /// Action on the update-available notice: opens that release's page.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get aboutOpenRelease;
+
+  /// Section heading on the About screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Links'**
+  String get aboutSectionLinks;
+
+  /// Section heading on the About screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Licences'**
+  String get aboutSectionLicences;
+
+  /// Link to the docs/ folder in the repository.
+  ///
+  /// In en, this message translates to:
+  /// **'Documentation'**
+  String get aboutDocs;
+
+  /// Link to the issue tracker.
+  ///
+  /// In en, this message translates to:
+  /// **'Report an issue'**
+  String get aboutIssues;
+
+  /// Link to the releases page, where the APKs are.
+  ///
+  /// In en, this message translates to:
+  /// **'Releases'**
+  String get aboutReleases;
+
+  /// Shown when no app on the phone would take an https intent.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open that link.'**
+  String get aboutOpenFailed;
+
+  /// Settings tile that opens the About screen. Replaces the four tiles that used to be the About section.
+  ///
+  /// In en, this message translates to:
+  /// **'About Garfin'**
+  String get settingsAbout;
 }
 
 class _AppLocalizationsDelegate

@@ -35,6 +35,15 @@ SDK.
 **Verified (2026-08-05), at runtime:** the release APK on an emulator —
 Android 16, API 36, `sdk_gphone64_x86_64`.
 
+> **Scope, stated rather than left implied (#66).** That run measured a build
+> with no update check in it. The zeros below are still the right expectation
+> for every path they covered — install, launch, unlock, sign-in, idle, resume —
+> because the check runs on a button press and on no other trigger. What they no
+> longer cover is a person opening About and pressing it, which is one request to
+> `api.github.com` and is meant to be. Re-measuring is worth doing on the next
+> release APK; until then this paragraph says what was measured rather than
+> letting an old measurement answer a new question.
+
 Attribution is **per-UID, not per-packet**. A capture of the whole device
 cannot separate Garfin's traffic from the system's, and this image talks to
 Google constantly; Garfin ran as uid 10216, so network activity is read from
@@ -65,9 +74,30 @@ shipped in the APK, and the two must not be conflated. Disable it locally with
 
 ## What Garfin talks to
 
-**Exactly one host: the Jellyfin server the user signs in to.** There is no
-Garfin backend, no account system, and no third-party service. Nothing Garfin
-*sends* goes anywhere but that server.
+**One host by default, and a second only when a finger asks for it.** There is
+no Garfin backend, no account system, and no third-party service. Everything the
+app does — every item, every policy read, every write — goes to the Jellyfin
+server the user signed in to and nowhere else.
+
+**The exception, added deliberately in #66: About → Check for updates.** One
+`GET https://api.github.com/repos/missing-foss/garfin/releases?per_page=1`, per
+button press. Never on launch, never on a timer, never after an update, never in
+the background. The request is anonymous — no token, no cookie, no query
+parameter — and carries exactly two headers of Garfin's own: `Accept`, and a
+`User-Agent` of `Garfin/<version>`, which GitHub requires and which names the
+product rather than the device, the server or the person. GitHub necessarily
+learns the requesting IP address, which is the whole cost of the feature and the
+reason it is a button rather than a poll.
+
+**It cannot carry the Jellyfin token, and that is asserted rather than
+intended.** The Jellyfin `Dio` attaches `Authorization: MediaBrowser … Token="…"`
+to everything it sends; reusing that client for this call would post an admin
+token to a third party, silently, on a press. `update_providers.dart` builds a
+second client with no interceptors, and `test/update_check_test.dart` asserts the
+outgoing request carries no `Authorization`, no `X-Emby-Token`, and nothing
+anywhere in the URI, headers or body matching `mediabrowser`, `token` or
+`jellyfin` — mutation-tested by attaching one and watching the test fail. See
+`docs/DECISIONS.md` § The update check.
 
 **That includes the platform's own egress, which is off (2026-08-05, #35).**
 This paragraph used to carry a qualification: nothing in `android/` declared
@@ -106,10 +136,29 @@ Garfin is for self-hosters, and nothing it stores syncs to anyone's cloud. See
 claim held "trivially, by absence — there is no HTTP call in the codebase yet",
 which stopped being true when the client landed in #24.
 
-Every HTTP call goes through one place. `JellyfinApiFactory.create` holds the
-only `Dio(` constructor in `lib/`, its `baseUrl` is the address the user typed,
-and every request path is relative to it. There is no second client, and **no
-URL literal anywhere in `lib/` names a destination**:
+Every Jellyfin call goes through one place. `JellyfinApiFactory.create` holds
+its `baseUrl` — the address the user typed — and every request path is relative
+to it.
+
+**Re-grepped for #66, because that change falsified two sentences here.** There
+are now **two** `Dio(` constructors in `lib/`
+(`grep -rn "Dio(" lib/ --include=*.dart | grep -v l10n/gen`, which also matches
+two `fromDio` factories that construct nothing):
+
+- `jellyfin_api.dart` — the user's server, with the token interceptor.
+- `update_providers.dart` — GitHub, with no interceptor at all. The separation
+  is the point; see above.
+
+And **two** URL literals in `lib/` now name a destination
+(`grep -rnE "'https?://" lib/ --include=*.dart | grep -v l10n/gen`):
+
+- `update_repository.dart` — the releases endpoint above.
+- `app_info.dart`'s `sourceUrl`, which since #66 is *opened* rather than only
+  displayed, and which the About screen extends into `/issues`, `/releases` and
+  `/tree/main/docs`. Opening hands the address to the phone's browser through
+  `url_launcher`; Garfin makes no request of its own to it.
+
+The two that name nothing, unchanged:
 
 - `server_settings_store.dart` has two occurrences of `'http://$text'`, which
   prefix a scheme onto what the user entered.

@@ -58,6 +58,7 @@ the pub.dev metadata is not always right. Full detail in `THIRD_PARTY_NOTICES.md
 | dio, flutter_riverpod, cached_network_image, mocktail | MIT |
 | shared_preferences, flutter_secure_storage, logging, intl, flutter_lints | BSD-3-Clause |
 | **local_auth** (with `_android`, `_platform_interface`, and the unshipped `_darwin` / `_windows`) | BSD-3-Clause |
+| **url_launcher** (with `_android`, `_platform_interface`, and the unshipped `_ios` / `_linux` / `_macos` / `_web` / `_windows`) | BSD-3-Clause |
 | dynamic_color | Apache-2.0 |
 | Fredoka, Nunito, **Roboto Mono** | SIL OFL 1.1 |
 

@@ -814,4 +814,55 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get librarySearchClear => 'Effacer la recherche';
+
+  @override
+  String get aboutTitle => 'À propos';
+
+  @override
+  String get aboutCheckUpdates => 'Rechercher des mises à jour';
+
+  @override
+  String aboutUpdateAvailable(Object tag) {
+    return '$tag est disponible';
+  }
+
+  @override
+  String get aboutUpdateUpToDate => 'Garfin est à jour';
+
+  @override
+  String get aboutUpdateNone => 'Aucune version publiée pour l\'instant';
+
+  @override
+  String get aboutUpdateRateLimited =>
+      'GitHub limite les requêtes depuis cette connexion. Réessayez plus tard.';
+
+  @override
+  String get aboutUpdateOffline => 'Impossible de joindre GitHub.';
+
+  @override
+  String get aboutUpdateFailed => 'Impossible de lire la réponse de GitHub.';
+
+  @override
+  String get aboutOpenRelease => 'Ouvrir';
+
+  @override
+  String get aboutSectionLinks => 'Liens';
+
+  @override
+  String get aboutSectionLicences => 'Licences';
+
+  @override
+  String get aboutDocs => 'Documentation';
+
+  @override
+  String get aboutIssues => 'Signaler un problème';
+
+  @override
+  String get aboutReleases => 'Versions';
+
+  @override
+  String get aboutOpenFailed => 'Impossible d\'ouvrir ce lien.';
+
+  @override
+  String get settingsAbout => 'À propos de Garfin';
 }

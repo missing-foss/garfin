@@ -15,6 +15,7 @@ import '../providers/kids_providers.dart';
 import '../providers/library_providers.dart';
 import '../providers/settings_providers.dart';
 import '../repositories/app_settings_store.dart';
+import 'about_screen.dart';
 import 'unlock_settings_screen.dart';
 
 /// Build order step 7 (#52).
@@ -160,36 +161,18 @@ class SettingsScreen extends ConsumerWidget {
         ),
 
         _Section(title: l10n.settingsSectionAbout),
+        // One tile where four used to be (#66). The version, the licences and
+        // the non-affiliation line all moved to `AboutScreen`, which is a
+        // screen rather than a section because the mark, the links and the
+        // update check need room that the bottom of a settings list does not
+        // have.
         ListTile(
           leading: const Icon(Icons.info_outline),
-          title: Text(l10n.settingsVersion(appVersion)),
-          subtitle: Text(l10n.settingsLicence),
-        ),
-        ListTile(
-          leading: const Icon(Icons.link),
-          title: Text(l10n.settingsSource),
-          // Shown rather than opened: launching a browser would be another
-          // dependency and another licence review for one address.
-          subtitle: const Text(sourceUrl),
-        ),
-        ListTile(
-          leading: const Icon(Icons.description_outlined),
-          title: Text(l10n.settingsLicences),
+          title: Text(l10n.settingsAbout),
+          subtitle: Text(l10n.settingsVersion(appVersion)),
           trailing: const Icon(Icons.chevron_right),
-          onTap: () => showLicensePage(
-            context: context,
-            applicationName: appClientName,
-            applicationVersion: appVersion,
-            applicationLegalese: l10n.settingsLicence,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Text(
-            l10n.settingsNotAffiliated,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const AboutScreen()),
           ),
         ),
       ],

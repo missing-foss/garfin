@@ -216,6 +216,7 @@ void main() {
         reason: '<$section> does not exclude device-protected storage',
       );
     }
+
   });
 
   group('the launcher, which is the first thing anyone sees (#67)', () {
@@ -377,6 +378,27 @@ void main() {
       expect(text, contains('garfin-icon-background.svg'));
     });
   });
+
+  test('the manifest can see an https VIEW handler (#66)', () {
+    // From API 30 an app cannot see which activities handle a VIEW intent
+    // unless it declares that it wants to. Without this, `canLaunchUrl`
+    // answers false on a phone with three browsers installed — a silent
+    // "false", not an error.
+    //
+    // Read from the *comment-stripped* manifest, like every other assertion
+    // in this file: the comment beside the entry names both the action and
+    // the scheme, at length, so an unstripped `contains` passes on the
+    // explanation of the thing while the thing itself is missing.
+    expect(effective, contains('<queries>'));
+    expect(
+      RegExp(r'<intent>\s*<action android:name="android.intent.action.VIEW"'
+              r'\s*/>\s*<data android:scheme="https"\s*/>\s*</intent>')
+          .hasMatch(effective.replaceAll(RegExp(r'\s+'), ' ')
+              .replaceAll('> <', '><')),
+      isTrue,
+      reason: 'the About screen links need an https VIEW query',
+    );
+  });
 }
 
 /// `0xRRGGBBAA`, so a colour is one comparable int.
@@ -403,4 +425,5 @@ Future<Map<int, int>> _colours(String path) async {
     counts[colour] = (counts[colour] ?? 0) + 1;
   }
   return counts;
+
 }
