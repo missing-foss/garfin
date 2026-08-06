@@ -95,12 +95,31 @@ void main() {
     expect(filters().activeCount, 0);
   });
 
-  testWidgets('a pending debounce does not fire into a disposed widget',
-      (tester) async {
-    // The standing trap in this repo's widget tests, and a real crash on a fast
-    // back-tap: type, leave immediately, and the timer lands on a ref that is
-    // gone. The framework fails a test that ends with a timer pending, so this
-    // also catches a cancel that was never wired.
+  testWidgets('the debounce timer does not outlive the field', (tester) async {
+    // **This test ends deliberately early.** The obvious version — dispose the
+    // field, pump past the debounce, assert nothing was set — was *vacuous*:
+    // the `mounted` guard inside the callback makes it pass whether or not the
+    // timer was cancelled, which the mutation run duly reported.
+    //
+    // What the cancel is actually for is not leaving a live timer behind on a
+    // fast back-tap. So: type, leave, and stop — with no pump long enough for
+    // it to fire. `flutter_test` fails a test that ends with a timer pending,
+    // and that failure is the assertion.
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), 'bear');
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SizedBox.shrink())),
+      ),
+    );
+  });
+
+  testWidgets('and the callback checks mounted as well', (tester) async {
+    // The second line of defence, kept because it is cheap and because the
+    // first one is easy to delete by accident: even if a timer did survive,
+    // firing it must not write into a ref that is gone.
     await pump(tester);
 
     await tester.enterText(find.byType(TextField), 'bear');
