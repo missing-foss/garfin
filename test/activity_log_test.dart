@@ -149,6 +149,46 @@ void main() {
     });
   });
 
+  group('an undo is an action of its own', () {
+    test('it appends an entry and leaves the original alone', () async {
+      // The log is an append-only record of what Garfin *did*, not a view of
+      // what is currently true. Marking the first row "undone" would be a claim
+      // Garfin cannot back: the label can be changed in the web admin or from a
+      // second phone, which this screen already admits it cannot see.
+      scriptItem('item-1');
+      final give =
+          TagDiff([TagChange(child: emma, label: 'kids-emma', adding: true)]);
+
+      await repository.apply(itemId: 'item-1', diff: give);
+      await repository.undo(itemId: 'item-1', diff: give);
+
+      final entries = store.read();
+      expect(entries, hasLength(2));
+      // Newest first: the undo, then the original, unchanged.
+      expect(entries.first.gaveAccess, isFalse);
+      expect(entries.last.gaveAccess, isTrue,
+          reason: 'the original entry is a record, not a status');
+      expect(entries.last.itemId, 'item-1');
+      expect(entries.last.label, 'kids-emma');
+    });
+
+    test('undoing twice is safe, and honest about having happened twice',
+        () async {
+      // Idempotence is what makes an entry undoable however old it is: the
+      // second undo removes a label that is already gone and changes nothing.
+      // It is still an action Garfin performed, so it is still recorded.
+      scriptItem('item-1');
+      final give =
+          TagDiff([TagChange(child: emma, label: 'kids-emma', adding: true)]);
+
+      await repository.apply(itemId: 'item-1', diff: give);
+      await repository.undo(itemId: 'item-1', diff: give);
+      await repository.undo(itemId: 'item-1', diff: give);
+
+      expect(store.read(), hasLength(3));
+    });
+  });
+
   group('a half-finished collection is not an action', () {
     test('a partly-written set records nothing', () async {
       // The sheet keeps that state on screen with *finish the rest* / *put it

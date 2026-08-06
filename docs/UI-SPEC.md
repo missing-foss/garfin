@@ -179,6 +179,14 @@ another, and "Handed to Emma" cannot say both.
 a set can gain or lose films in between, and a captured list is the same mistake as a captured
 item body.
 
+**An undo is itself an action, and appears as one.** Undoing an entry appends a new entry pointing
+the other way; the original row stays exactly as it was, still offering Undo — which is safe,
+because a forward write that removes an absent label changes nothing. The log is an append-only
+record of *what Garfin did*, not a view of what is currently true, and the difference matters here
+more than it usually would: marking a row "undone" would be a claim Garfin cannot back. The label
+can be changed in the web admin or from a second phone, which this screen already admits it cannot
+see, so an "undone" badge would quietly become a lie in exactly the case the caveat exists for.
+
 The log is bounded — the oldest entries fall off the end — and lives in `shared_preferences`, so it
 does not survive an uninstall and does not leave the phone.
 
