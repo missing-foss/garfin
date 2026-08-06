@@ -9,6 +9,47 @@ SPDX-License-Identifier: GPL-3.0-or-later
 Everything Garfin needs, plus the parts that will bite. Verify against the server's own
 `/api-docs/swagger` — the API moves between versions.
 
+## Measuring this without measuring your own harness
+
+Everything in this file was measured against a throwaway server, and the measurements that were
+*wrong* were never wrong about the status code. They were wrong because the harness answered a
+different question, confidently, with no error to notice.
+
+**That is the species worth naming: a harness that answers confidently and wrongly rather than
+erroring.** The ordinary defence — read the error — never fires. Five instances so far, all caught,
+each by a different accident:
+
+| The trap | What it looked like | Why nothing errored |
+|---|---|---|
+| **The container that never bound** | a health check reporting a healthy server | it *was* healthy — it was the **live** server on the same port |
+| **A spent single-use value** | "an absent `userId` answers 500" | the code had been used by an earlier step; the 500 was the code's (#40) |
+| **A shared `DeviceId`** | every call after the second answering 401 | the "device" client authenticated as the admin and invalidated the admin's own token (#40) |
+| **A query that fetched nothing** | "0 items, so the claim holds" | a wrong `parentId` and a true claim are the same empty list (#55) |
+| **Observing a state you wrote** | "descendants carry no tags" | the harness had written `Tags: []` to them itself (#55) |
+
+The checks are cheap and none of them is clever:
+
+1. **Assert the target is the throwaway before writing**, per the protocol in § Writing tags —
+   `"StartupWizardCompleted": false`. It fails closed against every way of ending up on the wrong
+   server, including the one nobody predicted.
+2. **One fresh single-use value per case.** Quick Connect codes are spent by the first `Authorize`;
+   reusing one measures the code rather than the variable you meant to vary.
+3. **One `DeviceId` per client.** Jellyfin retires a device's previous token when a new session
+   claims the same id, so a probe sharing an id with the admin client kills the run halfway and the
+   rest of it measures a dead session.
+4. **Require `n > 0` before believing a negative.** A "nothing found" result and a query that asked
+   the wrong thing are indistinguishable, and a false confirmation is worse than a false alarm —
+   nobody goes back to check it.
+5. **Never observe a state your harness created.** If the setup writes it, the measurement is of the
+   setup. Read the fixture back through a *different* path than the one that wrote it.
+6. **Keep a control in every sweep.** A second show that is never tagged, a genre filter with a
+   known answer, an untouched sibling item: the row that proves the query can still say no.
+
+Both #40 and #55 were caught in review rather than by the person running the sweep, and in both
+cases the reviewer's own run had avoided the trap by accident rather than by design — a loop that
+happened to generate a fresh value each time, distinct device ids chosen for unrelated reasons. A
+confound you dodge by luck is one that returns when the loop is written differently.
+
 ## Auth
 
     POST /QuickConnect/Initiate                  -> { Code, Secret }
@@ -720,6 +761,9 @@ no-ops-reporting-success before.
 >
 > Step 2 is the one that actually saves you: it fails closed against every way of ending up
 > pointed at the wrong server, including the one nobody predicted.
+>
+> The port trap is one of five in the same family — see § *Measuring this without measuring your
+> own harness* at the top of this file for the rest, and for the checks that catch them.
 
 Optional, slower, makes the change visible immediately:
 

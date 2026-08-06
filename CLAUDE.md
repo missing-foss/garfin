@@ -144,6 +144,11 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
 - **A gate you have not tried to break is not a gate.** Mutation-test anything you add or rewrite
   that is supposed to catch something — delete the thing it guards and watch it fail. Two gates
   in this repo were vacuous when written.
+- **Measure the server, not your own harness.** Every wrong measurement in this project so far was
+  right about the status code and wrong about the question — a spent single-use code, a shared
+  `DeviceId`, a query that fetched nothing, a state the harness had written itself. None of them
+  errored. `docs/JELLYFIN-API.md` § *Measuring this without measuring your own harness* lists them
+  and the six checks that catch them; read it before writing a sweep.
 
 ## Definition of done for a feature
 
