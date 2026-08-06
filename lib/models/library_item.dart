@@ -61,6 +61,15 @@ class LibraryItem {
 
   bool get isCollection => type == 'BoxSet';
 
+  /// Whether this is a series, which behaves unlike a collection in the one way
+  /// that matters here.
+  ///
+  /// Measured for #53: the policy filter **inherits from the series**, so a
+  /// label on it reaches every season and episode inside — a series *is* an
+  /// ancestor of its episodes, while a BoxSet is not an ancestor of its films.
+  /// That is why one needs a cascade and the other does not.
+  bool get isSeries => type == 'Series';
+
   /// Whether this item carries [label], case-insensitively.
   ///
   /// Measured: the server's own `tags=` filter is case-insensitive —

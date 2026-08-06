@@ -186,9 +186,11 @@ reads as a promise, so they are recorded here rather than left on the screen (#5
 - **Cascade to collection members.** `docs/DECISIONS.md` § Collections: a collection **always**
   writes to its members, and #50 measured what the alternative does — the child gets a visible,
   empty collection. Off is not a preference, it is a broken write.
-- **Cascade to episodes.** A real gap: a tag on a Series does not reach its Seasons or Episodes.
-  It needs a write path of its own, with the same pre-flight and fix-forward machinery, and its own
-  measurement of what a child sees. Tracked in #53; the switch arrives with the feature.
+- **Cascade to episodes.** Not a gap after all, which #53 established by measuring it: the policy
+  filter inherits from the series, so a label on a series is already enough for the child to see
+  every season and episode inside it — they inherit the label, report it, and are matched by
+  `tags=`. There is nothing for a switch to turn on, and the old note was wrong rather than
+  half-right.
 
 **Respect age cap** is the filter bar's rating toggle (#44), not a setting, and **libraries to
 browse** waits on the same grid work — `/Items` takes one `parentId`, so more than one library is

@@ -210,6 +210,10 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
   /// film: the sets it belongs to — **plural on purpose**, because a film can
   /// be in several and assuming one would leave the others unmentioned.
   List<String> _scopeNotes(AppLocalizations l10n) {
+    // A series needs no cascade and gets no warning — it gets the opposite,
+    // because "will they get the episodes?" is the question a parent actually
+    // has and the measured answer is yes (#53).
+    if (widget.item.isSeries) return [l10n.assignSeriesNote];
     if (widget.item.isCollection) {
       final set = ref.watch(collectionSetProvider(_collectionRequest));
       final size = set.asData?.value.size;

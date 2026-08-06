@@ -147,5 +147,6 @@
   "settingsLicence": "GPL-3.0-or-later. Garfin est un logiciel libre, fourni sans aucune garantie.",
   "settingsNotAffiliated": "Sans affiliation avec le projet Jellyfin. Jellyfin est une marque de Jellyfin, Inc.",
   "settingsSource": "Code source",
-  "settingsLicences": "Licences des logiciels libres utilisés"
+  "settingsLicences": "Licences des logiciels libres utilisés",
+  "assignSeriesNote": "Tout ce que contient la série suit — saisons et épisodes compris."
 }

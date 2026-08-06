@@ -547,4 +547,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsLicences => 'Open-source licences';
+
+  @override
+  String get assignSeriesNote =>
+      'Everything inside the series follows it — seasons and episodes included.';
 }

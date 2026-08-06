@@ -326,6 +326,21 @@ class JellyfinApi {
   ///
   /// A library query, not a visibility computation — the same distinction
   /// ground rule 1 draws for the last-item warning. No cap enters into it.
+  ///
+  /// **[itemTypes] is load-bearing and its default must not be widened.**
+  /// Measured on 10.11.11 (#53): a label written to one *series* is inherited
+  /// by its seasons and episodes, which report it and are matched by `tags=`.
+  /// One write to one six-episode series answers:
+  ///
+  ///     Movie,Series,BoxSet -> 1        Season -> 2
+  ///     Episode             -> 6        no type filter -> 9
+  ///
+  /// This count is what ground rule 1's last-item hard warning is built on —
+  /// the warning that stops a parent taking a label off the last item carrying
+  /// it and leaving the child seeing *nothing*. Include `Episode` or `Season`
+  /// and one series contributes nine instead of one, `count <= 1` stops being
+  /// reachable in any library that has a series in it, and the warning silently
+  /// never fires again. `test/tagged_item_count_test.dart` pins it.
   Future<int> taggedItemCount({
     required String userId,
     required String tag,

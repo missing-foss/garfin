@@ -99,6 +99,18 @@ offer a one-off migration instead of silently rewriting thousands of items.
 **Two independent cascades.** "Cascade to episodes" walks down a series; "cascade to collection
 members" walks across a set. Separate switches, separate concerns.
 
+> **Corrected 2026-08-06 (#53). There is only one cascade, and this was right about which.** The
+> collection one is real and is built (#50). The episode one is not needed at all: measured on
+> 10.11.11, a label on a series **is inherited by its seasons and episodes** — they report it,
+> `tags=` matches them, and the child sees every one of them, including a direct fetch of a single
+> episode, with an untagged second show as the control answering 404. What this project had
+> recorded — that the tag "does not propagate" — was wrong in both halves.
+>
+> "Separate switches, separate concerns" still holds as reasoning — a set and a series are different
+> shapes, which is exactly why one needs a cascade and the other does not: a series **is** an
+> ancestor of its episodes, and a BoxSet is not an ancestor of anything. See `JELLYFIN-API.md`
+> § Series, seasons and episodes.
+
 ---
 
 ## Collections
