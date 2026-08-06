@@ -189,22 +189,51 @@ only for non-sensitive settings.
 The Quick Connect `Secret` is a credential for the duration of the pairing
 exchange, not an identifier, and is held in memory only.
 
+**Approving a child's sign-in (#40) never brings a secret near Garfin.** The
+child's device holds its own secret and exchanges it itself; Garfin sends only
+the six-digit code and the child's user id, and receives no token in return. The
+code is held in a text field for as long as the sheet is open and is written
+nowhere — not to preferences, not to a log. It is deliberately **not** on the
+redaction list either: it is inert without the secret, and it is meant to be
+read off a screen, so scrubbing it would cost a diagnosable log without making
+anything safer. Approving is also not a policy write — ground rule 8 is about
+`POST /Users/{id}/Policy`, and `Authorize` mints a session instead.
+
 Nothing is logged that could carry a credential: no `print` anywhere, and the
 logger must never receive tokens, passwords or Quick Connect secrets.
 
 **Verified against the implementation (2026-08-04, #19).** Two ways, because a
 static reading and a behavioural one fail differently.
 
-*Statically*, every write in `lib/` was enumerated — **eleven
-`shared_preferences` call sites across four files** (2026-08-05, updated for
-#33), which is the complete list:
+*Statically*, every write in `lib/` was enumerated — **twenty-one
+`shared_preferences` call sites across six files** (2026-08-06, updated for #52
+and #57), which is the complete list:
 
 | File | Sites | Stored |
 |---|---|---|
 | `server_settings_store.dart` | 5 | server URL, user id, user name (and their removal on sign-out) |
+| `app_settings_store.dart` | 8 | Settings: the collection prompt, refresh-after-write, the starting child's id, hide-shared, theme, dynamic colour, poster size |
+| `birth_year_store.dart` | 3 | a child's **birth year**, keyed by Jellyfin user id — write, clear, and the sweep `signOut` calls — see below |
+| `activity_store.dart` | 2 | the **Activity log** — see below |
 | `unlock_settings_store.dart` | 2 | whether the unlock gate is required (bool), the idle timeout (int seconds) |
 | `device_identity.dart` | 1 | `device_id` — see below |
-| `birth_year_store.dart` | 3 | a child's **birth year**, keyed by Jellyfin user id — write, clear, and the sweep `signOut` calls — see below |
+
+> **This count was wrong between #52 and #40.** It read "eleven across four
+> files, which is the complete list" while `app_settings_store.dart` and
+> `activity_store.dart` had already added ten sites between them — a sentence
+> that stayed true-sounding for three merges because nothing re-ran the grep it
+> implies. The command is
+> `grep -rnE "\.(setString|setBool|setInt|setStringList|setDouble|remove)\(" lib/ --include=*.dart | grep -v l10n/gen`,
+> and it belongs in the review of anything that adds a store.
+
+**The Activity log is the second thing here that is about a child rather than
+about the app.** It records, per action Garfin performed: the item's name, the
+child's name and id, the label written, which way it went and when. That is a
+list of what a parent has given a particular child and when they gave it —
+household data, on a phone that is handed to children by design. It is bounded
+at 200 actions, it is not a credential, and ground rule 9's unlock gate is what
+stands in front of it. It does not survive an uninstall, and backup and
+device-to-device transfer are off (#39), so it does not leave the device.
 
 **The birth year is the one thing Garfin holds that Jellyfin does not.** Every
 other key above mirrors something the server already knows. Measured on
@@ -226,9 +255,10 @@ first release carrying it would have made children's birth years eligible for
 Auto Backup by default.
 
 `flutter_secure_storage` is written at exactly one site, `token_store.dart`,
-under one key, with the access token. The logger is called at seven sites, and
-every one interpolates an enum name, a runtime type or a duration — never a
-value from a credential-bearing object.
+under one key, with the access token. The logger is called at **twelve** sites
+(2026-08-06), and every one interpolates an enum name, a runtime type, a count
+or a duration — never a value from a credential-bearing object. The grep is
+`grep -rnE "\blog\.(info|warning|fine|severe|config|shout)\(" lib/ --include=*.dart`.
 
 **`device_id` is a persistent random identifier, and belongs in this list.** It
 is 128 bits of `Random.secure()`, generated on first launch and stored in

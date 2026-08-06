@@ -203,6 +203,75 @@ omission looks like an oversight and is not.
 
     GET /Users/{id}/Views     -> libraries this user can reach
 
+### Approving a code on someone else's behalf (#40)
+
+    POST /QuickConnect/Authorize?code={code}&userId={childId}    -> 200 true
+
+**Measured on 10.11.11**, re-run 2026-08-06. `userId` is an optional, admin-only parameter on the
+server's own OpenAPI, and it is the whole of this feature: the parent approves, the **child's**
+device exchanges its own secret, and the session that comes out is the child's with
+`IsAdministrator: false`. No password is typed on the child's device — one the child need never be
+told.
+
+| attempt | result |
+|---|---|
+| admin approves with `userId=<child>` | 200, the child's device gets a child session |
+| **non-admin approves with `userId=<admin>`** | **403** |
+| non-admin approves for themselves, no `userId` | 200 — ordinary Quick Connect |
+| a code nobody asked for | 404 |
+| a well-formed `userId` that does not exist | **400** |
+| the same code twice | **500** |
+
+The 403 is load-bearing: **the privilege boundary is the server's**, so Garfin does not re-implement
+it — a check it implemented would be the one that could be wrong.
+
+> **An earlier version of this table said the last two both answered 500.** That was a confounded
+> measurement: the absent-user case reused a code an earlier step had already spent, so the 500 came
+> from the code rather than from the id. Re-run with **a fresh code per case**, they are 400 and 500
+> and the server tells them apart perfectly well. Caught in review of #40. The lesson is the cheap
+> one — a sweep that reuses a single-use value measures the value, not the variable.
+
+### `Authorize` fails open to the approving administrator
+
+**The finding that shapes the code.** Measured, each case on its own fresh code, following the
+device through to the session it actually receives:
+
+| `userId` sent | approve | the session the device gets |
+|---|---|---|
+| `<child>` | 200 `true` | **the child**, `IsAdministrator: false` |
+| the all-zero GUID | 200 `true` | **the administrator**, `IsAdministrator: true` |
+| omitted entirely | 200 `true` | **the administrator** |
+| the empty string | 200 `true` | **the administrator** |
+
+No error anywhere in that. The device shows a code, the parent approves it on a child's card, and
+the tablet receives an **administrator** session while the app reports the child was signed in —
+the exact inversion of what this app is for, silent in both directions.
+
+`JellyfinUser.fromJson` defaults a missing `Id` to `''`, so one malformed `/Users` row is all it
+would take. `approveQuickConnect` therefore refuses an empty or all-zero `userId` **before** the
+request. That is not re-implementing the server's privilege check — that check is the 403, and it
+stays the server's — it is declining to send a request whose meaning Garfin does not intend. It is
+the same family as `fullItem` comparing the id it got back with the one it asked for: the all-zero
+GUID again, on a route that mints sessions rather than returning a folder.
+
+**Nothing can be shown about the device being approved.** Only `Authorize` takes a code; the one
+route carrying `DeviceName`, `AppName` and `AppVersion` is `GET /QuickConnect/Connect`, which needs
+the **secret** — held solely by the requesting device. Asking it for a code answers 404. The five
+Quick Connect routes and their parameters are the whole surface:
+
+    POST /QuickConnect/Authorize   code, userId
+    GET  /QuickConnect/Connect     secret
+    GET  /QuickConnect/Enabled     —
+    POST /QuickConnect/Initiate    —
+    POST /Users/AuthenticateWithQuickConnect
+
+This is the same blindness as approving in Jellyfin's own web UI, so it is not a regression — but a
+parent can be talked into approving a code that is not their child's device, and the confirmation
+says so rather than implying anything was checked.
+
+**This is not a policy write.** `Authorize` mints a session; ground rule 8 is about
+`POST /Users/{id}/Policy` and its full-object replace, and none of that risk is in play.
+
 ## Browsing
 
     GET /Items?userId={admin}&Recursive=true

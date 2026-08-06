@@ -926,5 +926,69 @@
   "activityUndoUnknown": "That account isn't on the shortlist any more, so Garfin can't tell what undoing would mean.",
   "@activityUndoUnknown": {
     "description": "Shown when the entry's child no longer has a shortlist Garfin can interpret. Ground rule 3 forbids guessing a verb, so the undo is refused rather than attempted."
+  },
+  "deviceSignInAction": "Sign in on a device",
+  "@deviceSignInAction": {
+    "description": "On a child's card: approve the Quick Connect code their device is showing, so they can sign in without ever knowing a password."
+  },
+  "deviceSignInTitle": "Sign {name} in on a device",
+  "@deviceSignInTitle": {
+    "description": "Title of the sheet that approves a Quick Connect code for this child.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deviceSignInHow": "On their device, open Jellyfin and choose Quick Connect. Type the six digits it shows here.",
+  "@deviceSignInHow": {
+    "description": "How to get a code. Plain instructions, no jargon about secrets or tokens."
+  },
+  "deviceSignInCodeLabel": "Six-digit code",
+  "@deviceSignInCodeLabel": {
+    "description": "Label of the code field."
+  },
+  "deviceSignInApprove": "Approve",
+  "@deviceSignInApprove": {
+    "description": "Performs the approval, and confirms it in the dialog."
+  },
+  "deviceSignInConfirmTitle": "Sign {name} in?",
+  "@deviceSignInConfirmTitle": {
+    "description": "Confirmation before approving — ground rule 6, because this mints a session on a device.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deviceSignInConfirmCode": "Code {code}",
+  "@deviceSignInConfirmCode": {
+    "description": "Reads the code back before approving. A mistyped digit is the mistake most likely here, and the only one Garfin can help with.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "deviceSignInUnverified": "Garfin can't check which device this code came from. Only approve a code you've just seen on {name}'s own screen.",
+  "@deviceSignInUnverified": {
+    "description": "Measured: only the requesting device holds the secret, and no endpoint turns a code into device details. So this says plainly that nothing was verified, rather than implying Garfin checked.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deviceSignInDone": "{name} is signed in on that device.",
+  "@deviceSignInDone": {
+    "description": "Confirms the approval went through."
+  },
+  "errorQuickConnectRefused": "The server wouldn't take that code. If it's already been used, ask for a fresh one on their device.",
+  "@errorQuickConnectRefused": {
+    "description": "Measured: a reused code and a userId that no longer exists both answer 500, so 'already used' is offered as the likely reason rather than asserted as fact."
+  },
+  "errorUnusableUserId": "Garfin doesn't have a usable account id for that child, so it hasn't approved anything. Refresh what Garfin has cached, in Settings, and try again.",
+  "@errorUnusableUserId": {
+    "description": "Garfin's own refusal, not the server's. Measured: POST /QuickConnect/Authorize with an empty or all-zero userId answers 200 and signs the device in as the approving administrator — so an unusable id must stop the request rather than be sent."
   }
 }

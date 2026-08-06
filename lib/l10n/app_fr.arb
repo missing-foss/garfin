@@ -171,5 +171,16 @@
   "activityHoursAgo": "{count, plural, =1{il y a 1 heure} other{il y a {count} heures}}",
   "activityDaysAgo": "{count, plural, =1{Hier} other{il y a {count} jours}}",
   "activityWhenCollection": "{when} · {count} titres",
-  "activityUndoUnknown": "Ce compte n'a plus de sélection : Garfin ne peut pas savoir ce que défaire signifierait."
+  "activityUndoUnknown": "Ce compte n'a plus de sélection : Garfin ne peut pas savoir ce que défaire signifierait.",
+  "deviceSignInAction": "Connecter un appareil",
+  "deviceSignInTitle": "Connecter un appareil pour {name}",
+  "deviceSignInHow": "Sur son appareil, ouvrez Jellyfin et choisissez Quick Connect. Saisissez ici les six chiffres affichés.",
+  "deviceSignInCodeLabel": "Code à six chiffres",
+  "deviceSignInApprove": "Approuver",
+  "deviceSignInConfirmTitle": "Connecter {name} ?",
+  "deviceSignInConfirmCode": "Code {code}",
+  "deviceSignInUnverified": "Garfin ne peut pas vérifier de quel appareil vient ce code. N'approuvez qu'un code que vous venez de voir sur l'écran de {name}.",
+  "deviceSignInDone": "{name} est connecté sur cet appareil.",
+  "errorQuickConnectRefused": "Le serveur a refusé ce code. S'il a déjà servi, demandez-en un nouveau sur son appareil.",
+  "errorUnusableUserId": "Garfin n'a pas d'identifiant utilisable pour cet enfant : rien n'a été approuvé. Actualisez ce que Garfin a en mémoire, dans les Réglages, puis réessayez."
 }

@@ -1129,6 +1129,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'That account isn\'t on the shortlist any more, so Garfin can\'t tell what undoing would mean.'**
   String get activityUndoUnknown;
+
+  /// On a child's card: approve the Quick Connect code their device is showing, so they can sign in without ever knowing a password.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in on a device'**
+  String get deviceSignInAction;
+
+  /// Title of the sheet that approves a Quick Connect code for this child.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign {name} in on a device'**
+  String deviceSignInTitle(String name);
+
+  /// How to get a code. Plain instructions, no jargon about secrets or tokens.
+  ///
+  /// In en, this message translates to:
+  /// **'On their device, open Jellyfin and choose Quick Connect. Type the six digits it shows here.'**
+  String get deviceSignInHow;
+
+  /// Label of the code field.
+  ///
+  /// In en, this message translates to:
+  /// **'Six-digit code'**
+  String get deviceSignInCodeLabel;
+
+  /// Performs the approval, and confirms it in the dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get deviceSignInApprove;
+
+  /// Confirmation before approving — ground rule 6, because this mints a session on a device.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign {name} in?'**
+  String deviceSignInConfirmTitle(String name);
+
+  /// Reads the code back before approving. A mistyped digit is the mistake most likely here, and the only one Garfin can help with.
+  ///
+  /// In en, this message translates to:
+  /// **'Code {code}'**
+  String deviceSignInConfirmCode(String code);
+
+  /// Measured: only the requesting device holds the secret, and no endpoint turns a code into device details. So this says plainly that nothing was verified, rather than implying Garfin checked.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin can\'t check which device this code came from. Only approve a code you\'ve just seen on {name}\'s own screen.'**
+  String deviceSignInUnverified(String name);
+
+  /// Confirms the approval went through.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is signed in on that device.'**
+  String deviceSignInDone(Object name);
+
+  /// Measured: a reused code and a userId that no longer exists both answer 500, so 'already used' is offered as the likely reason rather than asserted as fact.
+  ///
+  /// In en, this message translates to:
+  /// **'The server wouldn\'t take that code. If it\'s already been used, ask for a fresh one on their device.'**
+  String get errorQuickConnectRefused;
+
+  /// Garfin's own refusal, not the server's. Measured: POST /QuickConnect/Authorize with an empty or all-zero userId answers 200 and signs the device in as the approving administrator — so an unusable id must stop the request rather than be sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin doesn\'t have a usable account id for that child, so it hasn\'t approved anything. Refresh what Garfin has cached, in Settings, and try again.'**
+  String get errorUnusableUserId;
 }
 
 class _AppLocalizationsDelegate

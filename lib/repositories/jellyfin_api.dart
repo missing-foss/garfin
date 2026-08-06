@@ -140,6 +140,97 @@ class JellyfinApi {
         },
       );
 
+  /// Approves a Quick Connect code **on another user's behalf** (#40).
+  ///
+  /// The parent types the six digits their child's device is showing, Garfin
+  /// approves it as the administrator, and the child's device exchanges its own
+  /// secret for a token belonging to the **child**. Measured on 10.11.11: the
+  /// resulting session is the child's, `IsAdministrator: false`, and no password
+  /// is typed on the child's device — one the child need never be told.
+  ///
+  /// **`userId` is the whole feature, and the privilege boundary is the
+  /// server's.** A non-admin token pointing `userId` at an administrator is
+  /// refused with **403**; the same token approving for itself succeeds. Garfin
+  /// does not re-implement that check, because a check it implemented would be
+  /// the one that could be wrong.
+  ///
+  /// This is not a policy write. `Authorize` mints a session; ground rule 8 is
+  /// about `POST /Users/{id}/Policy` and its full-object replace, and none of
+  /// that risk is in play here.
+  ///
+  /// **Garfin never sees the secret.** Only the requesting device holds it,
+  /// which is also why nothing can be shown about the device being approved —
+  /// see the failure map below and `docs/JELLYFIN-API.md`.
+  Future<void> approveQuickConnect({
+    required String code,
+    required String userId,
+  }) {
+    // **`Authorize` fails open to the approving administrator.** Measured on
+    // 10.11.11, and it is the reason this guard exists rather than a general
+    // validator:
+    //
+    //     userId=<child>       -> 200, the device gets the CHILD's session
+    //     userId=<all zeroes>  -> 200, the device gets the ADMIN's session
+    //     userId omitted       -> 200, the device gets the ADMIN's session
+    //     userId=              -> 200, the device gets the ADMIN's session
+    //
+    // No error in any of those, and `JellyfinUser.fromJson` defaults a missing
+    // `Id` to the empty string — so one malformed `/Users` row would turn a
+    // child's card into a button that hands an administrator session to the
+    // tablet, while the sheet says the child was signed in.
+    //
+    // This is not re-implementing the server's privilege check: that check is
+    // the 403 a non-admin gets, and it stays the server's. This is declining to
+    // send a request whose meaning Garfin does not intend. Same family as
+    // `fullItem` comparing the id it got back with the one it asked for — the
+    // all-zero GUID again, on a route that mints sessions instead of returning
+    // a folder.
+    final trimmed = userId.trim();
+    if (trimmed.isEmpty || trimmed.replaceAll('-', '').replaceAll('0', '').isEmpty) {
+      return Future.error(
+        const JellyfinException(
+          JellyfinErrorKind.unusableUserId,
+          message: 'refusing to approve without a usable user id',
+        ),
+      );
+    }
+
+    return _call(
+        () async {
+          await _dio.post<dynamic>(
+            '/QuickConnect/Authorize',
+            // `trimmed`, not `userId`: the value that was checked and the value
+            // that goes out should be the same thing. Whitespace here could
+            // only ever produce a server-side 400 — never the fail-open above —
+            // but a guard that validates one string and sends another is the
+            // shape the next bug takes.
+            queryParameters: <String, dynamic>{
+              'code': code,
+              'userId': trimmed,
+            },
+          );
+        },
+        // Measured on 10.11.11, each case on its **own fresh code**:
+        //
+        //     a code nobody asked for            -> 404
+        //     a well-formed but absent user id   -> 400
+        //     the same code twice                -> 500
+        //
+        // An earlier reading of this said the last two both answered 500. That
+        // was a confounded measurement — the absent-user case reused a code
+        // that a previous step had already spent, so the 500 came from the
+        // code, not the id. The UI still offers "it may already have been used"
+        // as a reason to check rather than asserting it, because a 500 has no
+        // other documented meaning here; the difference is that the doc no
+        // longer claims the server cannot tell them apart.
+        remap: const {
+          JellyfinErrorKind.notFound: JellyfinErrorKind.quickConnectExpired,
+          JellyfinErrorKind.unauthorized:
+              JellyfinErrorKind.quickConnectUnavailable,
+        },
+      );
+  }
+
   /// The password fallback.
   Future<AuthenticationResult> authenticateByName({
     required String username,

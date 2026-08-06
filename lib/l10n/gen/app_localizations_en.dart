@@ -663,4 +663,50 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get activityUndoUnknown =>
       'That account isn\'t on the shortlist any more, so Garfin can\'t tell what undoing would mean.';
+
+  @override
+  String get deviceSignInAction => 'Sign in on a device';
+
+  @override
+  String deviceSignInTitle(String name) {
+    return 'Sign $name in on a device';
+  }
+
+  @override
+  String get deviceSignInHow =>
+      'On their device, open Jellyfin and choose Quick Connect. Type the six digits it shows here.';
+
+  @override
+  String get deviceSignInCodeLabel => 'Six-digit code';
+
+  @override
+  String get deviceSignInApprove => 'Approve';
+
+  @override
+  String deviceSignInConfirmTitle(String name) {
+    return 'Sign $name in?';
+  }
+
+  @override
+  String deviceSignInConfirmCode(String code) {
+    return 'Code $code';
+  }
+
+  @override
+  String deviceSignInUnverified(String name) {
+    return 'Garfin can\'t check which device this code came from. Only approve a code you\'ve just seen on $name\'s own screen.';
+  }
+
+  @override
+  String deviceSignInDone(Object name) {
+    return '$name is signed in on that device.';
+  }
+
+  @override
+  String get errorQuickConnectRefused =>
+      'The server wouldn\'t take that code. If it\'s already been used, ask for a fresh one on their device.';
+
+  @override
+  String get errorUnusableUserId =>
+      'Garfin doesn\'t have a usable account id for that child, so it hasn\'t approved anything. Refresh what Garfin has cached, in Settings, and try again.';
 }

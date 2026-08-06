@@ -109,6 +109,11 @@ class AuthController extends AsyncNotifier<AuthState> {
           await _repository.signOut();
           if (!ref.mounted) return;
           state = AsyncData(AuthSignedOut(reason: error));
+        // Garfin's own refusal, from the Quick Connect approval path (#40).
+        // A session check cannot produce it; it is listed so this switch stays
+        // exhaustive rather than growing a default that would swallow a kind
+        // added later.
+        case JellyfinErrorKind.unusableUserId:
         case JellyfinErrorKind.unreachable:
         case JellyfinErrorKind.timeout:
         case JellyfinErrorKind.forbidden:

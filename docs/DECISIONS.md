@@ -156,6 +156,37 @@ silent cascading unshares would make the behaviour unpredictable.
 
 ---
 
+## Signing a child in, on their behalf
+
+**A child never learns their own password.** The parent creates the account, and onboards each of
+the child's devices by approving the Quick Connect code that device shows. The child cannot sign in
+anywhere without the parent, and every new device becomes an explicit parental decision.
+
+**This is a supported use, not a trick.** Quick Connect exists so *you* can sign yourself in on a
+television without typing a password on a remote — but `POST /QuickConnect/Authorize` takes an
+optional, admin-only `userId`, first-class in the server's own OpenAPI, and a non-admin pointing it
+at an administrator is refused with 403. The privilege boundary is enforced by the server, which is
+why Garfin does not re-implement it.
+
+**An id Garfin did not mean to send is refused before the request.** `Authorize` answers 200 to an
+empty, absent or all-zero `userId` and signs the device in as the **approving administrator** — on a
+child's device, the inversion of the product's purpose, with no error on either side. The server's
+own privilege check (the 403) stays the server's; this is a different thing, and the distinction is
+worth keeping: Garfin does not second-guess what the server permits, it declines to ask questions it
+does not mean.
+
+**Garfin cannot show what is being approved, and this is accepted rather than pending.** No endpoint
+turns a code into device details — only the requesting device holds the secret that would. So the
+confirmation names the child, reads the code back, and says plainly that the device was not checked.
+The same is true of approving in Jellyfin's own web UI. Anything warmer would be implying a
+verification that did not happen.
+
+**The child is chosen by construction, not from a list.** The action lives on that child's own card,
+so the silent failure — approving for the wrong child, which no screen would report — has no list to
+happen in.
+
+---
+
 ## Visual identity
 
 **Material 3, dark-first,** generated from one seed (`#7C5CD6`) so Material You dynamic colour
