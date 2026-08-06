@@ -87,6 +87,20 @@ class _DeviceSignInSheetState extends ConsumerState<_DeviceSignInSheet> {
             ),
             const SizedBox(height: 8),
             Text(l10n.deviceSignInHow, style: theme.textTheme.bodyMedium),
+            // Measured for #49: approving outside the child's hours **succeeds**
+            // — `Authorize` 200 and the exchange 200 — and the session it
+            // issues then answers 403 on every request until the window opens.
+            // Garfin cannot tell whether "now" is inside it (the server's
+            // offset is not exposed), so it says what happens rather than
+            // predicting which case this is.
+            if (widget.child.policy.accessSchedules.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                l10n.deviceSignInOutsideHours(widget.child.name),
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
             const SizedBox(height: 16),
             TextField(
               controller: _code,

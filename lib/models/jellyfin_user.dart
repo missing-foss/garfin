@@ -41,6 +41,7 @@ class UserPolicy {
     this.allowedTags = const [],
     this.blockedTags = const [],
     this.maxParentalRating,
+    this.accessSchedules = const [],
     this.enableAllFolders = false,
     this.enabledFolders = const [],
   });
@@ -88,6 +89,16 @@ class UserPolicy {
 
   final List<String> enabledFolders;
 
+  /// The hours this account may be used, or empty for no restriction.
+  ///
+  /// **The second half of Jellyfin's parental controls**, beside the rating
+  /// cap, and the Kids card shows both or summarises neither honestly.
+  ///
+  /// Read-only, like every policy field here: `AccessSchedules` lives inside
+  /// `Policy`, so writing one is the full-object replace ground rule 8 forbids.
+  /// Scheduling stays in Jellyfin.
+  final List<AccessSchedule> accessSchedules;
+
   /// Which verb applies to this user, or that no single one does.
   ///
   /// Derived rather than stored, so there is one place the question is answered
@@ -121,6 +132,7 @@ class UserPolicy {
         allowedTags: readStringList(json, 'AllowedTags'),
         blockedTags: readStringList(json, 'BlockedTags'),
         maxParentalRating: readInt(json, 'MaxParentalRating'),
+        accessSchedules: AccessSchedule.listFrom(json),
         enableAllFolders: readBool(json, 'EnableAllFolders'),
         enabledFolders: readStringList(json, 'EnabledFolders'),
       );
@@ -162,4 +174,79 @@ class JellyfinUser {
           : UserPolicy.fromJson(policy),
     );
   }
+}
+
+/// One window in which an account may be used.
+///
+/// **Measured on 10.11.11 (#49), and two details bite:**
+///
+/// `StartHour` and `EndHour` are **floats** — `8.5` is 08:30, `20.25` is 20:15
+/// — so an int-typed reader silently truncates a parent's half-past to the
+/// hour, in the direction of *more* access.
+///
+/// `DayOfWeek` is `DynamicDayOfWeek`: the seven days **plus `Everyday`,
+/// `Weekday` and `Weekend`**. A UI that assumes seven values falls over on a
+/// perfectly ordinary configuration, and `Everyday` is what the server writes
+/// for the commonest one. An unknown value is rejected by the server with 400,
+/// so anything that arrives here is one of the ten — but it is kept as the
+/// server's own string rather than an enum, so a value added in a later version
+/// renders as itself instead of throwing.
+class AccessSchedule {
+  const AccessSchedule({
+    required this.dayOfWeek,
+    required this.startHour,
+    required this.endHour,
+  });
+
+  final String dayOfWeek;
+  final double startHour;
+  final double endHour;
+
+  /// **Server time, and there is no way to convert it.** Measured: the API
+  /// exposes the server's UTC instant (`/GetUtcTime`) and nothing at all about
+  /// its offset — `/System/Info` and `/System/Configuration` carry no zone, and
+  /// the HTTP `Date` header is GMT by specification. So Garfin cannot say what
+  /// 20:00 on the server is on this phone, and the copy says whose hours these
+  /// are rather than quietly implying they are the reader's.
+  static List<AccessSchedule> listFrom(Map<String, dynamic> policy) {
+    final raw = readField(policy, 'AccessSchedules');
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map((entry) {
+          final day = readString(entry, 'DayOfWeek');
+          final start = readDouble(entry, 'StartHour');
+          final end = readDouble(entry, 'EndHour');
+          if (day == null || start == null || end == null) return null;
+          return AccessSchedule(
+            dayOfWeek: day,
+            startHour: start,
+            endHour: end,
+          );
+        })
+        .whereType<AccessSchedule>()
+        .toList(growable: false);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is AccessSchedule &&
+      other.dayOfWeek == dayOfWeek &&
+      other.startHour == startHour &&
+      other.endHour == endHour;
+
+  @override
+  int get hashCode => Object.hash(dayOfWeek, startHour, endHour);
+}
+
+/// `8.5` as `08:30`.
+///
+/// Twenty-four hour, deliberately: these are wall-clock hours on somebody
+/// else's machine, with no date and no zone to hang an am/pm on, and the label
+/// beside them already says whose clock it is.
+String formatScheduleHour(double hour) {
+  final total = (hour * 60).round();
+  final h = (total ~/ 60) % 24;
+  final m = total % 60;
+  return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
 }

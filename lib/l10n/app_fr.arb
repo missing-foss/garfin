@@ -182,5 +182,12 @@
   "deviceSignInUnverified": "Garfin ne peut pas vérifier de quel appareil vient ce code. N'approuvez qu'un code que vous venez de voir sur l'écran de {name}.",
   "deviceSignInDone": "{name} est connecté sur cet appareil.",
   "errorQuickConnectRefused": "Le serveur a refusé ce code. S'il a déjà servi, demandez-en un nouveau sur son appareil.",
-  "errorUnusableUserId": "Garfin n'a pas d'identifiant utilisable pour cet enfant : rien n'a été approuvé. Actualisez ce que Garfin a en mémoire, dans les Réglages, puis réessayez."
+  "errorUnusableUserId": "Garfin n'a pas d'identifiant utilisable pour cet enfant : rien n'a été approuvé. Actualisez ce que Garfin a en mémoire, dans les Réglages, puis réessayez.",
+  "kidsScheduleNone": "Peut regarder à toute heure.",
+  "kidsScheduleServerTime": "{windows} — heures du serveur",
+  "kidsScheduleWindow": "{day} {start}–{end}",
+  "kidsScheduleEveryday": "Tous les jours",
+  "kidsScheduleWeekday": "En semaine",
+  "kidsScheduleWeekend": "Le week-end",
+  "deviceSignInOutsideHours": "{name} a des horaires définis. L'approbation fonctionne en dehors, mais son appareil ne fonctionnera qu'au début de ses horaires."
 }

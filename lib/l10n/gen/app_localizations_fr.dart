@@ -712,4 +712,31 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get errorUnusableUserId =>
       'Garfin n\'a pas d\'identifiant utilisable pour cet enfant : rien n\'a été approuvé. Actualisez ce que Garfin a en mémoire, dans les Réglages, puis réessayez.';
+
+  @override
+  String get kidsScheduleNone => 'Peut regarder à toute heure.';
+
+  @override
+  String kidsScheduleServerTime(String windows) {
+    return '$windows — heures du serveur';
+  }
+
+  @override
+  String kidsScheduleWindow(String day, String start, String end) {
+    return '$day $start–$end';
+  }
+
+  @override
+  String get kidsScheduleEveryday => 'Tous les jours';
+
+  @override
+  String get kidsScheduleWeekday => 'En semaine';
+
+  @override
+  String get kidsScheduleWeekend => 'Le week-end';
+
+  @override
+  String deviceSignInOutsideHours(String name) {
+    return '$name a des horaires définis. L\'approbation fonctionne en dehors, mais son appareil ne fonctionnera qu\'au début de ses horaires.';
+  }
 }

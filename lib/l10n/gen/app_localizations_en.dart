@@ -709,4 +709,31 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorUnusableUserId =>
       'Garfin doesn\'t have a usable account id for that child, so it hasn\'t approved anything. Refresh what Garfin has cached, in Settings, and try again.';
+
+  @override
+  String get kidsScheduleNone => 'Can watch at any time of day.';
+
+  @override
+  String kidsScheduleServerTime(String windows) {
+    return '$windows — the server\'s hours';
+  }
+
+  @override
+  String kidsScheduleWindow(String day, String start, String end) {
+    return '$day $start–$end';
+  }
+
+  @override
+  String get kidsScheduleEveryday => 'Every day';
+
+  @override
+  String get kidsScheduleWeekday => 'Weekdays';
+
+  @override
+  String get kidsScheduleWeekend => 'Weekends';
+
+  @override
+  String deviceSignInOutsideHours(String name) {
+    return '$name has set hours. Approving outside them works, but their device won\'t until their hours start.';
+  }
 }
