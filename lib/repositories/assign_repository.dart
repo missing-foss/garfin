@@ -3,10 +3,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import '../logging.dart';
+import '../models/activity_entry.dart';
 import '../models/dto_json.dart';
 import '../models/jellyfin_user.dart';
 import '../models/library_item.dart';
 import '../models/tag_diff.dart';
+import 'activity_store.dart';
 import 'bounded_batch.dart';
 import 'jellyfin_api.dart';
 
@@ -107,6 +109,7 @@ class AssignRepository {
     // Defaulted rather than required, so every existing call site keeps the
     // behaviour it was written for: no extra call unless Settings asks.
     this._refreshAfterWrite = false,
+    this._activity,
   });
 
   final JellyfinApi _api;
@@ -117,6 +120,13 @@ class AssignRepository {
   /// set pays it twelve times. See [JellyfinApi.refreshItem] for why the
   /// dangerous parameter is not reachable from here.
   final bool _refreshAfterWrite;
+
+  /// Where a completed action is recorded.
+  ///
+  /// **Here rather than at the call site**, so a future write path cannot ship
+  /// without logging — the same reasoning that makes the pre-flight return ids
+  /// rather than bodies. Null in tests that are not about the log.
+  final ActivityStore? _activity;
 
   /// The sheet's rows: whether the item carries each child's label, and what
   /// each child can see right now.
@@ -223,7 +233,10 @@ class AssignRepository {
     required String itemId,
     required TagDiff diff,
   }) async {
-    if (!diff.isEmpty) await _writeOne(itemId, diff);
+    if (!diff.isEmpty) {
+      final name = await _writeOne(itemId, diff);
+      await _record(diff: diff, itemId: itemId, itemName: name);
+    }
     return AssignOutcome(counts: await _countsFor(diff), applied: diff);
   }
 
@@ -282,25 +295,44 @@ class AssignRepository {
     final additions = TagDiff(diff.additions.toList(growable: false));
 
     var setMarked = true;
+    // The container's own name, taken from whichever of its writes happened —
+    // the Activity log needs it and the server has already sent it.
+    String? collectionName;
     if (!removals.isEmpty) {
-      setMarked = await _tryWrite(collectionId, removals);
+      collectionName = await _tryWrite(collectionId, removals);
+      setMarked = collectionName != null;
     }
 
-    final results = await mapBounded<String, ({String id, bool ok})>(
+    final results = await mapBounded<String, ({String id, String? name})>(
       memberIds,
-      (id) async => (id: id, ok: await _tryWrite(id, diff)),
+      (id) async => (id: id, name: await _tryWrite(id, diff)),
     );
-    final written = [for (final r in results) if (r.ok) r.id];
-    final failed = [for (final r in results) if (!r.ok) r.id];
+    final written = [for (final r in results) if (r.name != null) r.id];
+    final failed = [for (final r in results) if (r.name == null) r.id];
 
     if (!additions.isEmpty) {
       // Only when the whole set is actually there. This is the marker, so
       // writing it over a half-tagged set would be a lie the grid then repeats.
       if (failed.isNotEmpty) {
         setMarked = false;
-      } else if (!await _tryWrite(collectionId, additions)) {
-        setMarked = false;
+      } else {
+        collectionName = await _tryWrite(collectionId, additions);
+        if (collectionName == null) setMarked = false;
       }
+    }
+
+    if (failed.isEmpty && setMarked) {
+      // **Only a completed action is logged.** A partly-written set is not
+      // something the parent did — it is a state they are still deciding about,
+      // and the sheet keeps it on screen with *finish the rest* / *put it all
+      // back*. Recording it as done would put an Undo behind a claim that is
+      // not true yet.
+      await _record(
+        diff: diff,
+        itemId: collectionId,
+        itemName: collectionName ?? '',
+        collectionSize: memberIds.length,
+      );
     }
 
     return BatchOutcome(
@@ -332,7 +364,11 @@ class AssignRepository {
   }
 
   /// One full-object round-trip. The only place this app writes an item.
-  Future<void> _writeOne(String itemId, TagDiff diff) async {
+  ///
+  /// Returns the item's own `Name`, because the Activity log needs one and the
+  /// server has already sent it — asking a caller to pass a name in would be a
+  /// second source of truth for what an item is called.
+  Future<String> _writeOne(String itemId, TagDiff diff) async {
     final item = await _api.fullItem(userId: _adminUserId, itemId: itemId);
 
     // Mutate one key. Everything else in the map is carried back verbatim —
@@ -341,6 +377,11 @@ class AssignRepository {
     item['Tags'] = diff.applyTo(readStringList(item, 'Tags'));
 
     await _api.replaceItem(itemId: itemId, item: item);
+    // Empty rather than null for a nameless item, and that is load-bearing:
+    // `_tryWrite` reads null as **the write failed**, so a missing `Name` would
+    // mark a set incomplete, suppress its log entry, and report "1 of 12" with
+    // nothing connecting it to a title that has no name.
+    final name = readString(item, 'Name') ?? '';
 
     if (_refreshAfterWrite) {
       try {
@@ -353,19 +394,59 @@ class AssignRepository {
         log.info('metadata refresh after write failed: ${error.runtimeType}');
       }
     }
+    return name;
   }
 
   /// [_writeOne], reporting rather than throwing, so one failure does not
-  /// discard what the rest of the batch did.
-  Future<bool> _tryWrite(String itemId, TagDiff diff) async {
+  /// discard what the rest of the batch did. Null means it failed.
+  Future<String?> _tryWrite(String itemId, TagDiff diff) async {
     try {
-      await _writeOne(itemId, diff);
-      return true;
+      return await _writeOne(itemId, diff);
     } on Object catch (error) {
       // No id in the log line: it is a library item, but it is still the
       // parent's data and the failure is legible without it.
       log.warning('a collection member write failed: ${error.runtimeType}');
-      return false;
+      return null;
+    }
+  }
+
+  /// Writes one Activity entry per child the action touched.
+  ///
+  /// Per **child**, because a single Apply that hands a film to Emma and takes
+  /// it from Sam is two things a parent did, and "Handed to Emma" cannot say
+  /// both. Per **action** rather than per item, because a twelve-film
+  /// collection is one thing they did.
+  ///
+  /// A failure here is logged and swallowed: the library write already
+  /// succeeded, and letting a preferences problem surface as a failed write
+  /// would be a lie in the more alarming direction.
+  Future<void> _record({
+    required TagDiff diff,
+    required String itemId,
+    required String itemName,
+    int? collectionSize,
+  }) async {
+    final activity = _activity;
+    if (activity == null) return;
+    try {
+      for (final change in diff.changes) {
+        await activity.add(
+          ActivityEntry(
+            itemId: itemId,
+            itemName: itemName,
+            childId: change.child.id,
+            childName: change.child.name,
+            label: change.label,
+            // What it did to the child, not to the tag — ground rule 3 makes
+            // those opposites for a block-list account.
+            gaveAccess: change.givesAccess,
+            at: DateTime.now(),
+            collectionSize: collectionSize,
+          ),
+        );
+      }
+    } on Object catch (error) {
+      log.warning('could not record an activity entry: ${error.runtimeType}');
     }
   }
 

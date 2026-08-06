@@ -68,4 +68,25 @@ class CollectionRepository {
           collectionId: collection.id,
         ),
       );
+
+  /// The same, from an id alone — what the Activity log has.
+  ///
+  /// **Resolved now rather than replayed.** A log entry deliberately does not
+  /// store the members it wrote to: a set can gain or lose titles between the
+  /// write and the undo, and reversing against a captured list is the same
+  /// mistake as posting a captured item body. The container is read singly,
+  /// which also checks it still exists.
+  Future<CollectionSet> setForId(String collectionId) async {
+    final container = await _api.fullItem(
+      userId: _adminUserId,
+      itemId: collectionId,
+    );
+    return CollectionSet(
+      collection: LibraryItem.fromJson(container),
+      members: await _api.collectionMembers(
+        userId: _adminUserId,
+        collectionId: collectionId,
+      ),
+    );
+  }
 }
