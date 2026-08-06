@@ -74,10 +74,17 @@ between two code blocks inherits their authority**. No control catches this, bec
 confound to find: the checks above defend against measuring the wrong thing, and this is not
 measuring at all.
 
-The only defence is marking which lines are observations and which are inferences. That is what
-**"measured on 10.11.11"** is doing throughout this file, and it is why it appears as often as it
-does. **A line that carries no such marker is the line to distrust** — including, and especially,
-your own.
+The only defence is marking which lines are observations and which are inferences — which is what
+**"measured on 10.11.11"** is for, and why it appears as often as it does.
+
+**That marker is a convention from here on, not a property of the file today.** Counted at the time
+of writing: 42 sections, 22 carrying a marker and 20 not, and fifteen of the unmarked ones state
+hard facts in code blocks — several of which two people have independently re-measured. So an
+unmarked line means **unaudited, not doubtful**, and a rule that told you to distrust half the
+document would simply be ignored. The marker is applied as sections are revisited, and accumulates.
+
+What it buys, from here on: **a line that states a server behaviour and carries no marker is the
+line to check first** — including, and especially, your own.
 
 ## Auth
 
