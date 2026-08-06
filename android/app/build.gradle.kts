@@ -47,22 +47,41 @@ android {
     // verify a downloaded APK against it. Only the keystore file and its
     // passwords are sensitive, and .gitignore excludes *.keystore/*.jks.
     //
-    // `expected` starts empty on purpose: generate a brand-new keystore for
-    // Garfin (do NOT reuse trobar-android's), build once with it, read the
-    // fingerprint from the warning this prints, paste it in below, then never
-    // change it again except deliberately.
+    // The key was generated for Garfin alone in #20 — **never** share one with
+    // trobar-android, or whoever holds either key can push updates to both —
+    // and `expected` below is pinned to it. Never change that constant except
+    // deliberately: an APK signed with a different key cannot update an
+    // installed Garfin.
+    //
+    // The `expected.isEmpty()` branch further down is the bootstrap path, kept
+    // for a deliberate rotation: blank the constant, build once, read the
+    // fingerprint out of the warning, paste it back. It is dead code in normal
+    // use, which is the intended state.
     // ---------------------------------------------------------------------
     signingConfigs {
         create("release") {
             val keystorePath = System.getenv("GARFIN_KEYSTORE") ?: "release.keystore"
             val keystorePass = System.getenv("GARFIN_KEYSTORE_PASSWORD") ?: ""
-            val alias = System.getenv("GARFIN_KEY_ALIAS") ?: "release"
+            // Defaults to the canonical key's own alias. A default that did not
+            // match the one key this repo signs with would be a trap by
+            // construction — it fails with "Alias 'release' not found", which
+            // is loud but avoidable.
+            val alias = System.getenv("GARFIN_KEY_ALIAS") ?: "garfin"
             storeFile = file(keystorePath)
             storePassword = keystorePass
             keyAlias = alias
             keyPassword = System.getenv("GARFIN_KEY_PASSWORD") ?: keystorePass
             if (keystorePass.isNotEmpty() && file(keystorePath).exists()) {
-                val expected = "" // TODO: fill in after the first real signed build
+                // Garfin's canonical signing key, generated 2026-08-06 (#20) and
+                // pinned here after the first signed build. **Never change this
+                // except deliberately**: an APK signed with a different key
+                // cannot update an installed Garfin, and the guard below is
+                // what stops that shipping by accident.
+                //
+                // Not a secret — it is published in SECURITY.md so anyone can
+                // check a downloaded APK with
+                // `apksigner verify --print-certs`.
+                val expected = "2e815848c120b612589a5999a43e0c30555b0f2a1c7d46abae2fc181c1819f95"
                 val ks = KeyStore.getInstance("PKCS12")
                 file(keystorePath).inputStream().use { ks.load(it, keystorePass.toCharArray()) }
                 val cert = ks.getCertificate(alias) as? X509Certificate

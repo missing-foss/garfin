@@ -420,21 +420,45 @@ certificate fingerprint and refuses to build if the keystore doesn't match, so a
 wrong or rotated key fails loudly instead of shipping an APK that can never be
 updated.
 
-The fingerprint is not a secret and will be published here once the first signed
-release is cut, so anyone can verify a downloaded APK against it.
+The fingerprint is not a secret. **Garfin's canonical signing key, as promised
+here (#20):**
 
-**Until #20 lands, a successful `flutter build apk --release` does not mean
-"ready to publish."** Two things are not yet true of it:
+    SHA-256  2e815848c120b612589a5999a43e0c30555b0f2a1c7d46abae2fc181c1819f95
 
-- **The canonical key does not exist.** With no keystore the build now succeeds
-  and produces an *unsigned* APK (#29) — deliberately, so CI and contributors
-  can build release at all, which is what #30 needs. An unsigned APK cannot be
-  installed as an update and must not be distributed.
-- **The fingerprint guard is inert.** `expected` in `build.gradle.kts` is still
-  `""`, so a wrong or rotated key only logs a warning rather than failing the
-  build. The safeguard is wired up and untriggered, not enforcing.
+    RSA 4096 · SHA384withRSA · CN=Garfin, OU=missing-foss, O=missing-foss, C=FR
+    generated 2026-08-06, valid to 2056-07-29
+
+Check any downloaded APK against it:
+
+    apksigner verify --print-certs app-release.apk
+
+Signing a release build needs three environment variables, and the alias is not
+guessable — it is `garfin`:
+
+    export GARFIN_KEYSTORE=~/keys/garfin/garfin-release.jks
+    export GARFIN_KEY_ALIAS=garfin
+    export GARFIN_KEYSTORE_PASSWORD='<the store password>'
+
+**Without them the build does not fail — it produces an unsigned APK**, because
+with no password the fingerprint guard is skipped rather than triggered. The
+guard cannot catch its own absence, which is why the check above is a step in
+the release runbook rather than an afterthought.
+
+The key itself lives on the maintainer's machine outside the repo and **is not
+in CI**: `release.yml` opens a draft release and a human attaches the locally
+signed APK. `.gitignore` covers `*.jks`, `*.keystore` and `key.properties`.
+
+**A release build is only publishable when it is signed with that key.** With no
+keystore the build still succeeds and produces an *unsigned* APK (#29) —
+deliberately, so CI and contributors can build release at all, which is what #30
+needs. An unsigned APK cannot be installed as an update and must not be
+distributed, so check before publishing rather than assuming:
+
+    apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
 
 Release builds became newly *easy* to produce in #29/#30, which is why this is
 written down: the thing that used to stop an unpublishable artifact existing was
 that the build refused to run at all. A misconfigured keystore — a password set
-with no keystore behind it — does still fail loudly, by design.
+with no keystore behind it — does still fail loudly, by design, and since #20 a
+keystore whose fingerprint is not the one above fails the build outright rather
+than warning.

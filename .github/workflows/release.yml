@@ -88,6 +88,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag || github.ref_name }}
+          # The published certificate digest (SECURITY.md carries it too), so the
+          # runbook can say what a correctly signed APK must print.
+          #
+          # Named for what it is rather than as `KEY_…`: gitleaks reads a
+          # 64-hex value assigned to anything key-shaped as a `generic-api-key`
+          # and fails the leak gate on it. The value is deliberately public —
+          # a certificate digest is what you check an APK *against* — so the
+          # fix is the name, not an allowlist entry that would also hide a real
+          # key next to it.
+          SIGNING_CERT_SHA256: 2e815848c120b612589a5999a43e0c30555b0f2a1c7d46abae2fc181c1819f95
         run: |
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "release $TAG already exists — leaving it alone"
@@ -101,15 +111,31 @@ jobs:
 
           Tag matches \`pubspec.yaml\`, and all gates passed.
 
-          **No artifact is attached, by design.** Build and sign locally, then:
+          **No artifact is attached, by design.** Build and sign locally:
 
           \`\`\`
+          export GARFIN_KEYSTORE=~/keys/garfin/garfin-release.jks
+          export GARFIN_KEY_ALIAS=garfin
+          export GARFIN_KEYSTORE_PASSWORD='<the store password>'
+
           flutter build apk --release --split-per-abi
+          \`\`\`
+
+          **Those exports are the whole of it.** Without them the build still
+          succeeds and produces an **unsigned** APK — the signing guard is
+          skipped entirely rather than failing, because with no password there
+          is nothing for it to check. So verify the artifact before uploading
+          it, rather than trusting that the guard would have caught it:
+
+          \`\`\`
+          apksigner verify --print-certs build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          # must print: $SIGNING_CERT_SHA256
+          \`\`\`
+
+          Then attach and publish:
+
+          \`\`\`
           gh release upload $TAG build/app/outputs/flutter-apk/*.apk
           gh release edit $TAG --draft=false
           \`\`\`
-
-          The signing guard in \`android/app/build.gradle.kts\` verifies the key
-          fingerprint on that build. Publish the release only once the APK is
-          attached.
           SUMMARY
