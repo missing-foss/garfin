@@ -36,7 +36,16 @@ The checks are cheap and none of them is clever:
    reusing one measures the code rather than the variable you meant to vary.
 3. **One `DeviceId` per client.** Jellyfin retires a device's previous token when a new session
    claims the same id, so a probe sharing an id with the admin client kills the run halfway and the
-   rest of it measures a dead session.
+   rest of it measures a dead session. **Measured on 10.11.11, with a control** — because in a
+   section about not mistaking a conclusion for a measurement, this was the one line that was an
+   inference about the server's rule rather than an observation of the harness:
+
+       token1 (DeviceId=shared-id), before token2 exists   -> 200
+       token1 (DeviceId=shared-id), after token2 claims it -> 401
+       token3 / token4 (distinct ids), both after          -> 200, 200
+
+   `GET /Sessions` corroborates it from the other side: one session for the shared id — the newer
+   client — and both distinct ids still present. Caught and closed in review of #60.
 4. **Require `n > 0` before believing a negative.** A "nothing found" result and a query that asked
    the wrong thing are indistinguishable, and a false confirmation is worse than a false alarm —
    nobody goes back to check it.
