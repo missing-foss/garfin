@@ -808,4 +808,10 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get sessionsUncontrollable =>
       'Cet appareil n\'accepte pas les commandes à distance. Fermer la session fonctionne quand même.';
+
+  @override
+  String get librarySearchHint => 'Rechercher un titre';
+
+  @override
+  String get librarySearchClear => 'Effacer la recherche';
 }

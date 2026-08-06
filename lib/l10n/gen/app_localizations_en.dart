@@ -805,4 +805,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get sessionsUncontrollable =>
       'This device doesn\'t accept remote commands. Ending the session still works.';
+
+  @override
+  String get librarySearchHint => 'Search titles';
+
+  @override
+  String get librarySearchClear => 'Clear search';
 }

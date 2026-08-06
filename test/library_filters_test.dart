@@ -147,12 +147,102 @@ void main() {
     });
   });
 
+  group('search (#73), pinned to what the server actually does', () {
+    test('the parameter is searchTerm, and it is trimmed', () async {
+      // Measured on 10.11.11 before any of this was written. The name is not a
+      // guess and neither is the behaviour: title only — not the overview, the
+      // cast, tags or genres — matching any substring, case- and
+      // accent-insensitively.
+      final query =
+          await queryFor(const LibraryFilters(searchTerm: '  paddington  '));
+
+      expect(query['searchTerm'], 'paddington');
+    });
+
+    test('whitespace is not a search, and is not sent', () async {
+      // The server returns the **whole library** for `searchTerm=%20`
+      // (measured), so sending it would be a filter that filters nothing while
+      // the UI claims one is active.
+      expect(
+        (await queryFor(const LibraryFilters(searchTerm: '   ')))
+            .containsKey('searchTerm'),
+        isFalse,
+      );
+      expect(
+        (await queryFor(const LibraryFilters(searchTerm: '')))
+            .containsKey('searchTerm'),
+        isFalse,
+      );
+      expect(
+        (await queryFor(const LibraryFilters())).containsKey('searchTerm'),
+        isFalse,
+      );
+    });
+
+    test('it goes out WITH the other filters, not instead of them', () async {
+      // Measured both directions on a real server: searchTerm + genres=Family
+      // returns the match, searchTerm + genres=Drama returns nothing. It ANDs.
+      // If Garfin dropped a filter when searching, the grid would quietly widen
+      // at the moment a parent is trying to narrow it.
+      final query = await queryFor(
+        const LibraryFilters(
+          searchTerm: 'bear',
+          type: 'Movie',
+          genre: 'Family',
+          decade: 2010,
+          withinCap: true,
+        ),
+        cap: 8,
+      );
+
+      expect(query['searchTerm'], 'bear');
+      expect(query['IncludeItemTypes'], 'Movie');
+      expect(query['genres'], 'Family');
+      expect(query['years'], startsWith('2010,'));
+      expect(query['maxOfficialRating'], 8);
+    });
+
+    test('Recursive is still true when searching', () async {
+      // Load-bearing, and measured: without `Recursive`, the same query answers
+      // with folders — `Movies`, `Playlists` — instead of films. A search that
+      // returns two folders reads as "no results" to everyone.
+      final query = await queryFor(const LibraryFilters(searchTerm: 'bear'));
+
+      expect(query['Recursive'], isTrue);
+    });
+  });
+
   group('the model', () {
     test('a decade is ten years, starting at the decade', () {
       expect(const LibraryFilters(decade: 1980).decadeYears.first, 1980);
       expect(const LibraryFilters(decade: 1980).decadeYears.last, 1989);
       expect(const LibraryFilters(decade: 1980).decadeYears, hasLength(10));
       expect(const LibraryFilters().decadeYears, isEmpty);
+    });
+
+    test('a search counts as an active filter, but whitespace does not', () {
+      // The badge over the tune button reads `activeCount`, and `isEmpty`
+      // decides whether the button looks engaged. A whitespace "search" that
+      // counted would put a 1 on an unfiltered grid.
+      expect(const LibraryFilters(searchTerm: 'bear').activeCount, 1);
+      expect(const LibraryFilters(searchTerm: 'bear').isEmpty, isFalse);
+      expect(const LibraryFilters(searchTerm: '   ').activeCount, 0);
+      expect(const LibraryFilters(searchTerm: '   ').isEmpty, isTrue);
+      expect(const LibraryFilters(searchTerm: '').isEmpty, isTrue);
+      expect(
+        const LibraryFilters(searchTerm: 'bear', genre: 'Family').activeCount,
+        2,
+      );
+    });
+
+    test('a search can be cleared like any other filter', () {
+      const set = LibraryFilters(searchTerm: 'bear', genre: 'Family');
+
+      expect(set.copyWith(searchTerm: null).searchTerm, isNull);
+      expect(set.copyWith(searchTerm: null).genre, 'Family',
+          reason: 'clearing the search must not clear the others');
+      expect(set.copyWith(genre: null).searchTerm, 'bear',
+          reason: 'and clearing another must not clear the search');
     });
 
     test('a filter can be cleared, not only changed', () {

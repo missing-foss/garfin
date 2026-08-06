@@ -350,6 +350,16 @@ class JellyfinApi {
             'Limit': limit,
             'IncludeItemTypes':
                 (filters.type == null ? itemTypes : [filters.type!]).join(','),
+            // Measured (#73): title only — not the overview, the cast, tags
+            // or genres — matching any substring, case- and
+            // accent-insensitively, and ANDing with every filter below rather
+            // than replacing them. `Recursive` above is load-bearing for it:
+            // without it the same query answers with folders, not films.
+            //
+            // Trimmed and omitted when empty, because whitespace is not a
+            // search — the server returns the whole library for it, and a
+            // request that filters nothing should not look like one that does.
+            if (filters.hasSearch) 'searchTerm': filters.searchTerm!.trim(),
             if (filters.genre != null) 'genres': filters.genre,
             if (filters.decade != null)
               'years': filters.decadeYears.join(','),

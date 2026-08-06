@@ -14,6 +14,7 @@ class LibraryFilters {
     this.genre,
     this.decade,
     this.withinCap = false,
+    this.searchTerm,
   });
 
   /// `Movie`, `Series` or `BoxSet`, or null for all three.
@@ -25,6 +26,30 @@ class LibraryFilters {
   /// The first year of a ten-year span: 1980, 1990, 2000.
   final int? decade;
 
+  /// What the parent typed, matched by the **server** against the title (#73).
+  ///
+  /// Measured on 10.11.11, because none of this is guessable and the repo has
+  /// been bitten twice by a parameter that answered 200 while filtering
+  /// nothing:
+  ///
+  /// - **Title only.** Not the overview, not the cast, not tags, not genres.
+  ///   Proven with a film whose overview says "Nothing like Paddington at all"
+  ///   and which carries the tag `paddington`: searching Paddington does not
+  ///   return it.
+  /// - **Substring, anywhere in the title.** `add` finds Paddington and `eep`
+  ///   finds Winter Sleep, so it is not anchored to a word start.
+  /// - **Case- and accent-insensitive.** `amelie` finds `Amélie`.
+  /// - **It ANDs with the other filters** rather than replacing them, checked
+  ///   against `genres`, `years`, `tags` and `maxOfficialRating` in both
+  ///   directions — matching and non-matching.
+  /// - **`Recursive=true` is required.** Without it the same query answers
+  ///   with folders — `Movies`, `Playlists` — rather than films.
+  ///
+  /// Null and empty mean the same thing to the server (everything), but the
+  /// parameter is omitted when empty rather than sent blank: a request that
+  /// says nothing is easier to read in a log than one that says nothing loudly.
+  final String? searchTerm;
+
   /// Hide titles rated above the selected child's cap.
   ///
   /// **A filter over the administrator's view, not a claim about what the child
@@ -35,14 +60,23 @@ class LibraryFilters {
   /// this says "above their limit" rather than "what they can see".
   final bool withinCap;
 
+  /// Whether anything is actually narrowing the grid.
+  ///
+  /// A search of pure whitespace is not: the server treats it as no filter at
+  /// all (measured — `searchTerm=%20` returns the whole library), so counting
+  /// it as active would put a "1 filter" badge on an unfiltered grid.
+  bool get hasSearch => (searchTerm ?? '').trim().isNotEmpty;
+
   bool get isEmpty =>
-      type == null && genre == null && decade == null && !withinCap;
+      type == null && genre == null && decade == null && !withinCap &&
+      !hasSearch;
 
   int get activeCount => [
         type != null,
         genre != null,
         decade != null,
         withinCap,
+        hasSearch,
       ].where((on) => on).length;
 
   /// The years a decade covers, for the `years=` parameter.
@@ -60,6 +94,7 @@ class LibraryFilters {
     Object? genre = _keep,
     Object? decade = _keep,
     bool? withinCap,
+    Object? searchTerm = _keep,
   }) =>
       LibraryFilters(
         // `_keep` rather than null-means-keep, so a filter can be *cleared*.
@@ -69,6 +104,8 @@ class LibraryFilters {
         genre: identical(genre, _keep) ? this.genre : genre as String?,
         decade: identical(decade, _keep) ? this.decade : decade as int?,
         withinCap: withinCap ?? this.withinCap,
+        searchTerm:
+            identical(searchTerm, _keep) ? this.searchTerm : searchTerm as String?,
       );
 
   static const _keep = Object();

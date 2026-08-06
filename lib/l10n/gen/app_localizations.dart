@@ -1339,6 +1339,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This device doesn\'t accept remote commands. Ending the session still works.'**
   String get sessionsUncontrollable;
+
+  /// Placeholder in the library search field (#73). 'Titles' rather than 'library', because the server matches the title and nothing else — measured: not the overview, the cast, tags or genres.
+  ///
+  /// In en, this message translates to:
+  /// **'Search titles'**
+  String get librarySearchHint;
+
+  /// Tooltip on the x inside the search field.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get librarySearchClear;
 }
 
 class _AppLocalizationsDelegate

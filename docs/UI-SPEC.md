@@ -35,9 +35,21 @@ never persisted to survive it.
 1. **"Picking for"** — a horizontal row of Jellyfin avatars for every label-controlled user, plus
    "Everyone". Selecting one filters the grid to what that child can't see yet, exposes their
    rating cap as a chip, and carries into the assign sheet.
-2. **Filter bar** — one row: a tune button (opens all groups with Reset), then dropdown chips for
-   Type, Genre, Decade, then the rating toggle when a child is selected. Chips show the filter
-   name when unset, the value when set. Sticky on scroll.
+2. **Filter bar** — one row: a **search field** first, then a tune button (opens all groups with
+   Reset), then dropdown chips for Type, Genre, Decade, then the rating toggle when a child is
+   selected. Chips show the filter name when unset, the value when set. Sticky on scroll.
+
+   **Search finds; the chips narrow (#73).** The grid is the administrator's whole library — that
+   is what makes "not given yet" answerable — so it is as long as the library gets, and no
+   category filter answers *the one film they asked for at dinner*. The server does the matching:
+   `searchTerm` on the same request, never a filter applied to a page after it arrives, because
+   the match is usually not in the first 24 rows.
+
+   It matches the **title only** — measured, not the overview, cast, tags or genres — any
+   substring, case- and accent-insensitively, and it combines with the other filters rather than
+   replacing them. Typing is debounced at 350ms: every keystroke would otherwise be a
+   library-sized query, which #68 measured at up to half a second. Whitespace is not a search, and
+   an active search counts toward the filter badge like anything else.
 3. **Result line** — "N things Emma hasn't got yet", with a Show/Hide shared text button.
 4. **Poster grid** — 3 columns (2 under 400dp). Collections get a stacked cover and a count badge.
    Already-shared items carry a check badge. Each tile shows avatars of the children who have it.

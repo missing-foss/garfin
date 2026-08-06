@@ -119,6 +119,23 @@ class LibraryFilterState extends Notifier<LibraryFilters> {
 
   void set(LibraryFilters value) => state = value;
 
+  /// The text search (#73), normalised on the way in.
+  ///
+  /// Whitespace-only becomes null rather than being stored: the server treats
+  /// `searchTerm=%20` as no filter at all (measured), so keeping it would leave
+  /// a "1 filter" badge over an unfiltered grid, and `isEmpty` — which the tune
+  /// button's highlight reads — would disagree with what the parent sees.
+  ///
+  /// **Idempotent on purpose.** A debounce can fire with the same text the
+  /// filter already holds; re-setting identical state would invalidate the
+  /// library controller and re-fetch the page for nothing.
+  void setSearch(String value) {
+    final trimmed = value.trim();
+    final next = trimmed.isEmpty ? null : trimmed;
+    if (next == state.searchTerm) return;
+    state = state.copyWith(searchTerm: next);
+  }
+
   void reset() => state = const LibraryFilters();
 }
 
