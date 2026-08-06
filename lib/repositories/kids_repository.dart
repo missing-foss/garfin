@@ -55,11 +55,16 @@ class KidsRepository {
     final libraryTotal = await _api.visibleItemCount(userId: _adminUserId);
 
     final shortlisted = <KidSummary>[];
-    final withoutShortlist = <JellyfinUser>[];
+    final withoutShortlist = <UnshortlistedUser>[];
 
     for (final user in users) {
       if (user.policy.shortlistMode == ShortlistMode.none) {
-        withoutShortlist.add(user);
+        // The picture is resolved here too (#79). It used to be built only for
+        // shortlisted kids, so the unmanaged half of the same screen showed a
+        // letter for people who had an avatar set.
+        withoutShortlist.add(
+          UnshortlistedUser(user: user, avatarUrl: avatarUrlFor(user)),
+        );
         continue;
       }
 

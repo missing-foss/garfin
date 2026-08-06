@@ -11,6 +11,7 @@ import '../models/kid_summary.dart';
 import '../providers/kids_providers.dart';
 import '../repositories/jellyfin_exception.dart';
 import '../widgets/error_notice.dart';
+import '../widgets/user_avatar.dart';
 import '../models/active_session.dart';
 import '../providers/session_providers.dart';
 import '../widgets/kid_card.dart';
@@ -137,15 +138,20 @@ class _KidsList extends ConsumerWidget {
             // would be a dead end someone files a bug about. ListTile with no
             // onTap, and `enabled: false` so it is greyed and skipped by screen
             // readers' tap affordances rather than merely inert.
-            for (final user in overview.withoutShortlist)
+            for (final entry in overview.withoutShortlist)
               ListTile(
                 enabled: false,
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  child: Text(_initial(user.name)),
+                // The same widget the kid cards use, so the picture and its
+                // fallbacks behave identically on both halves of this screen
+                // (#79). Smaller, because these rows are `dense`.
+                leading: UserAvatar(
+                  name: entry.user.name,
+                  avatarUrl: entry.avatarUrl,
+                  radius: 20,
                 ),
-                title: Text(user.name),
+                title: Text(entry.user.name),
               ),
           ],
         ],
@@ -154,5 +160,3 @@ class _KidsList extends ConsumerWidget {
   }
 }
 
-String _initial(String name) =>
-    name.trim().isEmpty ? '?' : name.trim().characters.first.toUpperCase();

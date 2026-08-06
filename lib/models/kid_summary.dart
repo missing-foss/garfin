@@ -80,7 +80,23 @@ class KidsOverview {
   /// A boundary, not a to-do list: Garfin cannot give a child their first
   /// label, because that is a policy write and ground rule 8 forbids it. The
   /// rows are non-interactive on purpose — see `docs/UI-SPEC.md` § Kids.
-  final List<JellyfinUser> withoutShortlist;
+  final List<UnshortlistedUser> withoutShortlist;
 
   bool get isEmpty => shortlisted.isEmpty && withoutShortlist.isEmpty;
+}
+
+/// One account Garfin does not manage, and its picture (#79).
+///
+/// A pair rather than a bare [JellyfinUser] so that the *repository* builds the
+/// avatar URL, exactly as it already does for [KidSummary]. The alternative was
+/// to have the screen reach into `KidsRepository.avatarUrlFor`, which puts the
+/// server address in the widget layer for the sake of one string — and the
+/// screen is the layer that must not know how to talk to Jellyfin.
+class UnshortlistedUser {
+  const UnshortlistedUser({required this.user, required this.avatarUrl});
+
+  final JellyfinUser user;
+
+  /// Null when the user has no picture. Same rule as [KidSummary.avatarUrl].
+  final String? avatarUrl;
 }

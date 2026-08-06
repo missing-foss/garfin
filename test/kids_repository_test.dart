@@ -135,7 +135,7 @@ void main() {
       final overview = await repository.load();
 
       expect(overview.shortlisted, isEmpty);
-      expect(overview.withoutShortlist.single.name, 'Parent');
+      expect(overview.withoutShortlist.single.user.name, 'Parent');
     });
   });
 
@@ -254,6 +254,27 @@ void main() {
       final overview = await repository.load();
 
       expect(overview.shortlisted.single.avatarUrl, isNull);
+    });
+
+    test('an unmanaged account gets its picture too (#79)', () async {
+      // The root of the bug: `avatarUrlFor` was only ever called while
+      // assembling shortlisted kids, so the other half of the same screen had
+      // no URL to show even when the user had an avatar set.
+      await build(users: [user('a1', 'Mum', admin: true, primaryImageTag: 'xyz')]);
+      final overview = await repository.load();
+
+      expect(overview.shortlisted, isEmpty);
+      expect(
+        overview.withoutShortlist.single.avatarUrl,
+        '$serverUrl/Users/a1/Images/Primary?tag=xyz',
+      );
+    });
+
+    test('an unmanaged account with no picture gets no URL', () async {
+      await build(users: [user('a1', 'Dad', admin: true)]);
+      final overview = await repository.load();
+
+      expect(overview.withoutShortlist.single.avatarUrl, isNull);
     });
 
     test('the tag rides along, so a changed picture busts the cache', () async {
