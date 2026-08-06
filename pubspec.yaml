@@ -11,6 +11,10 @@ version: 0.1.0+1
 
 environment:
   sdk: ^3.12.2
+  # `SnackBar.persist` — the fix for #65 — does not exist in older Flutters, and
+  # without a floor an older toolchain fails at compile time with a message that
+  # says nothing about why. 3.44.8 is what it was measured on.
+  flutter: '>=3.44.0'
 
 dependencies:
   flutter:
