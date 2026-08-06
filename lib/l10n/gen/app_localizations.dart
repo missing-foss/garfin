@@ -1195,6 +1195,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Garfin doesn\'t have a usable account id for that child, so it hasn\'t approved anything. Refresh what Garfin has cached, in Settings, and try again.'**
   String get errorUnusableUserId;
+
+  /// Shown when a child has no access schedule. Stated rather than left blank: no schedule means unrestricted hours, and a blank line would read as the opposite.
+  ///
+  /// In en, this message translates to:
+  /// **'Can watch at any time of day.'**
+  String get kidsScheduleNone;
+
+  /// Wraps the windows with whose clock they are on. Measured for #49: the API exposes the server's UTC instant and nothing about its offset, so Garfin cannot convert these into the phone's time and must not imply it has.
+  ///
+  /// In en, this message translates to:
+  /// **'{windows} — the server\'s hours'**
+  String kidsScheduleServerTime(String windows);
+
+  /// One access window: the day or group of days, and the hours. Hours are 24-hour because they carry no date and no zone to hang an am/pm on.
+  ///
+  /// In en, this message translates to:
+  /// **'{day} {start}–{end}'**
+  String kidsScheduleWindow(String day, String start, String end);
+
+  /// Jellyfin's `Everyday` — one of three convenience values beside the seven days, and the one a parent most often picks.
+  ///
+  /// In en, this message translates to:
+  /// **'Every day'**
+  String get kidsScheduleEveryday;
+
+  /// Jellyfin's `Weekday` convenience value.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekdays'**
+  String get kidsScheduleWeekday;
+
+  /// Jellyfin's `Weekend` convenience value.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekends'**
+  String get kidsScheduleWeekend;
+
+  /// Measured for #49: outside the window the approval and the exchange both succeed, and the session then answers 403 on every request until the hours begin. Garfin cannot tell whether now is inside the window — the server's offset is not exposed — so this says what happens rather than predicting which case applies.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} has set hours. Approving outside them works, but their device won\'t until their hours start.'**
+  String deviceSignInOutsideHours(String name);
 }
 
 class _AppLocalizationsDelegate

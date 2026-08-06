@@ -79,3 +79,18 @@ List<String> readStringList(Map<String, dynamic> json, String name) {
   if (value is! List) return const [];
   return value.whereType<String>().toList(growable: false);
 }
+
+/// [readField] for a number that may legitimately have a fraction.
+///
+/// `AccessSchedules` is why this exists: `StartHour` and `EndHour` are
+/// **floats** — measured, `8.5` is 08:30 — and reading them with [readInt]
+/// would truncate a parent's half-past to the hour, in the direction of *more*
+/// access. An integer arriving where a double is expected is normal in JSON and
+/// is accepted; anything else is null rather than a guess.
+double? readDouble(Map<String, dynamic> json, String name) {
+  final value = readField(json, name);
+  if (value is double) return value;
+  if (value is int) return value.toDouble();
+  return null;
+}
+

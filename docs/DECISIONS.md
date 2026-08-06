@@ -156,6 +156,26 @@ silent cascading unshares would make the behaviour unpredictable.
 
 ---
 
+## Access schedules
+
+**Shown on the Kids card, never written.** `AccessSchedules` lives inside `Policy`, so writing one
+is the full-object replace ground rule 8 forbids — the same reason the rating cap is displayed and
+not set. Scheduling stays in Jellyfin; summarising it honestly is Garfin's job.
+
+**The hours are labelled as the server's, because they cannot be converted.** Measured: the API
+gives the server's UTC instant and nothing about its offset, and a container running UTC+10 was
+indistinguishable from one running UTC in every response Garfin makes. Rendering "8pm" as though it
+were the reader's 8pm would be exactly the quiet wrongness this project keeps catching.
+
+**No live "outside their hours right now".** It would be the most useful line on the card — it is
+the answer to "why won't it let me in" — and Garfin cannot compute it without the offset above. A
+status that is wrong for half the world is worse than no status.
+
+**An absent schedule is stated rather than left blank.** No schedule means unrestricted hours; a
+blank line where other children show times reads as the opposite.
+
+---
+
 ## Signing a child in, on their behalf
 
 **A child never learns their own password.** The parent creates the account, and onboards each of

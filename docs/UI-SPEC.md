@@ -122,8 +122,13 @@ Consequences that follow from Undo being a forward write:
 
 ## Kids
 
-Cards for label-controlled users: avatar, name, age, cap, an allow-list/block-list chip, the tags,
-a progress bar, and "N of M things visible". Below, a plain list of users with no shortlist set,
+Cards for label-controlled users: avatar, name, age, cap, **the access hours**, an
+allow-list/block-list chip, the tags, a progress bar, and "N of M things visible".
+
+The hours are the other half of what Jellyfin enforces, and the card shows both or summarises
+neither honestly. They are **the server's hours, said so** — measured, the API exposes no offset, so
+they cannot be converted — and a child with no schedule is told they can watch at any time rather
+than being left blank, which would read as the opposite. Below, a plain list of users with no shortlist set,
 including the admin.
 
 ### The users with no shortlist need an explanation, not just a listing

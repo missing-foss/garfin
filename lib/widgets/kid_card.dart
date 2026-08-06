@@ -4,6 +4,7 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
@@ -71,6 +72,12 @@ class KidCard extends ConsumerWidget {
 
             Text(_capLabel(l10n), style: theme.textTheme.bodySmall),
 
+            // The other half of what the server enforces. A card that shows the
+            // rating cap and not the hours summarises half a parental control
+            // and reads as the whole of one.
+            const SizedBox(height: 4),
+            Text(_scheduleLabel(context, l10n), style: theme.textTheme.bodySmall),
+
             if (kid.tags.isNotEmpty) ...[
               const SizedBox(height: 8),
               Wrap(
@@ -126,6 +133,69 @@ class KidCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// The hours the account may be used, or that there is no restriction.
+  ///
+  /// **An absent schedule is stated, not left blank.** No schedule means
+  /// unrestricted hours, and an empty line where the other children have times
+  /// reads as the opposite — as though this child were the restricted one and
+  /// Garfin had failed to say when.
+  ///
+  /// **Server time, said out loud.** Measured for #49: the API exposes the
+  /// server's UTC instant and nothing about its offset, so Garfin cannot
+  /// convert 20:00-on-the-server into a time on this phone. Rendering it as if
+  /// it were local would be the quiet kind of wrong this project keeps
+  /// catching.
+  String _scheduleLabel(BuildContext context, AppLocalizations l10n) {
+    final schedules = kid.user.policy.accessSchedules;
+    if (schedules.isEmpty) return l10n.kidsScheduleNone;
+
+    final lines = schedules
+        .map((s) => l10n.kidsScheduleWindow(
+              _dayLabel(context, l10n, s.dayOfWeek),
+              formatScheduleHour(s.startHour),
+              formatScheduleHour(s.endHour),
+            ))
+        .join('  ·  ');
+    return l10n.kidsScheduleServerTime(lines);
+  }
+
+  /// `Everyday`, `Weekday` and `Weekend` are Jellyfin's own convenience values,
+  /// beside the seven days — ten in total, and the three are what a parent
+  /// most often picks. The seven come from `intl` rather than the catalogue,
+  /// so they are named the way the reader's locale names them.
+  static String _dayLabel(
+    BuildContext context,
+    AppLocalizations l10n,
+    String day,
+  ) {
+    switch (day) {
+      case 'Everyday':
+        return l10n.kidsScheduleEveryday;
+      case 'Weekday':
+        return l10n.kidsScheduleWeekday;
+      case 'Weekend':
+        return l10n.kidsScheduleWeekend;
+    }
+    const weekdays = <String, int>{
+      'Monday': DateTime.monday,
+      'Tuesday': DateTime.tuesday,
+      'Wednesday': DateTime.wednesday,
+      'Thursday': DateTime.thursday,
+      'Friday': DateTime.friday,
+      'Saturday': DateTime.saturday,
+      'Sunday': DateTime.sunday,
+    };
+    final weekday = weekdays[day];
+    // A value from a later server version renders as itself rather than
+    // throwing or disappearing — the same reason `LibraryItem.type` stays a
+    // string.
+    if (weekday == null) return day;
+    final locale = Localizations.localeOf(context).toString();
+    // 2026-08-03 is a Monday, so this maps a weekday number to a date whose
+    // name `intl` can give in the reader's locale.
+    return DateFormat.EEEE(locale).format(DateTime(2026, 8, 2 + weekday));
   }
 
   /// The cap, named where the server's ladder can name it.

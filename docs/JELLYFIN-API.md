@@ -322,6 +322,64 @@ says so rather than implying anything was checked.
 **This is not a policy write.** `Authorize` mints a session; ground rule 8 is about
 `POST /Users/{id}/Policy` and its full-object replace, and none of that risk is in play.
 
+## Access schedules — the other half of the parental controls
+
+`Policy.AccessSchedules` is a list of `{ Id, UserId, DayOfWeek, StartHour, EndHour }`.
+**Measured on 10.11.11 (#49)**, on a container deliberately running `TZ=Australia/Sydney` so a
+local-clock leak would be obvious.
+
+    read back: [{"Id":1,"UserId":"…","DayOfWeek":"Everyday","StartHour":8.5,"EndHour":20.25}]
+
+- **The hours are floats.** `8.5` is 08:30, `20.25` is 20:15. An int-typed reader turns half past
+  into the hour, in the direction of *more* access.
+- **`DayOfWeek` has ten values, not seven**: the days plus `Everyday`, `Weekday` and `Weekend`.
+  `Everyday` is what the server writes for the commonest configuration. An unknown value is
+  rejected with **400** and the previous schedule is kept.
+
+### What a schedule gates — and it is not visibility
+
+    inside the window : password auth 200, items the child can see 1
+    outside          : password auth 403, items the child can see 1   <- unchanged
+
+And it is not only sign-in. A token obtained **inside** the window stops working when the window
+closes:
+
+    inside : /Users/Me 200, /Items 200
+    outside: /Users/Me 403, /Items 403
+
+So the schedule gates **every request**, session and all, while the set of items the account would
+see is identical either way. Nothing in the Library grid moves with the clock.
+
+### Quick Connect is not gated by it — the sign-in succeeds and the session cannot be used
+
+    outside the window: Authorize 200, exchange 200 (a session for the child)
+                        the same account's password auth, same moment: 403
+    that session, used outside the window: /Users/Me 403, /Items 403
+    the same session once the window opens: /Users/Me 200, /Items 200
+
+`AuthenticateWithQuickConnect` does not apply the access schedule that `AuthenticateByName` does.
+It is **not a way past the control** — the token it issues is refused on every request until the
+hours begin — but it is a confusing approval, so the sign-in sheet says so when the child has a
+schedule at all.
+
+### Whose clock? The server's, and it will not say which one
+
+This is the decision #49 could not make without measuring, and the answer is that conversion is
+impossible:
+
+    GET /GetUtcTime        -> {"RequestReceptionTime":"…Z","ResponseTransmissionTime":"…Z"}
+    HTTP Date header       -> GMT, by specification
+    /System/Info           -> no time or zone field of any kind
+    /System/Configuration  -> none either
+
+The server's **UTC instant** is available; its **offset** is not, and the offset is the only thing
+that would let a phone turn "20:00 on the server" into a time for its reader. With the container on
+UTC+10 nothing in any response differed from the UTC case.
+
+So Garfin renders the hours as the server wrote them and **says whose hours they are**. It also
+does not show a live "outside their hours right now" — it cannot compute one, and a wrong live
+status is worse than none.
+
 ## Browsing
 
     GET /Items?userId={admin}&Recursive=true
