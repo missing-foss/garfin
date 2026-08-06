@@ -213,4 +213,88 @@ void main() {
       );
     }
   });
+
+  group('the launcher, which is the first thing anyone sees (#67)', () {
+    // The icon shipped as Flutter's stock blue "F" through every release build
+    // this project made, and nothing failed — an icon cannot fail, it can only
+    // be wrong. The manifest and the resource tree are the only places that
+    // is checkable without eyes on a device.
+
+    test('the app is called Garfin, not garfin', () {
+      // The launcher is where this name is read most often, and it was
+      // lowercase from the `flutter create` template onward.
+      expect(effective, contains('android:label="Garfin"'));
+      expect(effective, isNot(contains('android:label="garfin"')));
+    });
+
+    test('there is an adaptive icon, and the manifest points at it', () {
+      // minSdk is 26 and adaptive icons are universal from 26, so this is what
+      // every device actually renders. Its absence is what left the stock icon
+      // in place.
+      final adaptive = File(
+        'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+      );
+      expect(adaptive.existsSync(), isTrue,
+          reason: 'no adaptive icon means the legacy PNG is all there is');
+
+      final xml = adaptive.readAsStringSync();
+      expect(xml, contains('<adaptive-icon'));
+      // Per element, not `contains`: the file names the foreground drawable
+      // twice — once as `<foreground>` and once as `<monochrome>` — so a bare
+      // substring check passes even when the foreground has been repointed at
+      // something else. Mutation-tested; that is exactly what slipped through.
+      expect(
+        RegExp(r'<foreground[^>]*android:drawable="@mipmap/ic_launcher_foreground"')
+            .hasMatch(xml),
+        isTrue,
+        reason: 'the foreground must be the brand mark',
+      );
+      expect(
+        RegExp(r'<background[^>]*android:drawable="@color/ic_launcher_background"')
+            .hasMatch(xml),
+        isTrue,
+      );
+
+      expect(effective, contains('android:icon="@mipmap/ic_launcher"'));
+      expect(effective, contains('android:roundIcon="@mipmap/ic_launcher_round"'));
+      expect(
+        File('android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml')
+            .existsSync(),
+        isTrue,
+      );
+    });
+
+    test('every density carries both icons', () {
+      // A missing density does not fail a build; it makes one launcher, on one
+      // phone, fall back to a scaled-up smaller asset.
+      for (final density in ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
+        for (final name in ['ic_launcher.png', 'ic_launcher_foreground.png']) {
+          final file =
+              File('android/app/src/main/res/mipmap-$density/$name');
+          expect(file.existsSync(), isTrue, reason: 'missing $density/$name');
+          expect(file.lengthSync(), greaterThan(0));
+        }
+      }
+    });
+
+    test('the icon background is the brand colour, in one place', () {
+      // BRANDING.md's flat #2B2035, which garfin-icon-background.svg also
+      // paints. A colour resource rather than a drawable, so a launcher's
+      // parallax cannot scale or blur it.
+      final colors =
+          File('android/app/src/main/res/values/colors.xml').readAsStringSync();
+      expect(colors, contains('ic_launcher_background'));
+      expect(colors.toUpperCase(), contains('#2B2035'));
+    });
+
+    test('the icons are generated, and the generator is in the repo', () {
+      // The PNGs are output, not source. Without the script beside them the
+      // next change to the mark would be a hand-edit of five bitmaps.
+      final script = File('brand/make-android-icons.sh');
+      expect(script.existsSync(), isTrue);
+      final text = script.readAsStringSync();
+      expect(text, contains('garfin-icon-foreground.svg'));
+      expect(text, contains('garfin-icon-background.svg'));
+    });
+  });
 }

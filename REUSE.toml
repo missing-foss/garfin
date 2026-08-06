@@ -7,11 +7,19 @@ version = 1
 # --- Flutter-generated native platform scaffolding -------------------------
 # `flutter create` boilerplate under android/. Attributed to its upstream
 # provenance rather than claimed as first-party. Files we've since taken
-# ownership of (build.gradle.kts) carry their own SPDX header, which wins over
-# this aggregate entry. Garfin is Android-only — there is no ios/ tree.
+# ownership of — build.gradle.kts, the launcher-icon XML, colors.xml — carry
+# their own SPDX header. Garfin is Android-only — there is no ios/ tree.
+#
+# `precedence = "closest"`, not "aggregate", and the difference is not
+# cosmetic: under "aggregate" this entry wins over a file's own header, so
+# build.gradle.kts — which carries a GPL header and contains the signing guard,
+# about as first-party as this repo gets — resolved to BSD-3-Clause / The
+# Flutter Authors in `reuse spdx` output. The comment here asserted the
+# opposite for months. Checked with
+# `reuse spdx | grep -A6 build.gradle.kts`, not assumed.
 [[annotations]]
 path = ["android/**"]
-precedence = "aggregate"
+precedence = "closest"
 SPDX-FileCopyrightText = "The Flutter Authors"
 SPDX-License-Identifier = "BSD-3-Clause"
 
@@ -49,6 +57,21 @@ SPDX-License-Identifier = "OFL-1.1"
 # build script rather than artwork and carries its own GPL header.
 [[annotations]]
 path = ["brand/svg/**", "brand/garfin-design-pack.html"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 missing-foss"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
+
+# --- Launcher icons: generated FROM the brand artwork, so CC BY-SA like it ---
+# These live under android/**, which the entry above attributes to the Flutter
+# Authors — true of the scaffolding, wrong for these. They are rendered from
+# brand/svg/garfin-icon-*.svg by brand/make-android-icons.sh, so they inherit
+# the artwork's licence rather than the directory's. Listed after that entry
+# deliberately: a later annotation wins.
+[[annotations]]
+path = [
+  "android/app/src/main/res/mipmap-*/ic_launcher.png",
+  "android/app/src/main/res/mipmap-*/ic_launcher_foreground.png",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 missing-foss"
 SPDX-License-Identifier = "CC-BY-SA-4.0"

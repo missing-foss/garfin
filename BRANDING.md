@@ -34,6 +34,16 @@ Jellyfin is a trademark of Jellyfin, Inc.
 Run `brand/outline.sh` (run it from inside `brand/`) before shipping: the wordmark files contain live text and need Fredoka
 installed to render correctly. Outlined copies land in `brand/svg/outlined/`.
 
+**The Android launcher icons are generated, not drawn.** `brand/make-android-icons.sh`
+renders `garfin-icon-foreground.svg` and `garfin-icon-background.svg` into
+`android/app/src/main/res/mipmap-*/` — the adaptive foreground at 108dp per
+density, and the legacy square icon composited from both. Re-run it after any
+change to those two files rather than editing the PNGs, which are output.
+
+It needs only `rsvg-convert`, and deliberately **not** `outline.sh`: the icon
+carries the mark alone, with no live text, so it does not depend on Fredoka
+being installed. Anything that rasterises the wordmark still does.
+
 ## Rules
 
 - The mark sits left of, or above, the word. Never right.

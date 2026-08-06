@@ -55,12 +55,17 @@
 
          allowBackup stays too: it covers the pre-31 path and states the
          intent where anyone looks first. -->
+    <!-- android:label is "Garfin", capitalised: the launcher is where this name
+         is read most often, and BRANDING.md and every doc capitalise it. The
+         icon is the adaptive one in mipmap-anydpi-v26/, generated from
+         brand/svg/ by brand/make-android-icons.sh. -->
     <application
-        android:label="garfin"
+        android:label="Garfin"
         android:name="${applicationName}"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name=".MainActivity"
             android:exported="true"
