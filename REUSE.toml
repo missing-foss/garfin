@@ -11,12 +11,16 @@ version = 1
 # their own SPDX header. Garfin is Android-only — there is no ios/ tree.
 #
 # `precedence = "closest"`, not "aggregate", and the difference is not
-# cosmetic: under "aggregate" this entry wins over a file's own header, so
-# build.gradle.kts — which carries a GPL header and contains the signing guard,
-# about as first-party as this repo gets — resolved to BSD-3-Clause / The
-# Flutter Authors in `reuse spdx` output. The comment here asserted the
-# opposite for months. Checked with
-# `reuse spdx | grep -A6 build.gradle.kts`, not assumed.
+# cosmetic: under "aggregate" this entry is *added to* a file's own header
+# rather than replacing it, so build.gradle.kts — which carries a GPL header and
+# contains the signing guard, about as first-party as this repo gets — resolved
+# to BSD-3-Clause **and** GPL-3.0-or-later at once, two `LicenseInfoInFile`
+# lines. A first-party GPL file also carrying a Flutter Authors BSD claim would
+# mislead any downstream audit. The comment here asserted the opposite for
+# months. Both readings measured with
+# `reuse spdx | grep -A6 build.gradle.kts`, one line changed between them, not
+# assumed — and an earlier version of this very comment said "wins over", which
+# overstates what aggregate does.
 [[annotations]]
 path = ["android/**"]
 precedence = "closest"
