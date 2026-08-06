@@ -331,14 +331,56 @@ holding `kids-emma`, and **every combination tried**:
 | **yes** | no | no | **6** | Bluey | **6** |
 | yes | * | * | 6 | Bluey | 6 |
 
-**Tagging the series is the whole job.** With the label on the series and *nothing* below it —
-confirmed by reading every season's and episode's `Tags` back as the administrator, all empty — the
-child sees all six episodes, both seasons, can browse the series, and a direct
+**Tagging the series is the whole job.** With the label on the series and nothing written below it,
+the child sees all six episodes, both seasons, can browse the series, and a direct
 `GET /Users/{kid}/Items/{episodeId}` answers **200**. The control makes it the tag rather than
 something ambient: the same call for an episode of the untagged second show answers **404**.
 
 So **there is no episode cascade to build**, and building one would have written hundreds of
 full-object replaces per series — the operation this whole file is a warning about — for no gain.
+
+### The inheritance is visible in the item, not only in the filter
+
+Descendants **report the series' tag as their own**. Same episode, three read paths, with the label
+written only to the series:
+
+| read | `Tags` |
+|---|---|
+| `GET /Users/{uid}/Items/{episodeId}` | `['kids-emma']` |
+| `GET /Items?ids=…` — no `Fields` | **key absent** |
+| `GET /Items?ids=…&Fields=Tags` | `['kids-emma']` |
+
+Unchanged at t+0, t+5s, t+30s and t+60s, so it is not a scan catching up.
+
+**An explicit write to a descendant pins it and stops the inheritance being reported.** Post one
+episode back with `Tags: []` and that episode reads `[]` and drops out of `tags=` while its
+untouched siblings still carry the label. **Visibility is unaffected** — the pinned episode still
+answers 200 for the child, who still sees 6 of 6. So the filter that decides what a child may see
+inherits from the series regardless; only the *reported field* and the `tags=` query follow the
+explicit write.
+
+> The matrix above was produced by writing `Tags: []` to every season and episode for the rows
+> where they are "not tagged" — which is the *harder* test, not a weaker one: it shows the child
+> still sees everything even when each descendant carries an explicit empty array. The earlier
+> draft of this section read that harness state as "the tag does not propagate", which was the
+> harness observing a condition it had itself created. Review of #55 caught it.
+
+### What this costs, and where it would bite: `taggedItemCount`
+
+One write to one series, then `tags=kids-emma`:
+
+    IncludeItemTypes=Movie,Series,BoxSet   -> 1     <- what taggedItemCount asks for
+    IncludeItemTypes=Series                -> 1
+    IncludeItemTypes=Season                -> 2
+    IncludeItemTypes=Episode               -> 6
+    no type filter at all                  -> 9
+
+**`taggedItemCount`'s item types are load-bearing, not incidental.** It is what ground rule 1's
+last-item hard warning counts with — the warning that stops a parent taking a label off the last
+item carrying it and blanking the child's view. Widen that list to include `Episode` or `Season`
+and a single series contributes nine instead of one, `count <= 1` stops being reachable in any
+library with a series in it, and **the warning silently never fires again**. There is a test
+pinning the item types for exactly this reason.
 
 ### Why a series behaves unlike a BoxSet
 
@@ -601,9 +643,10 @@ for" — see the all-zero GUID answering 200 with the root folder, in § Collect
   nothing. That is indistinguishable from a rating-cap swallow, so even the support answer comes
   out wrong. Fixing it from the other end would mean writing the policy, which ground rule 8
   forbids for good reason.
-- A tag added to a Series does not propagate onto its Seasons or Episodes as a *field* — their
-  `Tags` stay empty — but **the policy filter inherits it, so the child sees them anyway**. Measured
-  on 10.11.11; this file said the opposite until #53. See § Series, seasons and episodes.
+- A tag on a Series **is inherited by its Seasons and Episodes** — they report it, `tags=` matches
+  them, and the child sees them. Measured on 10.11.11; this file said the opposite until #53, and
+  the correction has teeth: see § Series, seasons and episodes for what it means for
+  `taggedItemCount` and ground rule 1.
 - `MaxParentalRating` uses the server's rating table, which is locale-dependent. Don't hardcode a
   US ladder; read `GET /Localization/ParentalRatings`.
 - Items with no `OfficialRating` are treated as unrated and may be hidden by a cap. Surface that

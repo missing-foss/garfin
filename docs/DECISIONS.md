@@ -101,11 +101,10 @@ members" walks across a set. Separate switches, separate concerns.
 
 > **Corrected 2026-08-06 (#53). There is only one cascade, and this was right about which.** The
 > collection one is real and is built (#50). The episode one is not needed at all: measured on
-> 10.11.11, the policy filter **inherits from the series**, so a label on a series is enough for the
-> child to see every season and episode under it — including a direct fetch of one episode, with an
-> untagged second show as the control answering 404. The `Tags` *field* does not propagate, which is
-> what this project had recorded; the visibility does, which nobody had checked. The distinction is
-> the whole of it.
+> 10.11.11, a label on a series **is inherited by its seasons and episodes** — they report it,
+> `tags=` matches them, and the child sees every one of them, including a direct fetch of a single
+> episode, with an untagged second show as the control answering 404. What this project had
+> recorded — that the tag "does not propagate" — was wrong in both halves.
 >
 > "Separate switches, separate concerns" still holds as reasoning — a set and a series are different
 > shapes, which is exactly why one needs a cascade and the other does not: a series **is** an
