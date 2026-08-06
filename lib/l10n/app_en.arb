@@ -781,5 +781,9 @@
   "settingsLicences": "Open-source licences",
   "@settingsLicences": {
     "description": "Opens Flutter's licence page, which lists every bundled package."
+  },
+  "assignSeriesNote": "Everything inside the series follows it — seasons and episodes included.",
+  "@assignSeriesNote": {
+    "description": "Shown when the item is a series. Measured on 10.11.11 (#53): the policy filter inherits from the series, so labelling it is enough for the child to reach every episode. Says what happens rather than promising anything, because it is a statement about the server's behaviour on a measured version."
   }
 }

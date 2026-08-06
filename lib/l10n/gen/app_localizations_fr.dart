@@ -550,4 +550,8 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsLicences => 'Licences des logiciels libres utilisés';
+
+  @override
+  String get assignSeriesNote =>
+      'Tout ce que contient la série suit — saisons et épisodes compris.';
 }

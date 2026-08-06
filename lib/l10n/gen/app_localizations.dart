@@ -985,6 +985,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open-source licences'**
   String get settingsLicences;
+
+  /// Shown when the item is a series. Measured on 10.11.11 (#53): the policy filter inherits from the series, so labelling it is enough for the child to reach every episode. Says what happens rather than promising anything, because it is a statement about the server's behaviour on a measured version.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything inside the series follows it — seasons and episodes included.'**
+  String get assignSeriesNote;
 }
 
 class _AppLocalizationsDelegate

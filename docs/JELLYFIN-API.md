@@ -316,6 +316,59 @@ Five member writes at a concurrency of four: **0.2s, all 204**. Failures are per
 in the middle 404s at pre-flight while both its neighbours land, which is the fix-forward state
 exactly.
 
+## Series, seasons and episodes
+
+**Measured 2026-08-06 for #53**, throwaway container per the protocol below, two shows — one of
+them a control that is never tagged. Bluey: 1 series, 2 seasons, 6 episodes. Allow-list child
+holding `kids-emma`, and **every combination tried**:
+
+| series tagged | seasons | episodes | episodes the child sees | series visible | browsing the series |
+|---|---|---|---|---|---|
+| no | no | no | 0 | — | 0 |
+| no | no | **yes** | 6 | — | **0** |
+| no | **yes** | no | **0** | — | 0 |
+| no | yes | yes | 6 | — | 6 |
+| **yes** | no | no | **6** | Bluey | **6** |
+| yes | * | * | 6 | Bluey | 6 |
+
+**Tagging the series is the whole job.** With the label on the series and *nothing* below it —
+confirmed by reading every season's and episode's `Tags` back as the administrator, all empty — the
+child sees all six episodes, both seasons, can browse the series, and a direct
+`GET /Users/{kid}/Items/{episodeId}` answers **200**. The control makes it the tag rather than
+something ambient: the same call for an episode of the untagged second show answers **404**.
+
+So **there is no episode cascade to build**, and building one would have written hundreds of
+full-object replaces per series — the operation this whole file is a warning about — for no gain.
+
+### Why a series behaves unlike a BoxSet
+
+    GET /Items/{episodeId}/Ancestors
+      -> Season 1 (Season), Bluey (Series), Shows (CollectionFolder), Media Folders (UserRootFolder)
+
+The series **is** an ancestor of its episodes. A BoxSet is not an ancestor of its films — measured
+in #50, where a film's ancestors are the library folder chain and the set is nowhere in it. One
+rule explains both: **the filter inherits down the library hierarchy, and a collection is a link
+rather than a place.**
+
+### Two edges worth knowing, neither of which Garfin can produce
+
+- **A season's tag does not reach its episodes.** Tag only Season 1 and the season is visible while
+  every list query returns 0 episodes — yet a direct `GET` of one of its episodes answers 200. The
+  list filter inherits from the *series*; the single-item access check is more permissive than the
+  filter. Garfin never tags a season (the grid offers `Movie`, `Series`, `BoxSet`), so it cannot
+  create that state.
+- **Episodes tagged with an untagged series** are reachable and countable but the series is
+  invisible and `/Shows/{id}/Episodes` returns 0 — findable only by a client that already has the
+  id.
+
+### Block mode inherits identically
+
+    series blocked=false -> episodes visible: 8, series visible: both, one episode direct: 200
+    series blocked=true  -> episodes visible: 2, series visible: the other one, direct: 404
+
+Blocking a series takes its episodes with it. Ground rule 3's inversion holds at every level, which
+means neither verb needs a cascade.
+
 ## Writing tags — the dangerous part
 
     GET  /Users/{adminId}/Items/{itemId}   -> the FULL metadata object (52 fields, verified)
@@ -548,8 +601,9 @@ for" — see the all-zero GUID answering 200 with the root folder, in § Collect
   nothing. That is indistinguishable from a rating-cap swallow, so even the support answer comes
   out wrong. Fixing it from the other end would mean writing the policy, which ground rule 8
   forbids for good reason.
-- A tag added to a Series does not propagate to Seasons or Episodes. If a client browses episodes
-  directly, cascade or the child hits gaps.
+- A tag added to a Series does not propagate onto its Seasons or Episodes as a *field* — their
+  `Tags` stay empty — but **the policy filter inherits it, so the child sees them anyway**. Measured
+  on 10.11.11; this file said the opposite until #53. See § Series, seasons and episodes.
 - `MaxParentalRating` uses the server's rating table, which is locale-dependent. Don't hardcode a
   US ladder; read `GET /Localization/ParentalRatings`.
 - Items with no `OfficialRating` are treated as unrated and may be hidden by a cap. Surface that
