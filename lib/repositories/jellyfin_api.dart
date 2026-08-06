@@ -5,6 +5,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/active_session.dart';
 import '../models/authentication_result.dart';
 import '../models/dto_json.dart';
 import '../models/jellyfin_user.dart';
@@ -566,6 +567,83 @@ class JellyfinApi {
           },
         );
         return _itemsOf(response.data);
+      });
+
+  /// Every signed-in device the server knows about.
+  ///
+  /// **`userId` does not filter this.** Measured on 10.11.11:
+  /// `/Sessions?userId={child}` answers with *every* session, the admin's
+  /// included — another parameter that is accepted and ignored rather than
+  /// rejected, like `ancestorIds` on `/Items`. So the caller filters by
+  /// `UserId` itself, and a screen that trusted the parameter would show one
+  /// child's card with somebody else's session under it.
+  ///
+  /// `activeWithinSeconds` **does** work, and is a recency filter rather than a
+  /// liveness one: at 1 second the idle admin session drops out while the
+  /// child's remains.
+  Future<List<ActiveSession>> sessions() => _call(() async {
+        final response = await _dio.get<dynamic>('/Sessions');
+        final data = response.data;
+        if (data is! List) {
+          throw const JellyfinException(
+            JellyfinErrorKind.server,
+            message: 'unexpected response shape',
+          );
+        }
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(ActiveSession.fromJson)
+            .whereType<ActiveSession>()
+            .toList(growable: false);
+      });
+
+  /// Puts a line of text on a session's screen.
+  ///
+  /// **A 204 means the server accepted it, not that anybody saw it.** Measured:
+  /// this answers 204 against a session whose `SupportsRemoteControl` is false
+  /// and which cannot display anything. The copy says what was sent.
+  Future<void> sendSessionMessage({
+    required String sessionId,
+    required String text,
+    required String header,
+  }) =>
+      _call(() async {
+        await _dio.post<dynamic>(
+          '/Sessions/$sessionId/Message',
+          data: <String, dynamic>{
+            'Text': text,
+            'Header': header,
+            'TimeoutMs': 8000,
+          },
+        );
+      });
+
+  /// Asks a session to stop whatever it is playing.
+  ///
+  /// Same caveat as [sendSessionMessage]: 204 is acceptance, not compliance.
+  Future<void> stopSessionPlayback({required String sessionId}) =>
+      _call(() async {
+        await _dio.post<dynamic>('/Sessions/$sessionId/Playing/Stop');
+      });
+
+  /// Ends a session by revoking its device.
+  ///
+  /// Measured: the token goes from 200 to **401** and the session disappears
+  /// from `/Sessions`. Keyed on the **device**, not the session id — an unknown
+  /// id, session id or nonsense alike, answers **404** and ends nothing.
+  ///
+  /// **Not a policy write** — no full-object replace, so ground rule 8 is
+  /// untouched, the same as the Quick Connect approval in #40.
+  ///
+  /// It works on *any* device, including the one Garfin is running on:
+  /// measured, an admin deleting its own device gets 204 and its very next
+  /// request answers 401. The caller must never offer this for
+  /// `DeviceIdentity.deviceId`.
+  Future<void> endSession({required String deviceId}) => _call(() async {
+        await _dio.delete<dynamic>(
+          '/Devices',
+          queryParameters: <String, dynamic>{'id': deviceId},
+        );
       });
 
   /// The complete item, as the only legal source for a write.

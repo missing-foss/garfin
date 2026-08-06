@@ -1039,5 +1039,111 @@
         "type": "String"
       }
     }
+  },
+  "sessionsHeading": "Signed in now",
+  "@sessionsHeading": {
+    "description": "Heading above the live sessions on the Kids screen. Shown only when there are any."
+  },
+  "sessionsOn": "on {device}",
+  "@sessionsOn": {
+    "description": "Which device a child is signed in on.",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionsWatching": "Watching {title}",
+  "@sessionsWatching": {
+    "description": "What is playing on that session.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionsPaused": "Paused — {title}",
+  "@sessionsPaused": {
+    "description": "Playback is paused. A distinct fact from watching, and the server reports it.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionsNotPlaying": "Nothing playing",
+  "@sessionsNotPlaying": {
+    "description": "Signed in but not watching anything — the ordinary case, and NowPlayingItem is simply absent."
+  },
+  "sessionsMessage": "Send a message",
+  "@sessionsMessage": {
+    "description": "The kindest first move: put a line of text on the child's screen."
+  },
+  "sessionsMessageHint": "Ten more minutes",
+  "@sessionsMessageHint": {
+    "description": "Placeholder in the message field — an example, not a default."
+  },
+  "sessionsMessageSend": "Send",
+  "@sessionsMessageSend": {
+    "description": "Sends the typed message."
+  },
+  "sessionsMessageSent": "Sent to {device}.",
+  "@sessionsMessageSent": {
+    "description": "Deliberately 'sent', not 'shown'. Measured: the server answers 204 even for a session that cannot display anything, so acceptance is all Garfin can honestly report.",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionsStop": "Stop playback",
+  "@sessionsStop": {
+    "description": "Stops the film and leaves them signed in."
+  },
+  "sessionsStopConfirm": "Stop what {name} is watching?",
+  "@sessionsStopConfirm": {
+    "description": "Ground rule 6: disruptive, so it is confirmed.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionsStopSent": "Asked {device} to stop.",
+  "@sessionsStopSent": {
+    "description": "'Asked', for the same reason as sent: a 204 is the server accepting the command, not the client obeying it."
+  },
+  "sessionsEnd": "End session",
+  "@sessionsEnd": {
+    "description": "Revokes the device's token, signing that device out."
+  },
+  "sessionsEndConfirm": "Sign {name} out of {device}?",
+  "@sessionsEndConfirm": {
+    "description": "Ground rule 6. Names the device as well as the child, because a child may have several.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionsEndExplain": "They'll need you to approve a new code to sign in again.",
+  "@sessionsEndExplain": {
+    "description": "What ending a session costs, stated in the confirmation. With #40 the way back is approving a code, which is cheap — that is what makes ending one reasonable."
+  },
+  "sessionsEnded": "{device} is signed out.",
+  "@sessionsEnded": {
+    "description": "Confirms the revoke, which unlike the other two commands the server really did do — the token stops working.",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionsUncontrollable": "This device doesn't accept remote commands. Ending the session still works.",
+  "@sessionsUncontrollable": {
+    "description": "Shown when SupportsRemoteControl is false. Measured: the message and stop commands answer 204 anyway, so without this the parent would be told something was sent to a device that cannot receive it."
   }
 }
