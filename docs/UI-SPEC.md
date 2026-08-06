@@ -141,6 +141,13 @@ explanation it reads as a dead end someone will file a bug about.
 Give the section a short line of copy and leave the rows **non-interactive**. A row that looks
 tappable and does nothing is worse than one that plainly isn't.
 
+**They show their pictures (#79).** The rows used to draw a letter and nothing else — not as a
+fallback, as the only branch — while the children above them showed avatars. This is the screen a
+parent reads to see *which* accounts Garfin treats as unmanaged, and in a household where those
+are Mum, Dad and a guest, names alone means three identical grey circles. Same widget as the kid
+cards, so the fallbacks match: the initial while loading, the initial on error. Non-interactive is
+unchanged — a greyed row with a picture is still a greyed row.
+
 The copy stays plain and short — a parent does not need to know why:
 
 > Set their shortlist up in Jellyfin first, then come back here.
