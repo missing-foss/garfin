@@ -629,7 +629,8 @@ class JellyfinApi {
   /// Ends a session by revoking its device.
   ///
   /// Measured: the token goes from 200 to **401** and the session disappears
-  /// from `/Sessions`. Keyed on the **device**, not the session id.
+  /// from `/Sessions`. Keyed on the **device**, not the session id — an unknown
+  /// id, session id or nonsense alike, answers **404** and ends nothing.
   ///
   /// **Not a policy write** — no full-object replace, so ground rule 8 is
   /// untouched, the same as the Quick Connect approval in #40.

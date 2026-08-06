@@ -278,10 +278,11 @@ void main() {
     testWidgets('ending a session sends the device id, not the session id',
         (tester) async {
       // The API takes `deviceId:`, and the session carries both — `session-…`
-      // and `emma-tablet`. Passing the wrong one answers 204 and ends nothing,
-      // so the parent is told the child is signed out while they carry on
-      // watching. Testing the API method alone does not catch it: this is the
-      // call site where the mistake is made.
+      // and `emma-tablet`. Measured: the wrong one answers **404** and ends
+      // nothing, so the mistake is loud rather than silent — but it is still
+      // a session that did not end, and testing the API method alone cannot
+      // catch it, because there the parameter is already named `deviceId`.
+      // This is the call site, where the value is chosen.
       await pumpCard(tester, emma);
 
       await tester.tap(find.text('End session'));

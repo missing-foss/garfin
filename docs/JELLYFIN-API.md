@@ -897,9 +897,19 @@ revoke below is reported as done, because it is the one the server really perfor
     the child's token after         -> 401
     /Sessions afterwards            -> the session is gone
 
-Keyed on the **device**, not the session — the session carries both ids, and passing the wrong one
-answers 204 and ends nothing, which would tell a parent their child is signed out while they carry
-on watching.
+Keyed on the **device**, not the session — the session carries both ids:
+
+    DELETE /Devices?id=<the session id>   -> 404   child's token: still 200
+    DELETE /Devices?id=nonsense           -> 404   child's token: still 200
+    DELETE /Devices?id=<the device id>    -> 204   child's token: 401
+
+So passing the wrong one **answers 404 and ends nothing** — loud rather than silent, but still the
+wrong call, and still worth a test at the call site where the choice is made.
+
+> An earlier draft of this said it answered **204** and ended nothing, which would have meant a
+> parent being told their child was signed out while they carried on watching. That was never
+> measured — only the correct id had been — and it is the failure mode this file's opening section
+> warns about, asserted in the file that warns about it. Caught in review of #41.
 
 **It works on Garfin's own device too**: an admin deleting its own device id gets 204 and its very
 next request answers **401** — the app signing the parent out of itself. Garfin's own session is
