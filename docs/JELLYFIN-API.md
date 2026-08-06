@@ -236,23 +236,39 @@ below is the harness or the machine):
 | 100 | 10.1 ms | 9.4 ms | 15.9 ms | 15.0 ms |
 | 500 | 8.7 ms | 7.5 ms | 13.9 ms | 28.7 ms |
 | 2000 | 9.4 ms | 8.9 ms | 17.4 ms | **525.8 ms** |
+| 6000 | 9.4 ms | 8.3 ms | — | **7613.6 ms** |
 
 **The write is flat. The count is not.** And the first reading of that table is
 wrong: it looks like the child's query is cheap and the admin's is expensive,
 but those two differ in the size of the *result set* as much as in whose policy
 applies. Holding the library at 2000 and growing what the child can see:
 
-| child can see | count |
-|---|---|
-| 1 | 18.8 ms |
-| 250 | 27.2 ms |
-| 1000 | 214.3 ms |
-| 2000 | 538.3 ms |
+| child can see | count | library |
+|---|---|---|
+| 1 | 18.8 ms | 2000 |
+| 250 | 27.2 ms | 2000 |
+| 1000 | 214.3 ms | 2000 |
+| 2000 | 538.3 ms | 2000 |
+| 4646 | 5363.8 ms | 6000 |
+| 6000 | 8726.2 ms | 6000 |
+
+The 6000 rows were measured on a **settled** library — the item count held at
+6000 across five consecutive thirty-second checks before anything was timed —
+with `/System/Info/Public` at 0.7 ms alongside. An earlier attempt at these
+timed while the scan was still ingesting (4499 items, then 4617, *during* the
+run) and reported 5.2 s for the admin total; that is the harness competing with
+the thing it measures, and the number is not usable. Three stable readings were
+not enough to detect it either, because a Jellyfin scan pauses. Five were.
 
 **The cost tracks the result set, not the library.** A child who can see
 everything costs exactly what the admin costs. So this call gets slower as a
 parent shares more, which is the app being used successfully — the worst shape a
 cost curve can have.
+
+**And it is worse than linear.** 100 → 2000 items is 20× the library for 35× the
+time; 2000 → 6000 is 3× for **14×**. At 6000 titles one verified count is
+between five and nine seconds, and the write it verifies is still nine
+milliseconds.
 
 Consequences, both now in the code: the verified count is not something to block
 a UI on, and a loop of them must not be serial.

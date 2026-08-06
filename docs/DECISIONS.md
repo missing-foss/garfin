@@ -566,8 +566,9 @@ predicted. That is unchanged and not negotiable: it is what explains a share the
 swallowed, where the tag landed and the number did not move.
 
 What changed is who waits for it. The write is two round trips and costs ~18 ms, flat. The
-verification is one query whose cost tracks **what the child can already see**: 19 ms at one
-title, 214 ms at a thousand, 538 ms at two thousand, measured. So the sheet was holding a spinner
+verification is one query whose cost tracks **what the child can already see**, and worse than
+linearly: 19 ms at one title, 214 ms at a thousand, 538 ms at two thousand — and 8.7 seconds at
+six thousand, on a settled library with a 0.7 ms control alongside. So the sheet was holding a spinner
 over work that had already finished, for a duration that grows the more successfully the app is
 used.
 
