@@ -736,4 +736,73 @@ class AppLocalizationsEn extends AppLocalizations {
   String deviceSignInOutsideHours(String name) {
     return '$name has set hours. Approving outside them works, but their device won\'t until their hours start.';
   }
+
+  @override
+  String get sessionsHeading => 'Signed in now';
+
+  @override
+  String sessionsOn(String device) {
+    return 'on $device';
+  }
+
+  @override
+  String sessionsWatching(String title) {
+    return 'Watching $title';
+  }
+
+  @override
+  String sessionsPaused(String title) {
+    return 'Paused — $title';
+  }
+
+  @override
+  String get sessionsNotPlaying => 'Nothing playing';
+
+  @override
+  String get sessionsMessage => 'Send a message';
+
+  @override
+  String get sessionsMessageHint => 'Ten more minutes';
+
+  @override
+  String get sessionsMessageSend => 'Send';
+
+  @override
+  String sessionsMessageSent(String device) {
+    return 'Sent to $device.';
+  }
+
+  @override
+  String get sessionsStop => 'Stop playback';
+
+  @override
+  String sessionsStopConfirm(String name) {
+    return 'Stop what $name is watching?';
+  }
+
+  @override
+  String sessionsStopSent(Object device) {
+    return 'Asked $device to stop.';
+  }
+
+  @override
+  String get sessionsEnd => 'End session';
+
+  @override
+  String sessionsEndConfirm(String name, String device) {
+    return 'Sign $name out of $device?';
+  }
+
+  @override
+  String get sessionsEndExplain =>
+      'They\'ll need you to approve a new code to sign in again.';
+
+  @override
+  String sessionsEnded(String device) {
+    return '$device is signed out.';
+  }
+
+  @override
+  String get sessionsUncontrollable =>
+      'This device doesn\'t accept remote commands. Ending the session still works.';
 }

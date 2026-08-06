@@ -11,7 +11,10 @@ import '../models/kid_summary.dart';
 import '../providers/kids_providers.dart';
 import '../repositories/jellyfin_exception.dart';
 import '../widgets/error_notice.dart';
+import '../models/active_session.dart';
+import '../providers/session_providers.dart';
 import '../widgets/kid_card.dart';
+import '../widgets/session_card.dart';
 
 /// Build order step 3. The first screen that reads a child's policy.
 ///
@@ -87,11 +90,30 @@ class _KidsList extends ConsumerWidget {
       );
     }
 
+    // Live sessions (#41), above the cards: it is the thing happening *now*,
+    // and the cards are the standing picture. Absent entirely when nobody is
+    // signed in, rather than showing an empty heading — and absent while it
+    // loads or if it fails, because a sessions list that cannot be fetched is
+    // not news a parent can act on and must not displace the cards.
+    final sessions =
+        ref.watch(childSessionsProvider(session)).asData?.value ??
+            const <ActiveSession>[];
+
     return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(kidsOverviewProvider(session)),
+      onRefresh: () async {
+        ref.invalidate(kidsOverviewProvider(session));
+        ref.invalidate(childSessionsProvider(session));
+      },
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
+          if (sessions.isNotEmpty) ...[
+            Text(l10n.sessionsHeading, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            for (final active in sessions)
+              SessionCard(session: session, active: active),
+            const SizedBox(height: 20),
+          ],
           for (final kid in overview.shortlisted) ...[
             KidCard(kid: kid, session: session),
             const SizedBox(height: 12),

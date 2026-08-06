@@ -189,5 +189,22 @@
   "kidsScheduleEveryday": "Tous les jours",
   "kidsScheduleWeekday": "En semaine",
   "kidsScheduleWeekend": "Le week-end",
-  "deviceSignInOutsideHours": "{name} a des horaires définis. L'approbation fonctionne en dehors, mais son appareil ne fonctionnera qu'au début de ses horaires."
+  "deviceSignInOutsideHours": "{name} a des horaires définis. L'approbation fonctionne en dehors, mais son appareil ne fonctionnera qu'au début de ses horaires.",
+  "sessionsHeading": "Connectés en ce moment",
+  "sessionsOn": "sur {device}",
+  "sessionsWatching": "Regarde {title}",
+  "sessionsPaused": "En pause — {title}",
+  "sessionsNotPlaying": "Ne regarde rien",
+  "sessionsMessage": "Envoyer un message",
+  "sessionsMessageHint": "Encore dix minutes",
+  "sessionsMessageSend": "Envoyer",
+  "sessionsMessageSent": "Envoyé à {device}.",
+  "sessionsStop": "Arrêter la lecture",
+  "sessionsStopConfirm": "Arrêter ce que regarde {name} ?",
+  "sessionsStopSent": "Demande d'arrêt envoyée à {device}.",
+  "sessionsEnd": "Fermer la session",
+  "sessionsEndConfirm": "Déconnecter {name} de {device} ?",
+  "sessionsEndExplain": "Il faudra que vous approuviez un nouveau code pour qu'il puisse se reconnecter.",
+  "sessionsEnded": "{device} est déconnecté.",
+  "sessionsUncontrollable": "Cet appareil n'accepte pas les commandes à distance. Fermer la session fonctionne quand même."
 }

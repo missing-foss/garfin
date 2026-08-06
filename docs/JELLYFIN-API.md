@@ -860,6 +860,53 @@ however long the batch takes. Every write does its own fresh `GET`. In the code 
 **And "the read succeeded" is not the check.** It is "the item that came back is the item asked
 for" — see the all-zero GUID answering 200 with the root folder, in § Collections above.
 
+## Sessions — seeing them, commanding them, ending them
+
+**Measured on 10.11.11 (#41).** `GET /Sessions` carries `UserName`, `DeviceId`, `DeviceName`,
+`Client`, `SupportsRemoteControl`, `PlayState` and — **only while something is playing** —
+`NowPlayingItem` with its `RunTimeTicks`. Not playing is the ordinary case and the key is simply
+absent rather than null.
+
+### `userId` is accepted and ignored
+
+    /Sessions                                    -> ['emma', 'admin']
+    /Sessions?userId=<the child>                 -> ['emma', 'admin']   <- unfiltered
+    /Sessions?activeWithinSeconds=1              -> ['emma']            <- this one works
+    /Sessions?controllableByUserId=<the admin>   -> []
+
+Another parameter in the family of `ancestorIds`: taken, ignored, no error. **Filter by `UserId`
+in the client**, or a screen puts somebody else's device under a child's name.
+`activeWithinSeconds` is a recency filter and does work — at one second the idle admin session
+drops out while the child's remains.
+
+### A 204 from a command is acceptance, not compliance
+
+    POST /Sessions/{id}/Message         -> 204
+    POST /Sessions/{id}/Playing/Stop    -> 204
+    POST /Sessions/{id}/Playing/Pause   -> 204
+
+All three against a session whose `SupportsRemoteControl` is **false** and which cannot act on any
+of them. So the server accepting a command says nothing about the child's device obeying it, and
+the copy says what Garfin *sent* — "Sent to", "Asked to stop" — rather than what happened. Only the
+revoke below is reported as done, because it is the one the server really performs.
+
+### Ending a session, and the foot-gun in it
+
+    the child's token before        -> 200
+    DELETE /Devices?id={deviceId}   -> 204
+    the child's token after         -> 401
+    /Sessions afterwards            -> the session is gone
+
+Keyed on the **device**, not the session — the session carries both ids, and passing the wrong one
+answers 204 and ends nothing, which would tell a parent their child is signed out while they carry
+on watching.
+
+**It works on Garfin's own device too**: an admin deleting its own device id gets 204 and its very
+next request answers **401** — the app signing the parent out of itself. Garfin's own session is
+therefore excluded from the list outright rather than shown with the button disabled.
+
+Not a policy write, so ground rule 8 is untouched — same as the Quick Connect approval in #40.
+
 ## The server keeps no history of a metadata write
 
 **Measured 2026-08-06 for #57.** The obvious source for an Activity screen is Jellyfin's own log.

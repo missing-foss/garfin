@@ -739,4 +739,73 @@ class AppLocalizationsFr extends AppLocalizations {
   String deviceSignInOutsideHours(String name) {
     return '$name a des horaires définis. L\'approbation fonctionne en dehors, mais son appareil ne fonctionnera qu\'au début de ses horaires.';
   }
+
+  @override
+  String get sessionsHeading => 'Connectés en ce moment';
+
+  @override
+  String sessionsOn(String device) {
+    return 'sur $device';
+  }
+
+  @override
+  String sessionsWatching(String title) {
+    return 'Regarde $title';
+  }
+
+  @override
+  String sessionsPaused(String title) {
+    return 'En pause — $title';
+  }
+
+  @override
+  String get sessionsNotPlaying => 'Ne regarde rien';
+
+  @override
+  String get sessionsMessage => 'Envoyer un message';
+
+  @override
+  String get sessionsMessageHint => 'Encore dix minutes';
+
+  @override
+  String get sessionsMessageSend => 'Envoyer';
+
+  @override
+  String sessionsMessageSent(String device) {
+    return 'Envoyé à $device.';
+  }
+
+  @override
+  String get sessionsStop => 'Arrêter la lecture';
+
+  @override
+  String sessionsStopConfirm(String name) {
+    return 'Arrêter ce que regarde $name ?';
+  }
+
+  @override
+  String sessionsStopSent(Object device) {
+    return 'Demande d\'arrêt envoyée à $device.';
+  }
+
+  @override
+  String get sessionsEnd => 'Fermer la session';
+
+  @override
+  String sessionsEndConfirm(String name, String device) {
+    return 'Déconnecter $name de $device ?';
+  }
+
+  @override
+  String get sessionsEndExplain =>
+      'Il faudra que vous approuviez un nouveau code pour qu\'il puisse se reconnecter.';
+
+  @override
+  String sessionsEnded(String device) {
+    return '$device est déconnecté.';
+  }
+
+  @override
+  String get sessionsUncontrollable =>
+      'Cet appareil n\'accepte pas les commandes à distance. Fermer la session fonctionne quand même.';
 }

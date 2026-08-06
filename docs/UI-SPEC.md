@@ -153,6 +153,24 @@ Once a label exists on the account, everything after it happens in Garfin — wh
 worth being deliberate about: the one-time setup is in Jellyfin, the repeated work of tagging
 hundreds of titles is here. That is the product's premise, not a retreat from it.
 
+### Signed in now
+
+Above the cards when anyone is: who, on which device, and what they are watching with how far in.
+Absent entirely when nobody is signed in, and absent while it loads or if it fails — a sessions
+list that cannot be fetched is not news a parent can act on, and it must not displace the cards.
+
+Three actions, in the order a parent reaches for them: **send a message** (which costs the child
+nothing and so needs no confirmation), **stop playback**, and **end session**. The last two are
+confirmed, per ground rule 6.
+
+**The copy says what was sent, not what happened.** Measured: the message and stop commands answer
+204 against a device that cannot act on either, so only ending a session — which really does revoke
+the token — is reported as done. A device that says it cannot be remote-controlled says so on the
+card, rather than letting a parent believe a message arrived.
+
+**Garfin's own session is never in this list.** Ending it is a 204 followed by an immediate 401:
+the app signing the parent out of itself.
+
 ## Kid detail
 
 Hero block in the child's hue: avatar, the visible count as a large number, progress, and a

@@ -1237,6 +1237,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name} has set hours. Approving outside them works, but their device won\'t until their hours start.'**
   String deviceSignInOutsideHours(String name);
+
+  /// Heading above the live sessions on the Kids screen. Shown only when there are any.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in now'**
+  String get sessionsHeading;
+
+  /// Which device a child is signed in on.
+  ///
+  /// In en, this message translates to:
+  /// **'on {device}'**
+  String sessionsOn(String device);
+
+  /// What is playing on that session.
+  ///
+  /// In en, this message translates to:
+  /// **'Watching {title}'**
+  String sessionsWatching(String title);
+
+  /// Playback is paused. A distinct fact from watching, and the server reports it.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused — {title}'**
+  String sessionsPaused(String title);
+
+  /// Signed in but not watching anything — the ordinary case, and NowPlayingItem is simply absent.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing playing'**
+  String get sessionsNotPlaying;
+
+  /// The kindest first move: put a line of text on the child's screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a message'**
+  String get sessionsMessage;
+
+  /// Placeholder in the message field — an example, not a default.
+  ///
+  /// In en, this message translates to:
+  /// **'Ten more minutes'**
+  String get sessionsMessageHint;
+
+  /// Sends the typed message.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get sessionsMessageSend;
+
+  /// Deliberately 'sent', not 'shown'. Measured: the server answers 204 even for a session that cannot display anything, so acceptance is all Garfin can honestly report.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent to {device}.'**
+  String sessionsMessageSent(String device);
+
+  /// Stops the film and leaves them signed in.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop playback'**
+  String get sessionsStop;
+
+  /// Ground rule 6: disruptive, so it is confirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop what {name} is watching?'**
+  String sessionsStopConfirm(String name);
+
+  /// 'Asked', for the same reason as sent: a 204 is the server accepting the command, not the client obeying it.
+  ///
+  /// In en, this message translates to:
+  /// **'Asked {device} to stop.'**
+  String sessionsStopSent(Object device);
+
+  /// Revokes the device's token, signing that device out.
+  ///
+  /// In en, this message translates to:
+  /// **'End session'**
+  String get sessionsEnd;
+
+  /// Ground rule 6. Names the device as well as the child, because a child may have several.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign {name} out of {device}?'**
+  String sessionsEndConfirm(String name, String device);
+
+  /// What ending a session costs, stated in the confirmation. With #40 the way back is approving a code, which is cheap — that is what makes ending one reasonable.
+  ///
+  /// In en, this message translates to:
+  /// **'They\'ll need you to approve a new code to sign in again.'**
+  String get sessionsEndExplain;
+
+  /// Confirms the revoke, which unlike the other two commands the server really did do — the token stops working.
+  ///
+  /// In en, this message translates to:
+  /// **'{device} is signed out.'**
+  String sessionsEnded(String device);
+
+  /// Shown when SupportsRemoteControl is false. Measured: the message and stop commands answer 204 anyway, so without this the parent would be told something was sent to a device that cannot receive it.
+  ///
+  /// In en, this message translates to:
+  /// **'This device doesn\'t accept remote commands. Ending the session still works.'**
+  String get sessionsUncontrollable;
 }
 
 class _AppLocalizationsDelegate
