@@ -411,6 +411,53 @@ rather than a place.**
 Blocking a series takes its episodes with it. Ground rule 3's inversion holds at every level, which
 means neither verb needs a cascade.
 
+## Filtering the grid — and the delimiters, which are not a house style
+
+**Measured 2026-08-06 for #44**, six films with genres, years and certificates written onto them.
+
+| parameter | delimiter | a wrong delimiter |
+|---|---|---|
+| `IncludeItemTypes` | comma | — |
+| `genres` | **`|`** | `genres=Family,Comedy` -> **0**, silently |
+| `tags` | **`|`** | `tags=a,b` -> **0**, silently (§ Collections) |
+| `years` | **comma** | `years=1985|1989` -> **HTTP 400** |
+
+So one wrong delimiter fails loudly and the other quietly, in the same query string, and the quiet
+one is the dangerous shape: a filter that matches nothing looks exactly like a library that has
+nothing. Each is pinned by a test rather than remembered.
+
+    genres=Adventure|Comedy  -> 6    genres=Family|Comedy -> 4    genres=Nonexistent -> 0
+    years=1985,1989          -> 2    years=nineteen       -> 400
+
+**`/Genres` is an index, not a scan.** After writing genres directly onto items it answered empty;
+`POST /Library/Refresh` populated it within five seconds. An empty answer therefore means "nothing
+indexed", which is not "no genres" — the filter chip hides rather than claiming either.
+`/Years` needs no such coaxing and lists the distinct production years.
+
+### `maxOfficialRating` filters the admin's view. It does not predict the child's
+
+    maxOfficialRating=G      -> 2    (1 G + the unrated one)
+    maxOfficialRating=PG     -> 5    (3 PG + G + the unrated one)
+    maxOfficialRating=8      -> 5    <- the numeric value works, and this ladder has
+    maxOfficialRating=PG     -> 5       five names sharing value 0
+    maxOfficialRating=junk   -> 6    <- unparseable filters NOTHING, silently
+
+Two things follow. **The cap goes out as the number** from the child's policy, because a name would
+mean choosing arbitrarily among `0+`, `All`, `E`, `G` and `U` — and because an unparseable value
+fails open rather than closed.
+
+And **an unrated title passes every cap in this filter**, while the same title is invisible to a
+child whose policy sets `BlockUnratedItems: ['Movie']` — measured both ways on one library:
+
+    child capped at PG, BlockUnratedItems []        -> sees the unrated film
+    child capped at PG, BlockUnratedItems ['Movie'] -> does not
+    admin + maxOfficialRating=PG                    -> includes it either way
+
+`MaxParentalRating` and `BlockUnratedItems` are **two independent mechanisms**, and only the server
+knows the second. This is exactly ground rule 4's line: filtering the administrator's view is a
+library query, predicting what a child sees is not. The chip says "within Emma's limit" and never
+"what Emma can see".
+
 ## Writing tags — the dangerous part
 
     GET  /Users/{adminId}/Items/{itemId}   -> the FULL metadata object (52 fields, verified)

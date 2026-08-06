@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import '../models/jellyfin_user.dart';
+import '../models/library_filters.dart';
 import '../models/library_item.dart';
 import '../models/library_page.dart';
 import 'jellyfin_api.dart';
@@ -105,6 +106,7 @@ class LibraryRepository {
     required int startIndex,
     JellyfinUser? child,
     bool hideShared = false,
+    LibraryFilters filters = const LibraryFilters(),
   }) async {
     final labels = _labelsFor(child);
     final filtering = hideShared && labels.isNotEmpty;
@@ -120,6 +122,11 @@ class LibraryRepository {
         userId: _adminUserId,
         startIndex: cursor,
         limit: filtering ? filteringWindow : pageSize,
+        filters: filters,
+        // The cap is the child's own, straight out of their policy. Asking the
+        // server to apply it is not a visibility computation — it is a filter
+        // over the administrator's view, and the copy says so.
+        maxParentalRating: child?.policy.maxParentalRating,
       );
       total = page.totalRecordCount;
       cursor = page.nextStartIndex;

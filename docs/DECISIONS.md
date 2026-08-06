@@ -96,6 +96,14 @@ offer a one-off migration instead of silently rewriting thousands of items.
 > exactly as "a child's first label is set up in Jellyfin" does. Removed from `UI-SPEC.md`
 > § Settings, where the reasoning is repeated for anyone reading the spec rather than this file.
 
+**The filter bar filters the administrator's view, and says so.** Type, Genre and Decade are
+server-side parameters, and so is the rating chip — it goes out as `maxOfficialRating`, so nothing
+compares a rating on the phone. But it is *not* a prediction of what the child sees: measured, an
+unrated title passes every cap in that filter while a child whose policy sets `BlockUnratedItems`
+cannot see it. Two mechanisms, one of them invisible from here. Hence "within Emma's limit" rather
+than "what Emma can see" — the same distinction the result line already draws between *hasn't got
+yet* and *can't see*.
+
 **Two independent cascades.** "Cascade to episodes" walks down a series; "cascade to collection
 members" walks across a set. Separate switches, separate concerns.
 

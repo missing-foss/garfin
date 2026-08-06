@@ -148,5 +148,17 @@
   "settingsNotAffiliated": "Sans affiliation avec le projet Jellyfin. Jellyfin est une marque de Jellyfin, Inc.",
   "settingsSource": "Code source",
   "settingsLicences": "Licences des logiciels libres utilisés",
-  "assignSeriesNote": "Tout ce que contient la série suit — saisons et épisodes compris."
+  "assignSeriesNote": "Tout ce que contient la série suit — saisons et épisodes compris.",
+  "filterAll": "Filtres",
+  "filterReset": "Réinitialiser",
+  "filterAny": "Tous",
+  "filterType": "Type",
+  "filterTypeMovie": "Films",
+  "filterTypeSeries": "Séries",
+  "filterTypeCollection": "Collections",
+  "filterGenre": "Genre",
+  "filterDecade": "Décennie",
+  "filterDecadeValue": "Années {decade}",
+  "filterWithinCap": "Dans la limite de {name}",
+  "filterActiveCount": "{count}"
 }
