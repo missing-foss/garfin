@@ -199,7 +199,15 @@ class JellyfinApi {
         () async {
           await _dio.post<dynamic>(
             '/QuickConnect/Authorize',
-            queryParameters: <String, dynamic>{'code': code, 'userId': userId},
+            // `trimmed`, not `userId`: the value that was checked and the value
+            // that goes out should be the same thing. Whitespace here could
+            // only ever produce a server-side 400 — never the fail-open above —
+            // but a guard that validates one string and sends another is the
+            // shape the next bug takes.
+            queryParameters: <String, dynamic>{
+              'code': code,
+              'userId': trimmed,
+            },
           );
         },
         // Measured on 10.11.11, each case on its **own fresh code**:

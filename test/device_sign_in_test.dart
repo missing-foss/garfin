@@ -259,6 +259,25 @@ void main() {
       });
     }
 
+    test('the id that was checked is the id that is sent', () async {
+      // No real id carries whitespace, and this could only ever cause a
+      // server-side 400 — but a guard that validates one string and sends
+      // another is the shape the next bug takes.
+      final server = FakeJellyfinServer()..fallback(json: true);
+      final api = JellyfinApiFactory(
+        identity: const DeviceIdentity(deviceId: 'd', deviceName: 't'),
+        adapter: server,
+      ).create(baseUrl: 'http://host:8096');
+
+      await api.approveQuickConnect(
+        code: '652316',
+        userId: '  5690bebbcd5f4b3d9c34ed7ee4194985  ',
+      );
+
+      expect(server.requests.single.queryParameters['userId'],
+          '5690bebbcd5f4b3d9c34ed7ee4194985');
+    });
+
     test('a real id is not caught by the guard', () async {
       // The guard is narrow on purpose: it refuses ids Garfin never meant to
       // send, not ids it does not recognise the shape of.
