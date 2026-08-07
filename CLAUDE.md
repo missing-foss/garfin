@@ -134,15 +134,23 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
    So the old phrasing had it backwards in one specific: the danger is not the read-modify-write
    shape, it is deserializing. **Today's apparent protection is a coincidence** — a DTO write fails
    with 400 only because `UserPolicy` happens not to model `AuthenticationProviderId` and
-   `PasswordResetProviderId`. Add either for an unrelated reason and the same write returns 204 and
-   strips the cap.
+   `PasswordResetProviderId`. Add both for an unrelated reason and the same write returns 204 and
+   **silently resets every field the model does not carry**: measured, four restrictions lifted
+   (live TV access, live TV management, downloading, remote access), the lockout limit and the
+   session limit removed, SyncPlay granted. The cap, the schedule and both tag lists survive —
+   because `UserPolicy` models them. **A typed model protects exactly what it models and resets
+   everything else**, which is worse than it sounds: the fields that survive are the ones somebody
+   thought about.
 
    The rule is kept anyway, as a product decision rather than a technical one: what it costs is a
    one-time setup that happens in Jellyfin, and what it buys is that the endpoint which can silently
    remove a child's restrictions is not in the app at all. **If it is ever revisited**, the
    discipline is not optional — raw map only, never a typed model; a test asserting the object
    posted is the object received plus one key; read-back verification per write; and a standing
-   43-key round-trip diff, as rule 2 has.
+   round-trip diff asserting **every key that came back goes back** — not "all 43 keys", because a
+   child with no cap has 42: `MaxParentalRating` is *absent* until it is set, and a count would fail
+   on the ordinary starting state. The diff must compare schedule *content*, since a row's `Id`
+   churns on every write.
 
    The consequence, deliberate: Garfin cannot give a child their *first* label, so that one-time
    setup happens in Jellyfin. See `docs/DECISIONS.md` and the Kids screen in `docs/UI-SPEC.md`.

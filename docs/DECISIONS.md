@@ -365,9 +365,21 @@ policy, changing only `AllowedTags`, and writing it back.
 >
 > **And the protection Garfin has today is an accident.** Writing the eight fields `UserPolicy`
 > models — exactly what a DTO-based write produces — returns 400 and changes nothing, but only
-> because it happens to omit `AuthenticationProviderId` and `PasswordResetProviderId`. Add either
-> for an unrelated reason and the same write returns 204 and strips the cap, the schedule and both
-> tag lists.
+> because it happens to omit `AuthenticationProviderId` and `PasswordResetProviderId`.
+>
+> **Corrected in review, and the correction inverts the mechanism.** The first version of this
+> paragraph said adding those two would make the write "strip the cap, the schedule and both tag
+> lists". Re-measured twice, independently: the write returns 204 and those four **survive** — they
+> are precisely what `UserPolicy` models. What resets is everything it does not:
+> `EnableLiveTvAccess`, `EnableLiveTvManagement`, `EnableContentDownloading` and
+> `EnableRemoteAccess` all flip False→True, `LoginAttemptsBeforeLockout` 5→−1, `MaxActiveSessions`
+> 3→0, `SyncPlayAccess` None→CreateAndJoinGroups.
+>
+> So the generalisable rule is the opposite of the one first written here: **a typed model protects
+> exactly what it models and silently resets everything else.** That is not a milder finding than
+> the one it replaces — the fields that survive are the ones somebody thought about, and the ones
+> that quietly revert are the ones nobody did. Four restrictions lifted is still four restrictions
+> lifted, and nothing on any screen would say so.
 >
 > **The ban is kept, as a product decision rather than a technical one.** A safe mechanism exists;
 > what it would buy is convenience on a one-time action, and what it would cost is putting the one

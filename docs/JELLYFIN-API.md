@@ -1136,8 +1136,46 @@ returns **400 and changes nothing**. Not because the server validates the set:
     required keys (omission -> 400): AuthenticationProviderId, PasswordResetProviderId
 
 Two provider-id strings Garfin has no interest in. The trimmed write fails *only* because it happens
-to omit those two; add either for an unrelated reason and the same write returns 204 and strips the
-cap, the schedule and both tag lists.
+to omit those two.
+
+### What a DTO write actually does once it gets past the 400
+
+Add both required ids to the eight modelled fields — ten keys — and the write succeeds. **The
+modelled fields survive and the unmodelled ones reset**, which is the opposite of what this section
+first claimed and is worth stating in the strong form: *a typed model protects exactly what it
+models and silently resets everything else.*
+
+    POST /Users/{id}/Policy with 10 keys -> 204
+
+    modelled, and unchanged      MaxParentalRating 7, AllowedTags ['kids-emma'],
+                                 BlockedTags ['horror'], EnabledFolders, EnableAllFolders
+    modelled, content unchanged  AccessSchedules — only the row Id churns, 1 -> 2
+
+    NOT modelled, and reset      EnableContentDownloading    False -> True
+                                 EnableLiveTvAccess          False -> True
+                                 EnableLiveTvManagement      False -> True
+                                 EnableRemoteAccess          False -> True
+                                 LoginAttemptsBeforeLockout      5 -> -1
+                                 MaxActiveSessions               3 -> 0
+                                 SyncPlayAccess             'None' -> 'CreateAndJoinGroups'
+
+Four restrictions lifted, two limits removed, one capability granted — silently, with a 204. The
+fields that survive are the ones somebody thought to model; the ones that revert are the ones nobody
+did, which is the shape of every DTO ever written.
+
+**Measured twice, independently, after the first write-up got it backwards** — it said the cap would
+be stripped, which cannot happen through a body that contains the cap. The claim that survived the
+correction is the mechanism, not the field list.
+
+### `MaxParentalRating` is absent, not null, until a cap is set
+
+    a child with no cap:  42 keys, no MaxParentalRating key at all
+    the same child capped: 43 keys
+
+So a round-trip check written as "all 43 keys" fails on the ordinary starting state. **Assert that
+every key that came back goes back**, and compare schedule *content* rather than the whole object,
+since the row `Id` churns on every write and a naive diff reports it as a loss — which it did here,
+in the harness that produced the table above.
 
 **An unknown extra key is accepted and ignored (204)**, which is why a raw map is more
 forward-compatible than a typed model: a field a later Jellyfin adds rides through a round-trip
