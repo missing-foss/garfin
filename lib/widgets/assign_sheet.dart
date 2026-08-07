@@ -20,6 +20,7 @@ import '../providers/kids_providers.dart';
 import '../providers/library_providers.dart';
 import '../providers/settings_providers.dart';
 import '../repositories/assign_repository.dart';
+import 'assign_result_toast.dart';
 import 'batch_result_notice.dart';
 import 'collection_prompt.dart';
 
@@ -565,22 +566,20 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
 
     navigator.pop();
     messenger.showSnackBar(
-      SnackBar(
-        content: Text(l10n.assignResult(
+      assignResultToast(
+        message: l10n.assignResult(
           first.child.name,
           counts[first.child.id] ?? 0,
           libraryTotal,
-        )),
-        action: SnackBarAction(
-          label: l10n.assignUndo,
-          onPressed: () async {
-            // A fresh forward write, never a restore (ground rule 5).
-            await undo();
-            ref.invalidate(libraryControllerProvider(widget.session));
-            ref.invalidate(kidsOverviewProvider(widget.session));
-            messenger.showSnackBar(SnackBar(content: Text(l10n.assignUndone)));
-          },
         ),
+        undoLabel: l10n.assignUndo,
+        onUndo: () async {
+          // A fresh forward write, never a restore (ground rule 5).
+          await undo();
+          ref.invalidate(libraryControllerProvider(widget.session));
+          ref.invalidate(kidsOverviewProvider(widget.session));
+          messenger.showSnackBar(SnackBar(content: Text(l10n.assignUndone)));
+        },
       ),
     );
   }

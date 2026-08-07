@@ -132,6 +132,20 @@ Consequences that follow from Undo being a forward write:
 - **If the fresh `GET` fails, stop and surface it.** That is the signal the item is already in
   the broken state above, and pressing on would neither help nor be honest about it.
 
+**The toast's Undo expires after eight seconds; Activity's does not (#65).** The toast used to
+stay on screen indefinitely — `SnackBar.persist` defaults to `action != null`, so the app's only
+action-bearing toast was also its only permanent one. It now behaves like the other five.
+
+That expiry is deliberate and it is not a loss of function, precisely *because* Undo is a forward
+write: the same act is available from Activity for as long as the entry exists. What expires is
+the shortcut, not the ability. And a shortcut that outlives the moment it belonged to is the
+worse option — an Undo button still sitting on the grid an hour later performs a real write
+against a list the parent may have changed since, which is the one thing the button's placement
+implies it will not do.
+
+Eight seconds is the long end of Material's 4–10s: this message names a child, a count and a
+total, and only then asks for a decision.
+
 ## Kids
 
 Cards for label-controlled users: avatar, name, age, cap, **the access hours**, an
