@@ -59,8 +59,12 @@ SPDX-License-Identifier = "OFL-1.1"
 # Copyleft on a logo would let anyone ship a modified app under Garfin's mark.
 # Forks are welcome; they should rename. See BRANDING.md. brand/outline.sh is a
 # build script rather than artwork and carries its own GPL header.
+# assets/brand/** is rendered *from* brand/svg by brand/make-app-assets.sh, so it
+# is the same artwork in another format and takes the same licence. Listed here
+# because a PNG cannot carry a header — the same reason the launcher icons need
+# an entry.
 [[annotations]]
-path = ["brand/svg/**", "brand/garfin-design-pack.html"]
+path = ["brand/svg/**", "brand/garfin-design-pack.html", "assets/brand/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 missing-foss"
 SPDX-License-Identifier = "CC-BY-SA-4.0"

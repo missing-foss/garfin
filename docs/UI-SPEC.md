@@ -256,7 +256,28 @@ does not survive an uninstall and does not leave the phone.
   refresh metadata after write
 - **Picking** — starting child, hide shared
 - **Looks** — theme, dynamic colour, poster size
-- **About** — version, GPL-3.0, non-affiliation, source, licences
+- **About** — one tile, showing the version, opening the About screen below (#66)
+
+## About
+
+Reached from Settings → About. Top bar with a back button, centred scrolling column:
+
+- **The mark**, 84dp, from `assets/brand/` — output of `brand/make-app-assets.sh`, whose source
+  is the same SVG the launcher icon comes from.
+- **Garfin** in Fredoka, semi-bold, `headlineSmall`. The product name, not a translated string.
+- **Version**, in `colorScheme.outline`.
+- **Check for updates** — one call to GitHub *per press*, never automatic. The answer appears in
+  place and stays there rather than in a snackbar that slides away: someone opened this screen in
+  order to read something. Six outcomes, each with its own sentence — a newer release (named by
+  its tag, with an Open button), up to date, nothing published yet, rate-limited, unreachable,
+  unreadable. "Nothing published yet" is not phrased as a failure, because it is true of Garfin
+  itself until the first release ships.
+- **Links** — Documentation, Source code, Report an issue, Releases. Each shows its address as
+  the subtitle: the tile leaves the app, and someone handing a phone around should be able to see
+  where a tap goes before taking it.
+- **Licences** — the GPL line, then Flutter's own licence page, then the non-affiliation note.
+
+The mark is not tappable. The five-tap Easter egg is a follow-up, not a stub.
 
 ### Three switches this list used to carry, and why they are gone
 

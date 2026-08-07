@@ -1153,5 +1153,69 @@
   "librarySearchClear": "Clear search",
   "@librarySearchClear": {
     "description": "Tooltip on the x inside the search field."
+  },
+  "aboutTitle": "About",
+  "@aboutTitle": {
+    "description": "Top bar of the About screen (#66), reached from Settings."
+  },
+  "aboutCheckUpdates": "Check for updates",
+  "@aboutCheckUpdates": {
+    "description": "Button. One call to GitHub per press, never automatic \u2014 the copy says 'check', not 'checking automatically', because the distinction is the point."
+  },
+  "aboutUpdateAvailable": "{tag} is available",
+  "@aboutUpdateAvailable": {
+    "description": "Result: a newer release exists. Shows GitHub's own tag verbatim so it matches the releases page."
+  },
+  "aboutUpdateUpToDate": "Garfin is up to date",
+  "@aboutUpdateUpToDate": {
+    "description": "Result: asked, answered, nothing newer."
+  },
+  "aboutUpdateNone": "No releases published yet",
+  "@aboutUpdateNone": {
+    "description": "Result: the repository has releases turned on but nothing published. True of Garfin itself until the first one ships, so it is not phrased as a failure."
+  },
+  "aboutUpdateRateLimited": "GitHub is rate-limiting this connection. Try again in a while.",
+  "@aboutUpdateRateLimited": {
+    "description": "Result: 60 anonymous requests an hour per address, measured."
+  },
+  "aboutUpdateOffline": "Couldn't reach GitHub.",
+  "@aboutUpdateOffline": {
+    "description": "Result: the request never arrived. Distinct from a bad answer, because the fix is different."
+  },
+  "aboutUpdateFailed": "Couldn't read GitHub's answer.",
+  "@aboutUpdateFailed": {
+    "description": "Result: it arrived and made no sense. Says what happened rather than blaming the network."
+  },
+  "aboutOpenRelease": "Open",
+  "@aboutOpenRelease": {
+    "description": "Action on the update-available notice: opens that release's page."
+  },
+  "aboutSectionLinks": "Links",
+  "@aboutSectionLinks": {
+    "description": "Section heading on the About screen."
+  },
+  "aboutSectionLicences": "Licences",
+  "@aboutSectionLicences": {
+    "description": "Section heading on the About screen."
+  },
+  "aboutDocs": "Documentation",
+  "@aboutDocs": {
+    "description": "Link to the docs/ folder in the repository."
+  },
+  "aboutIssues": "Report an issue",
+  "@aboutIssues": {
+    "description": "Link to the issue tracker."
+  },
+  "aboutReleases": "Releases",
+  "@aboutReleases": {
+    "description": "Link to the releases page, where the APKs are."
+  },
+  "aboutOpenFailed": "Couldn't open that link.",
+  "@aboutOpenFailed": {
+    "description": "Shown when no app on the phone would take an https intent."
+  },
+  "settingsAbout": "About Garfin",
+  "@settingsAbout": {
+    "description": "Settings tile that opens the About screen. Replaces the four tiles that used to be the About section."
   }
 }

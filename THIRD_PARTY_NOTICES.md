@@ -42,6 +42,7 @@ Direct dependencies. Transitive dependencies are covered by the Flutter
 | `flutter_secure_storage` | BSD-3-Clause | 2017 German Saprykin |
 | `logging`, `intl` | BSD-3-Clause | 2013 the Dart project authors |
 | `local_auth` | BSD-3-Clause | 2013 The Flutter Authors |
+| `url_launcher` | BSD-3-Clause | 2013 The Flutter Authors |
 | `dynamic_color` | Apache-2.0 | Google LLC |
 
 `local_auth` pulls in `local_auth_android`, and `pubspec.lock` also resolves
@@ -50,6 +51,17 @@ Direct dependencies. Transitive dependencies are covered by the Flutter
 2013 The Flutter Authors. The darwin and windows federated plugins are **not
 redistributed in the APK**: Garfin is Android-only, so they are listed here for
 completeness rather than as components this file is attributing.
+
+`url_launcher` (6.3.2, added in #66 for the About screen's links) federates the
+same way: `url_launcher_android` 6.3.32 is the implementation that ships, and
+`pubspec.lock` also resolves the `_ios`, `_linux`, `_macos`, `_web` and
+`_windows` packages plus `url_launcher_platform_interface`. All eight are
+BSD-3-Clause, Copyright 2013 The Flutter Authors, read from each package's own
+shipped `LICENSE`. Six of the eight — `_android`, `_ios`, `_linux`, `_macos`,
+`_web`, `_windows` — ship a file byte-identical to `local_auth`'s; `url_launcher`
+itself and `url_launcher_platform_interface` ship the variant whose first line
+ends "All rights reserved.", which `diff` confirms is the only difference. Only
+the Android one is redistributed in the APK.
 
 Development-only, not shipped in the APK: `mocktail` (MIT, 2026 Felix Angelov),
 `flutter_lints` (BSD-3-Clause, 2013 The Flutter Authors).

@@ -208,5 +208,21 @@
   "sessionsEnded": "{device} est déconnecté.",
   "sessionsUncontrollable": "Cet appareil n'accepte pas les commandes à distance. Fermer la session fonctionne quand même.",
   "librarySearchHint": "Rechercher un titre",
-  "librarySearchClear": "Effacer la recherche"
+  "librarySearchClear": "Effacer la recherche",
+  "aboutTitle": "À propos",
+  "aboutCheckUpdates": "Rechercher des mises à jour",
+  "aboutUpdateAvailable": "{tag} est disponible",
+  "aboutUpdateUpToDate": "Garfin est à jour",
+  "aboutUpdateNone": "Aucune version publiée pour l'instant",
+  "aboutUpdateRateLimited": "GitHub limite les requêtes depuis cette connexion. Réessayez plus tard.",
+  "aboutUpdateOffline": "Impossible de joindre GitHub.",
+  "aboutUpdateFailed": "Impossible de lire la réponse de GitHub.",
+  "aboutOpenRelease": "Ouvrir",
+  "aboutSectionLinks": "Liens",
+  "aboutSectionLicences": "Licences",
+  "aboutDocs": "Documentation",
+  "aboutIssues": "Signaler un problème",
+  "aboutReleases": "Versions",
+  "aboutOpenFailed": "Impossible d'ouvrir ce lien.",
+  "settingsAbout": "À propos de Garfin"
 }
