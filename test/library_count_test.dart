@@ -221,6 +221,28 @@ void main() {
       expect(countQuery().containsKey('maxOfficialRating'), isFalse);
     });
 
+    test('a changed search re-runs the count, not just the grid', () async {
+      // Only checkable since #90: `LibraryFilters.==` omitted `searchTerm`, so
+      // nothing keyed on the filters was notified when it changed. The count
+      // is keyed on exactly that object, and a count left over from the
+      // unfiltered library would be subtracted from a searched total — a
+      // number wrong in the direction that looks plausible.
+      final container = await build(child: user());
+      addTearDown(container.dispose);
+      await container.read(taggedItemCountProvider(session).future);
+      final before = server.requests.length;
+
+      container.read(libraryFiltersProvider.notifier).setSearch('paddington');
+      await container.read(taggedItemCountProvider(session).future);
+
+      final after = server.requests
+          .skip(before)
+          .where((r) => r.queryParameters.containsKey('tags'))
+          .toList();
+      expect(after, isNotEmpty, reason: 'the count ignored the new search');
+      expect(after.last.queryParameters['searchTerm'], 'paddington');
+    });
+
     test('a conflicting account is never asked about', () async {
       // `shortlistTags` is empty for it, and `tags=` with nothing would count
       // the whole library — a number that would then be subtracted from
