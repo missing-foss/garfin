@@ -76,7 +76,15 @@ never persisted to survive it.
    "N things kept from Sam", the tagged count itself — and a conflicting account gets the library's
    own count with no claim about them (ground rule 3). Until the count arrives, and if it fails,
    the line says what the library holds: true either way, and better than a spinner over a number.
-4. **Poster grid** — 3 columns (2 under 400dp). Collections get a stacked cover and a count badge.
+4. **Poster grid** — 3 columns (2 under 400dp), 4 at the small poster size. Collections get a
+   stacked cover and a count badge. **Both edges of a poster lay their markers out against each
+   other rather than pinning them to opposite corners** — the state badge against the avatars at
+   the top, the age hint against the collection count at the bottom. Opposite corners collide on
+   anything narrower than a two-column tile, and it is a silent collision: everything stays inside
+   the tile, so nothing errors. The top edge shrinks (three faces, then one and a `+N`, then
+   nothing) because a `+N` can stand for a face; the bottom edge **wraps** instead, the count
+   taking the line below, because neither of those is a picture and nothing stands for a word. A
+   lone count — no child selected, so no hint — keeps the bottom-right corner it has always had.
    Already-shared items carry a check badge. Each tile shows avatars of the children who have it —
    **"have" meaning the label is on the item, never "can watch it"** (ground rule 4). Allow-list
    children only: for a block-list child the same tag means the title is *withheld*, and a

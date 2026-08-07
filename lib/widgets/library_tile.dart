@@ -121,26 +121,54 @@ class LibraryTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (_ageHint(l10n) case final hint?)
-                  Positioned(
-                    bottom: 4,
-                    left: 4,
-                    child: _Badge(
-                      label: hint,
-                      tone: suitability == AgeSuitability.aboveAge
-                          ? theme.colorScheme.tertiaryContainer
-                          : theme.colorScheme.surfaceContainerHighest,
-                    ),
+                // The bottom edge, laid out against itself for the same
+                // reason as the top (#89). Pinned to opposite corners, the
+                // age hint and the collection count want the same middle on
+                // anything narrower than a two-column tile: rendered at 83dp
+                // and at 118dp the count painted straight over the hint and
+                // spilled past the poster, with nothing erroring and no
+                // assertion failing, because both were inside the tile.
+                //
+                // A `Wrap` rather than the top edge's shrink-to-fit, because
+                // neither of these can shrink: they are words. When both do
+                // not fit on one line the count takes the line **below**,
+                // which costs a little poster and keeps both facts. The top
+                // edge drops faces instead because a face has a `+N` that can
+                // stand for it; a number has nothing that stands for it.
+                //
+                // The alignment depends on what is in the row, and that is
+                // not cosmetic: `spaceBetween` has nothing to distribute with
+                // one child, so it puts it at the start — which moved a lone
+                // collection count from the right corner to the left on every
+                // tile with **no child selected**, the state the app opens in.
+                // Caught in review, and only because a test was written for
+                // the one case every other test had a child in.
+                Positioned(
+                  bottom: 4,
+                  left: 4,
+                  right: 4,
+                  child: Wrap(
+                    alignment: _ageHint(l10n) == null
+                        ? WrapAlignment.end
+                        : WrapAlignment.spaceBetween,
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      if (_ageHint(l10n) case final hint?)
+                        _Badge(
+                          label: hint,
+                          tone: suitability == AgeSuitability.aboveAge
+                              ? theme.colorScheme.tertiaryContainer
+                              : theme.colorScheme.surfaceContainerHighest,
+                        ),
+                      if (item.isCollection && item.childCount != null)
+                        _Badge(
+                          label: l10n.libraryCollectionCount(item.childCount!),
+                          tone: theme.colorScheme.surfaceContainerHighest,
+                        ),
+                    ],
                   ),
-                if (item.isCollection && item.childCount != null)
-                  Positioned(
-                    bottom: 4,
-                    right: 4,
-                    child: _Badge(
-                      label: l10n.libraryCollectionCount(item.childCount!),
-                      tone: theme.colorScheme.surfaceContainerHighest,
-                    ),
-                  ),
+                ),
               ],
             ),
           ),
