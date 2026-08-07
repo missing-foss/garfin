@@ -142,17 +142,25 @@ void main() {
           reason: 'the cap is the server\'s and belongs under it');
     });
 
-    testWidgets('the card survives a 296dp width at 200% text scale',
-        (tester) async {
-      // Raised in review as arithmetic that probably held. Measured, it did
-      // not: two rows overflowed — the heading added here, and the header
-      // row, which has had an inflexible status label beside an `Expanded`
-      // since long before this change.
-      //
-      // Both locales, because the strings differ in length and the one that
-      // overflowed first was the *shorter* one.
-      for (final locale in const [Locale('en'), Locale('fr')]) {
-        for (final scale in const [1.0, 1.5, 2.0]) {
+    // **One test per case, not one loop over six.** The first version looped
+    // inside a single test and reported that English overflowed while French —
+    // the longer string — did not. That asymmetry ran against the mechanism,
+    // was queried in review, and was a harness artifact: `takeException()` is
+    // per-test state, and a pump that overflows *two* rows leaves accounting
+    // the next iteration inherits.
+    //
+    // Measured properly, one case per test, with each row unflexed in turn:
+    // **French overflows at 1.0x — the default text scale — on both rows**,
+    // and English from 1.5x. So this was never an accessibility edge case in
+    // French; it was a 296dp phone with no settings changed.
+    //
+    // The lesson is the general one this repo keeps relearning: a loop of
+    // pumps in one test cannot say which pump failed.
+    for (final locale in const [Locale('en'), Locale('fr')]) {
+      for (final scale in const [1.0, 1.5, 2.0]) {
+        testWidgets(
+            'the card fits 296dp at ${scale}x in ${locale.languageCode}',
+            (tester) async {
           await tester.pumpWidget(
             ProviderScope(
               child: MaterialApp(
@@ -162,10 +170,10 @@ void main() {
                 home: MediaQuery(
                   data: MediaQueryData(textScaler: TextScaler.linear(scale)),
                   child: Scaffold(
-                    // Scrollable, as the Kids screen itself is: at 200% the
-                    // card is simply taller than a test viewport, and a
-                    // vertical overflow here would be the harness rather than
-                    // the card. The claim under test is horizontal.
+                    // Scrollable, as the Kids screen itself is: at 2x the card
+                    // is taller than a test viewport, and a vertical overflow
+                    // here would be the harness rather than the card. The
+                    // claim under test is horizontal.
                     body: SingleChildScrollView(
                       child: SizedBox(
                         width: 296,
@@ -180,11 +188,11 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(tester.takeException(), isNull,
-              reason: 'the card overflowed at ${locale.languageCode} '
-                  '${scale}x on a 296dp width');
-        }
+              reason: 'the card overflowed at 296dp, '
+                  '${locale.languageCode} ${scale}x');
+        });
       }
-    });
+    }
 
     testWidgets('the help button is big enough to hit', (tester) async {
       // 48dp is the Material and Android interactive minimum. It measured
