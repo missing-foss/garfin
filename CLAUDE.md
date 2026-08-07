@@ -158,6 +158,13 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
   the health check answering from the live server, a spent single-use code, a shared `DeviceId`, a
   query that fetched nothing, a state the harness had written itself. None of them errored. `docs/JELLYFIN-API.md` § *Measuring this without measuring your own harness* lists them
   and the six checks that catch them; read it before writing a sweep.
+- **A test that asserts on state can pass over a feature that does nothing.** The title search
+  (#73) set `libraryFiltersProvider` correctly and never issued a request: `LibraryFilters.==`
+  omitted `searchTerm`, so Riverpod compared old state to new, found them equal, and notified
+  nobody. Six tests asserted on the filter's own fields and all six were green. **Assert on the
+  artifact the feature exists to produce** — the request that went out, the widget that appeared,
+  the row that changed — not on the state it passed through on the way. Same rule as the one
+  above, one layer up: `FakeJellyfinServer.requests` is the equivalent of watching the wire.
 
 ## Definition of done for a feature
 

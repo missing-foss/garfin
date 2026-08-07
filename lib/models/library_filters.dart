@@ -110,14 +110,32 @@ class LibraryFilters {
 
   static const _keep = Object();
 
+  /// **Every field that narrows the grid must be in here, [searchTerm]
+  /// included.**
+  ///
+  /// This is not a formality. `libraryFiltersProvider` is a `Notifier` holding
+  /// one of these, and Riverpod decides whether to notify its listeners by
+  /// comparing the old state with the new — so a field left out of `==` is a
+  /// field that **cannot change anything**. `searchTerm` was omitted, and the
+  /// consequence was not a stale badge or a missed rebuild somewhere subtle:
+  /// typing in the search field updated the filter, the grid never re-fetched,
+  /// and the whole of #73 filtered nothing. Measured on this branch — with the
+  /// term out of `==`, setting a search issues **zero** requests; with it in,
+  /// one, carrying `searchTerm`.
+  ///
+  /// `test/library_search_test.dart` pins the end-to-end version of that: the
+  /// server is asked. Comparing the two objects would not have caught it, since
+  /// the objects were the thing that was wrong.
   @override
   bool operator ==(Object other) =>
       other is LibraryFilters &&
       other.type == type &&
       other.genre == genre &&
       other.decade == decade &&
-      other.withinCap == withinCap;
+      other.withinCap == withinCap &&
+      other.searchTerm == searchTerm;
 
   @override
-  int get hashCode => Object.hash(type, genre, decade, withinCap);
+  int get hashCode =>
+      Object.hash(type, genre, decade, withinCap, searchTerm);
 }
