@@ -165,6 +165,13 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
   artifact the feature exists to produce** — the request that went out, the widget that appeared,
   the row that changed — not on the state it passed through on the way. Same rule as the one
   above, one layer up: `FakeJellyfinServer.requests` is the equivalent of watching the wire.
+- **A field left out of `==` is a field that cannot change anything — and pin every one of them.**
+  Riverpod compares old state with new to decide whether to notify, so an omitted field silently
+  disables whatever depends on it. Worse for a **family key** (`AssignRequest`,
+  `CollectionRequest`): two different arguments then collide on one cached provider and serve each
+  other's data, with no missing-refresh symptom to notice. Equality tests here list **one line per
+  field**, distinguishing values rather than presence — the `searchTerm` omission survived a test
+  that pinned one field of five, and the next omission will look identical.
 
 ## Definition of done for a feature
 

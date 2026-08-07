@@ -259,7 +259,14 @@ void main() {
       container.read(libraryFiltersProvider.notifier).setSearch('');
       await container.read(libraryControllerProvider(session).future);
 
-      final after = server.requests.skip(before).toList();
+      // Pinned to being a *library page* request, not merely "something
+      // happened": the assertion below is a negative one, and a negative that
+      // can pass because nothing was asked is the failure this whole PR is
+      // about. `StartIndex` is on the grid's query and on nothing else.
+      final after = server.requests
+          .skip(before)
+          .where((r) => r.queryParameters.containsKey('StartIndex'))
+          .toList();
       expect(after, isNotEmpty, reason: 'clearing the search changed nothing');
       expect(
         after.where((r) => r.queryParameters.containsKey('searchTerm')),

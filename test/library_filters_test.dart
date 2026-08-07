@@ -278,5 +278,42 @@ void main() {
       expect(const LibraryFilters(genre: 'Family'),
           isNot(const LibraryFilters(genre: 'Comedy')));
     });
+
+    test('and every field is in it — one line per field, on purpose', () {
+      // **This test used to cover `genre` alone**, and while it did,
+      // `searchTerm` was missing from `==` from the commit that introduced it:
+      // the grid never re-queried, and #73 filtered nothing until #90. The
+      // reason nothing caught it is visible above — one field of five pinned,
+      // and the omitted one was not that field.
+      //
+      // A field outside `==` cannot change anything. `libraryFiltersProvider`
+      // is a `Notifier`, and Riverpod compares old state with new to decide
+      // whether to notify (`defaultUpdateShouldNotify` is a plain `!=`), so the
+      // sixth field someone adds will be exactly as unprotected as `searchTerm`
+      // was, and will fail in exactly the same shape: state set correctly, and
+      // a feature that does nothing.
+      //
+      // So: one line per field, and add one when you add one.
+      const base = LibraryFilters();
+      expect(base, const LibraryFilters(), reason: 'sanity: base equals base');
+
+      expect(base, isNot(const LibraryFilters(type: 'Movie')));
+      expect(base, isNot(const LibraryFilters(genre: 'Family')));
+      expect(base, isNot(const LibraryFilters(decade: 1990)));
+      expect(base, isNot(const LibraryFilters(withinCap: true)));
+      expect(base, isNot(const LibraryFilters(searchTerm: 'bear')));
+
+      // And each field distinguishes *values*, not merely presence — the
+      // failure `hasSearch`-style equality would still have: a changed search
+      // that reads as "there is still a search, nothing to do".
+      expect(const LibraryFilters(type: 'Movie'),
+          isNot(const LibraryFilters(type: 'Series')));
+      expect(const LibraryFilters(genre: 'Family'),
+          isNot(const LibraryFilters(genre: 'Comedy')));
+      expect(const LibraryFilters(decade: 1990),
+          isNot(const LibraryFilters(decade: 2000)));
+      expect(const LibraryFilters(searchTerm: 'bear'),
+          isNot(const LibraryFilters(searchTerm: 'paddington')));
+    });
   });
 }
