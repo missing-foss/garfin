@@ -68,6 +68,13 @@ void main() {
       required int total,
       required int tagged,
     }) async {
+      // A phone-shaped surface. The default 800x600 puts a poster tile's
+      // title at y=617 — off the bottom of the render tree — so tapping a tile
+      // silently misses and the sheet never opens.
+      tester.view.physicalSize = const Size(1080, 2160);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final prefs = await SharedPreferences.getInstance();
 
@@ -76,17 +83,32 @@ void main() {
       // second page request the count's answer and the line reads 0 — a
       // plausible wrong number, from the harness rather than the code.
       server
-        ..onQuery('/Items', (q) => q.containsKey('StartIndex'), json: {
-          'TotalRecordCount': total,
-          'Items': [
-            <String, dynamic>{
-              'Id': 'item-1',
-              'Name': 'Paddington',
-              'Type': 'Movie',
-              'Tags': <String>[],
-            },
-          ],
-        })
+        ..onQuery(
+          '/Items',
+          (q) => q.containsKey('StartIndex') && q['StartIndex'] == 0,
+          json: {
+            'TotalRecordCount': total,
+            'Items': [
+              <String, dynamic>{
+                'Id': 'item-1',
+                'Name': 'Paddington',
+                'Type': 'Movie',
+                'Tags': <String>[],
+              },
+            ],
+          },
+        )
+        // **Page two is empty.** A grid shorter than its viewport reports
+        // `maxScrollExtent == 0`, so the paging listener fires on every frame;
+        // with a matcher that answers every page the same, the same tile
+        // arrives forever. That is the harness, not the app — a real second
+        // page carries different ids — but it put six copies of one film in
+        // the feed before this line existed.
+        ..onQuery(
+          '/Items',
+          (q) => q.containsKey('StartIndex') && q['StartIndex'] != 0,
+          json: {'TotalRecordCount': total, 'Items': <Object>[]},
+        )
         ..onQuery('/Items', (q) => q.containsKey('tags'),
             json: {'Items': <Object>[], 'TotalRecordCount': tagged})
         ..fallback(json: {'Items': <Object>[], 'TotalRecordCount': 0});
@@ -183,6 +205,90 @@ void main() {
       expect(find.text("375 things Emma hasn't got yet"), findsOneWidget,
           reason: 'the count did not re-run after the write');
       expect(find.text("376 things Emma hasn't got yet"), findsNothing);
+    });
+
+    testWidgets('the assign sheet itself refreshes the line after Apply',
+        (tester) async {
+      // The review's second finding: the write test above bumps the revision
+      // itself, so it pins "a bump re-runs the count" and not "the sheet
+      // bumps" — delete `refreshLibrary` from the sheet and it still passes.
+      // This drives the real sheet: tap the tile, toggle Emma, Apply, and read
+      // the line, with nothing in the test touching the refresh.
+      await pumpScreen(tester, total: 400, tagged: 24);
+      expect(find.text("376 things Emma hasn't got yet"), findsOneWidget);
+
+      // What the sheet asks for on top of the grid's own queries.
+      server
+        ..on('/Users/admin-1/Items/item-1', json: {
+          'Id': 'item-1',
+          'Name': 'Paddington',
+          'Type': 'Movie',
+          'Tags': <String>[],
+        })
+        ..on('/Items/item-1', json: {})
+        ..onQuery(
+          '/Items',
+          (q) => q['Limit'] == 0 && !q.containsKey('tags'),
+          json: {'Items': <Object>[], 'TotalRecordCount': 100},
+        );
+
+      await tester.tap(find.text('Paddington'));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(find.byType(SwitchListTile), findsOneWidget,
+          reason: 'the sheet did not open with Emma on it');
+
+      // The world the write creates: one more item carries her label.
+      server.onQuery('/Items', (q) => q.containsKey('tags'),
+          json: {'Items': <Object>[], 'TotalRecordCount': 25});
+
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pump();
+      await tester.tap(find.text('Apply'));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(find.text("375 things Emma hasn't got yet"), findsOneWidget,
+          reason: 'the sheet wrote and the line did not move');
+
+      // The result toast lives for eight seconds (#65); let it go rather than
+      // ending the test on a live timer.
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump(const Duration(seconds: 9));
+    });
+
+    testWidgets('a refresh does not blank the grid to a spinner',
+        (tester) async {
+      // Raised in review of this PR, and it is a real cost of the design:
+      // swapping `invalidate` for a watched dependency is **not** behaviour
+      // -neutral in Riverpod. An invalidation emits `AsyncData(prev,
+      // isRefreshing)` and `when()` skips the loading branch for it by
+      // default; a *dependency change* emits a plain `AsyncLoading`, which is
+      // `isReloading`, and `when()` does **not** skip that by default. So the
+      // grid a parent was looking at would be replaced by a spinner on every
+      // write, every pull-to-refresh and every Undo — the app's most repeated
+      // action.
+      final container = await pumpScreen(tester, total: 400, tagged: 24);
+      expect(find.text('Paddington'), findsOneWidget);
+
+      container.read(libraryRevisionProvider.notifier).bump();
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing,
+          reason: 'the grid blanked while reloading');
+      expect(find.text('Paddington'), findsOneWidget,
+          reason: 'the tiles the parent was looking at disappeared');
+
+      // Let the refetch this test deliberately caught mid-flight finish, or
+      // the test ends with a live timer and fails for that instead.
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
     });
 
     testWidgets('one refresh moves both numbers, never one of them',
