@@ -313,6 +313,40 @@
   "@kidsRatingCapNone": {
     "description": "Shown when a child's account has no parental rating cap set."
   },
+  "kidsServerSection": "Set in Jellyfin",
+  "@kidsServerSection": {
+    "description": "Heading above the two lines on a kid's card that come from the child's Jellyfin account rather than from Garfin — the rating limit and the access hours. It exists because those sit directly under the birth year, which IS editable here and is stored on this phone, and nothing said the three came from three different places."
+  },
+  "kidsServerExplainAction": "What is set in Jellyfin?",
+  "@kidsServerExplainAction": {
+    "description": "Tooltip and screen-reader label for the button beside that heading, which opens the explanation."
+  },
+  "kidsServerExplainMode": "Garfin adds and removes titles from {name}'s list. The list itself — and whether it is a shortlist or a blocklist — is set in Jellyfin.",
+  "@kidsServerExplainMode": {
+    "description": "First paragraph of the explanation sheet. Answers the question the mode label provokes: what does 'Shortlist' mean and can I change it here.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "kidsServerExplainPolicy": "The rating limit and the hours are {name}'s Jellyfin settings. Garfin reads them and never writes them.",
+  "@kidsServerExplainPolicy": {
+    "description": "Second paragraph. States the read-only boundary plainly — it is ground rule 8, and without saying so the two lines read as a missing feature rather than a deliberate limit."
+  },
+  "kidsServerExplainWhere": "To change them, open Jellyfin and go to Dashboard → Users → {name} → Parental Control.",
+  "@kidsServerExplainWhere": {
+    "description": "Where to go. TRANSLATORS: the three menu names are Jellyfin's own UI labels, not free-form prose — translate them to whatever Jellyfin's own client calls them in your locale, and verify against that locale's strings in the shipped web client rather than translating the English. A path is a per-locale claim: checking en proves nothing about fr. The English was read out of the 10.11.11 client (Dashboard, Users, Parental Control), and the French out of the same client's fr bundle (Tableau de bord, Utilisateurs, Contrôle parental). A wrong path is worse than none.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "kidsServerExplainBirthYear": "The age above is not one of them. Jellyfin stores no birth year, so Garfin keeps the one you enter on this phone, and it only shapes the hints on the Library screen.",
+  "@kidsServerExplainBirthYear": {
+    "description": "Third paragraph. The birth year sits one line above the rating limit and sounds like it should drive it; it does not."
+  },
   "kidsBirthYearTitle": "Birth year",
   "@kidsBirthYearTitle": {
     "description": "Title of the dialog where the parent types a child's birth year."

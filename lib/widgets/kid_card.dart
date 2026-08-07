@@ -52,7 +52,12 @@ class KidCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                _ModeChip(mode: kid.mode),
+                // Flexible for the same measured reason as the heading row
+                // below, and this one is **older than this change**: the
+                // status has always been an inflexible child beside an
+                // `Expanded`, and at 296dp/200% the header row overflowed
+                // too. Found while measuring the row the review asked about.
+                Flexible(child: _ModeLabel(mode: kid.mode)),
               ],
             ),
             const SizedBox(height: 12),
@@ -69,6 +74,43 @@ class KidCard extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
             ],
+
+            // **Whose settings these are, said before what they say** (#74).
+            // The two lines below sit directly under the age — which the
+            // parent has just been able to edit, and which Garfin keeps on
+            // this phone — so three lines from three different places read as
+            // one list of Garfin's. The heading is the whole fix: one label
+            // above two existing lines, no new data.
+            Row(
+              children: [
+                // `Flexible`, and it is not decoration: measured at a 296dp
+                // card with Android's 200% text scale, this row overflowed by
+                // 15px in English. Raised in review as probably-unreachable
+                // arithmetic; it is reachable.
+                Flexible(
+                  child: Text(
+                    l10n.kidsServerSection,
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ),
+                // The tap the mode label used to promise and not have. One
+                // explanation for all three server-owned facts, next to the
+                // two that are hardest to place.
+                //
+                // **No `visualDensity: compact` here.** It measured 40x40,
+                // under the 48dp interactive minimum — on the one control
+                // that explains the card to a parent who could not work out
+                // what it was telling them, which is the worst place to save
+                // eight pixels.
+                IconButton(
+                  icon: const Icon(Icons.help_outline, size: 18),
+                  tooltip: l10n.kidsServerExplainAction,
+                  onPressed: () =>
+                      _explain(context, l10n, kid.user.name),
+                ),
+              ],
+            ),
 
             Text(_capLabel(l10n), style: theme.textTheme.bodySmall),
 
@@ -214,8 +256,64 @@ class KidCard extends ConsumerWidget {
   }
 }
 
-class _ModeChip extends StatelessWidget {
-  const _ModeChip({required this.mode});
+/// What the parent is looking at, and where it lives (#74, #76).
+///
+/// One sheet for all three server-owned facts rather than a tooltip each: the
+/// question they provoke is the same question — *whose setting is this and can
+/// I change it here* — and answering it three times in three places is how the
+/// answers drift apart.
+///
+/// It states the read-only boundary plainly. Ground rule 8 is a deliberate
+/// design commitment, and a limit nobody explains reads as a missing feature.
+void _explain(BuildContext context, AppLocalizations l10n, String name) {
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) {
+      final theme = Theme.of(context);
+      return SafeArea(
+        // **Scrollable, not a bare `Column`.** Four paragraphs of explanation
+        // overflow a modal sheet on a short screen — caught by a test on an
+        // 800x600 surface, and a large text scale would do the same on any
+        // phone. An explanation that clips is worse than none, because the
+        // part it cuts is the part nobody has read yet.
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.kidsServerSection, style: theme.textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Text(l10n.kidsServerExplainMode(name),
+                  style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 8),
+              Text(l10n.kidsServerExplainPolicy(name),
+                  style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 8),
+              // The path is Jellyfin's own menu names, read out of the
+              // 10.11.11 web client's strings rather than remembered: the
+              // issue that asked for this line flagged that a wrong path is
+              // worse than none, and it is the kind of claim that reads as
+              // verified whether or not it was.
+              Text(l10n.kidsServerExplainWhere(name),
+                  style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 8),
+              Text(
+                l10n.kidsServerExplainBirthYear,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _ModeLabel extends StatelessWidget {
+  const _ModeLabel({required this.mode});
 
   final ShortlistMode mode;
 
@@ -236,11 +334,22 @@ class _ModeChip extends StatelessWidget {
       ShortlistMode.none => (l10n.kidsModeAllowList, null),
     };
 
-    return Chip(
-      label: Text(label, style: theme.textTheme.labelSmall),
-      backgroundColor: colour,
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    // **A label, not a `Chip`** (#76). This reports which kind of list the
+    // child's Jellyfin account uses; it has never done anything on tap. The
+    // app's chips *are* tappable — `FilterChip` and `ChoiceChip` on the
+    // library filter bar — so a pill here taught the parent it was a button
+    // and then ignored them. It was reported as "a 'select' button that
+    // doesn't seem to work", which is exactly what the widget promised.
+    //
+    // The explanation it provoked now lives beside the two lines below,
+    // where the same question is asked about the rating limit and the hours.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: colour ?? theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(label, style: theme.textTheme.labelSmall),
     );
   }
 }
