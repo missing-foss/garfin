@@ -1076,6 +1076,116 @@ however long the batch takes. Every write does its own fresh `GET`. In the code 
 **And "the read succeeded" is not the check.** It is "the item that came back is the item asked
 for" — see the all-zero GUID answering 200 with the root folder, in § Collections above.
 
+## Writing user policy — measured, and still not done
+
+Ground rule 8 forbids `POST /Users/{id}/Policy`. These measurements are recorded because the
+endpoint is a live hazard for anything that ever touches it, and because the reasoning the rule
+used to carry would have rejected the safe mechanism and accepted the unsafe one.
+
+**Measured 2026-08-07 on 10.11.11**, disposable container, ~170 policy writes, port tested free and
+bound to loopback, `StartupWizardCompleted: false` asserted before anything was written, torn down
+with its volumes.
+
+### A raw round-trip is lossless
+
+`GET /Users/{id}` → `Policy` (43 keys) → `POST` that object back unchanged:
+
+    status 204   keys before 43   after 43   fields changed: 1
+      AccessSchedules[0].Id: 1 -> 2
+
+The one difference is the schedule row's primary key: schedules are deleted and re-inserted on every
+write, so the `Id` churns. **Writes are therefore not idempotent in that field** — anything keying
+off a schedule row id would break. Content is otherwise identical.
+
+Mutating exactly one key on the map as received, then posting the whole map:
+
+    status 204   fields changed: 2
+      MaxParentalRating: 7 -> 13          <- intended
+      AccessSchedules[0].Id: 169 -> 170   <- the row-id churn again
+
+    read-back: MaxParentalRating=13, AllowedTags=['garfin-kid-shortlist'],
+               schedules=1, MaxActiveSessions=3
+
+### An omitted key is reset to its default, silently, with a 204
+
+One key at a time, each omitted from an otherwise complete object:
+
+    MaxParentalRating          7        -> None      <- the rating cap, gone
+    AccessSchedules            [Sun 9-19:30] -> []   <- the hours, gone
+    AllowedTags                ['garfin-kid-shortlist'] -> []
+    BlockedTags                ['horror'] -> []
+    EnableLiveTvAccess         False    -> True      <- restriction lifted
+    EnableContentDownloading   False    -> True      <- restriction lifted
+    EnableLiveTvManagement     False    -> True
+    LoginAttemptsBeforeLockout 5        -> -1
+    RemoteClientBitrateLimit   3000000  -> 0
+    SyncPlayAccess             'None'   -> 'CreateAndJoinGroups'
+
+**The 31 keys that appeared unchanged are not protection.** Control — set three of them to
+non-default values, then omit them:
+
+    MaxActiveSessions   3     -> 0      RESET
+    EnableRemoteAccess  False -> True   RESET
+    IsHidden            True  -> True   kept (True is its default)
+
+### The 400 that looks like the server protecting itself is a coincidence
+
+Writing only the eight fields `UserPolicy` models — exactly what a DTO-based write produces —
+returns **400 and changes nothing**. Not because the server validates the set:
+
+    required keys (omission -> 400): AuthenticationProviderId, PasswordResetProviderId
+
+Two provider-id strings Garfin has no interest in. The trimmed write fails *only* because it happens
+to omit those two.
+
+### What a DTO write actually does once it gets past the 400
+
+Add both required ids to the eight modelled fields — ten keys — and the write succeeds. **The
+modelled fields survive and the unmodelled ones reset**, which is the opposite of what this section
+first claimed and is worth stating in the strong form: *a typed model protects exactly what it
+models and silently resets everything else.*
+
+    POST /Users/{id}/Policy with 10 keys -> 204
+
+    modelled, and unchanged      MaxParentalRating 7, AllowedTags ['kids-emma'],
+                                 BlockedTags ['horror'], EnabledFolders, EnableAllFolders
+    modelled, content unchanged  AccessSchedules — only the row Id churns, 1 -> 2
+
+    NOT modelled, and reset      EnableContentDownloading    False -> True
+                                 EnableLiveTvAccess          False -> True
+                                 EnableLiveTvManagement      False -> True
+                                 EnableRemoteAccess          False -> True
+                                 LoginAttemptsBeforeLockout      5 -> -1
+                                 MaxActiveSessions               3 -> 0
+                                 SyncPlayAccess             'None' -> 'CreateAndJoinGroups'
+
+Four restrictions lifted, two limits removed, one capability granted — silently, with a 204. The
+fields that survive are the ones somebody thought to model; the ones that revert are the ones nobody
+did, which is the shape of every DTO ever written.
+
+**Measured twice, independently, after the first write-up got it backwards** — it said the cap would
+be stripped, which cannot happen through a body that contains the cap. The claim that survived the
+correction is the mechanism, not the field list.
+
+### `MaxParentalRating` is absent, not null, until a cap is set
+
+    a child with no cap:  42 keys, no MaxParentalRating key at all
+    the same child capped: 43 keys
+
+So a round-trip check written as "all 43 keys" fails on the ordinary starting state. **Assert that
+every key that came back goes back**, and compare schedule *content* rather than the whole object,
+since the row `Id` churns on every write and a naive diff reports it as a loss — which it did here,
+in the harness that produced the table above.
+
+**An unknown extra key is accepted and ignored (204)**, which is why a raw map is more
+forward-compatible than a typed model: a field a later Jellyfin adds rides through a round-trip
+untouched, and is exactly what a DTO drops.
+
+### What this does not change
+
+The rule. See `docs/DECISIONS.md` § Tagging model for why the ban is kept as a product decision, and
+`CLAUDE.md` rule 8 for the discipline any future policy write would have to follow.
+
 ## Sessions — seeing them, commanding them, ending them
 
 **Measured on 10.11.11 (#41).** `GET /Sessions` carries `UserName`, `DeviceId`, `DeviceName`,

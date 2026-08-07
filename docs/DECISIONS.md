@@ -342,12 +342,59 @@ app entirely. The Kids screen says so in one plain line rather than listing thos
 nothing attached — see `docs/UI-SPEC.md`.
 
 **The narrow exception is rejected, and will be proposed again.** Someone will suggest reading the
-policy, changing only `AllowedTags`, and writing it back. That is still `POST /Users/{id}/Policy`
-and still a full-object replace: the read-modify-write shape does not make it safe, it makes it
-*look* safe, which is worse. The risk is not that we would mean to change something else — it is
-that a field absent from the DTO we read, or added by a later Jellyfin version, silently vanishes
-on the way back. `MaxParentalRating` disappearing that way removes a child's rating cap while
-every screen still reports success. Treat this as settled.
+policy, changing only `AllowedTags`, and writing it back.
+
+> **Amended 2026-08-07 (#75), from measurement, and the correction matters.** The paragraph that
+> stood here said the read-modify-write *shape* was the problem — that it "does not make it safe, it
+> makes it look safe". Measured on 10.11.11 across ~170 policy writes, that is wrong in one specific
+> and right in another.
+>
+> Wrong: a raw round-trip is **lossless**. `GET /Users/{id}`, mutate one key on the
+> `Map<String, dynamic>` as received, `POST` the whole map back — 43 keys in, 43 keys out, content
+> identical, only a schedule row's `Id` churning because schedules are deleted and re-inserted on
+> every write. And the specific fear stated here — a field *added by a later Jellyfin version*
+> vanishing — is backwards for a raw map, which carries unknown keys through untouched. A typed
+> model is the thing that cannot.
+>
+> Right, and sharper than it was written: **an omitted key is reset to its default, silently, with a
+> 204.** Not corruption — a clean success while `MaxParentalRating` becomes `None`, `AccessSchedules`
+> becomes `[]`, both tag lists empty, and `EnableLiveTvAccess`, `EnableContentDownloading` and
+> `EnableLiveTvManagement` flip from restricted to permitted. The 31 fields that appeared to survive
+> were not protected; they already held their defaults, which a control confirmed by setting three of
+> them otherwise and watching those reset too.
+>
+> **And the protection Garfin has today is an accident.** Writing the eight fields `UserPolicy`
+> models — exactly what a DTO-based write produces — returns 400 and changes nothing, but only
+> because it happens to omit `AuthenticationProviderId` and `PasswordResetProviderId`.
+>
+> **Corrected in review, and the correction inverts the mechanism.** The first version of this
+> paragraph said adding those two would make the write "strip the cap, the schedule and both tag
+> lists". Re-measured twice, independently: the write returns 204 and those four **survive** — they
+> are precisely what `UserPolicy` models. What resets is everything it does not:
+> `EnableLiveTvAccess`, `EnableLiveTvManagement`, `EnableContentDownloading` and
+> `EnableRemoteAccess` all flip False→True, `LoginAttemptsBeforeLockout` 5→−1, `MaxActiveSessions`
+> 3→0, `SyncPlayAccess` None→CreateAndJoinGroups.
+>
+> So the generalisable rule is the opposite of the one first written here: **a typed model protects
+> exactly what it models and silently resets everything else.** That is not a milder finding than
+> the one it replaces — the fields that survive are the ones somebody thought about, and the ones
+> that quietly revert are the ones nobody did. Four restrictions lifted is still four restrictions
+> lifted, and nothing on any screen would say so.
+>
+> **The ban is kept, as a product decision rather than a technical one.** A safe mechanism exists;
+> what it would buy is convenience on a one-time action, and what it would cost is putting the one
+> endpoint that can silently remove a child's restrictions inside the app. The reason to write this
+> down rather than close the issue is that the old reasoning would have rejected the safe mechanism
+> and accepted the unsafe one, since the unsafe one is the one that *looks* like a small diff.
+>
+> If it is ever revisited: raw map only, never a typed model; a test asserting the object posted is
+> the object received plus one key; read-back verification per write; and a standing round-trip diff
+> asserting **every key that came back goes back**, as rule 2 has — *not* "all 43 keys", because a
+> child with no cap has 42: `MaxParentalRating` is absent until it is set, and a count would fail on
+> the ordinary starting state. Compare schedule *content* too; a row's `Id` churns on every write. Measurements in `docs/JELLYFIN-API.md` § *Writing user policy*.
+
+The rest of the original reasoning stands: `MaxParentalRating` disappearing removes a child's rating
+cap while every screen still reports success. Treat the ban as settled.
 
 **The Quick Connect secret is never persisted.** It lives for one exchange and is inert once
 traded for the access token. Writing it to secure storage would only add a

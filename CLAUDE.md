@@ -121,12 +121,39 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
 7. Admin account required. Refuse non-admin logins with a clear message rather than failing later.
 8. **Garfin is read-only on user policy.** Never `POST /Users/{id}/Policy`. It is a full-object
    replace over the child's entire permission set — `EnabledFolders`, `IsAdministrator`, and
-   `MaxParentalRating`, which is the actual safety control. A dropped field there does not
-   corrupt metadata, it silently removes a child's restrictions. Read policy; write only items.
-   **A read-modify-write of only `AllowedTags` is not an exception** — it is the same endpoint and
-   the same full replace, and looking safer is the problem with it. The consequence, deliberate:
-   Garfin cannot give a child their *first* label, so that one-time setup happens in Jellyfin. See
-   `docs/DECISIONS.md` and the Kids screen in `docs/UI-SPEC.md`.
+   `MaxParentalRating`, which is the actual safety control. **An omitted key is silently reset to
+   its default and the server answers 204**: measured one key at a time on 10.11.11, that is the
+   rating cap gone, the access schedule emptied, both tag lists cleared and three restrictions
+   *lifted*, with every screen reporting success (#75, `docs/JELLYFIN-API.md`). Read policy; write
+   only items.
+
+   **The ban stands, and its reason is narrower than it used to read.** What is catastrophic is
+   building the body from a *typed model*, which omits whatever it does not model. A raw round-trip
+   — `GET`, mutate one key on the `Map<String, dynamic>` **as received**, `POST` the whole map — is
+   measured lossless, and carries keys a future Jellyfin adds through untouched, which a DTO cannot.
+   So the old phrasing had it backwards in one specific: the danger is not the read-modify-write
+   shape, it is deserializing. **Today's apparent protection is a coincidence** — a DTO write fails
+   with 400 only because `UserPolicy` happens not to model `AuthenticationProviderId` and
+   `PasswordResetProviderId`. Add both for an unrelated reason and the same write returns 204 and
+   **silently resets every field the model does not carry**: measured, four restrictions lifted
+   (live TV access, live TV management, downloading, remote access), the lockout limit and the
+   session limit removed, SyncPlay granted. The cap, the schedule and both tag lists survive —
+   because `UserPolicy` models them. **A typed model protects exactly what it models and resets
+   everything else**, which is worse than it sounds: the fields that survive are the ones somebody
+   thought about.
+
+   The rule is kept anyway, as a product decision rather than a technical one: what it costs is a
+   one-time setup that happens in Jellyfin, and what it buys is that the endpoint which can silently
+   remove a child's restrictions is not in the app at all. **If it is ever revisited**, the
+   discipline is not optional — raw map only, never a typed model; a test asserting the object
+   posted is the object received plus one key; read-back verification per write; and a standing
+   round-trip diff asserting **every key that came back goes back** — not "all 43 keys", because a
+   child with no cap has 42: `MaxParentalRating` is *absent* until it is set, and a count would fail
+   on the ordinary starting state. The diff must compare schedule *content*, since a row's `Id`
+   churns on every write.
+
+   The consequence, deliberate: Garfin cannot give a child their *first* label, so that one-time
+   setup happens in Jellyfin. See `docs/DECISIONS.md` and the Kids screen in `docs/UI-SPEC.md`.
 9. **The app itself is gated behind device auth.** Garfin holds an admin token on a phone that
    gets handed to children by design — that is the product's normal interaction, and it is
    precisely the case device lock does not cover. Biometric/PIN on cold start and on resume
@@ -150,6 +177,16 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
   the code beside it was correct. A claim scoped to what you searched rather than to what exists
   reads exactly like a verified one. Tests here get mutation-tested as a matter of course; give
   sentences the same treatment, which costs one command.
+
+  **And prove the search can find something before believing it found nothing.** A grep that
+  returns zero is evidence about your pattern before it is evidence about the tree. Three times in
+  one afternoon a malformed or guessed pattern produced a **false negative that read as a defect**:
+  a filename guessed as `fr-fr-json.*` when the chunk is `fr-json.*` (so "these terms are absent
+  from Jellyfin's UI"), a phrase that wraps across a line, and a blockquote marker sitting inside
+  the joined string (both: "the correction never landed in this file"). A positive control — one
+  pattern you know is present, run first — costs nothing and catches all three. This is check 4 of
+  `docs/JELLYFIN-API.md` § *Measuring this without measuring your own harness*, which is written
+  for API sweeps and applies to prose exactly as well.
 - **A gate you have not tried to break is not a gate.** Mutation-test anything you add or rewrite
   that is supposed to catch something — delete the thing it guards and watch it fail. Two gates
   in this repo were vacuous when written.
