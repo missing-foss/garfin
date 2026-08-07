@@ -71,7 +71,21 @@ never persisted to survive it.
    an active search counts toward the filter badge like anything else.
 3. **Result line** — "N things Emma hasn't got yet", with a Show/Hide shared text button.
 4. **Poster grid** — 3 columns (2 under 400dp). Collections get a stacked cover and a count badge.
-   Already-shared items carry a check badge. Each tile shows avatars of the children who have it.
+   Already-shared items carry a check badge. Each tile shows avatars of the children who have it —
+   **"have" meaning the label is on the item, never "can watch it"** (ground rule 4). Allow-list
+   children only: for a block-list child the same tag means the title is *withheld*, and a
+   conflicting account has no verb at all (ground rule 3), so neither appears. Three overlapped
+   22dp circles at most, then a `+N` circle for the rest; a child with no picture falls back to
+   their initial. They share the poster's top edge with the state badge and **shrink to whatever
+   the badge leaves** — three faces and a `+N`, then two, then one, then nothing. The badge is the
+   answer about the child the parent picked, so it keeps its width. A `+N` is never drawn alone:
+   beside faces it means "N more than these", and on its own it would mean "N in total" — the same
+   glyph with two meanings, on the smallest tile. The faces are in the tile's spoken label at every
+   width, in full, minus the selected child, whom the badge has just named. The held-back nuance
+   stays with the selected child's badge —
+   knowing it for everyone would cost a query per child per title. The faces show with no child
+   selected, which is the case they exist for, and no badge exists then, so the whole edge is
+   theirs.
 
 ## Assign sheet (modal bottom sheet)
 

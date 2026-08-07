@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/gen/app_localizations.dart';
 import '../models/auth_session.dart';
 import '../models/age_suitability.dart';
+import '../models/item_holder.dart';
 import '../models/jellyfin_user.dart';
 import '../models/kid_summary.dart';
 import '../models/parental_rating.dart';
@@ -195,6 +196,15 @@ class _Grid extends ConsumerWidget {
         const ParentalRatingLadder.empty();
     final childAge = _ageOf(ref, child);
 
+    // Who already has what (#84), joined here rather than fetched: the grid
+    // already asks for `Fields=Tags`, and the Kids overview already carries
+    // every child's labels and picture. An overview that has not arrived yet —
+    // or failed — costs the avatars and nothing else, which is the same
+    // degradation the age hint takes one line above.
+    final kids =
+        ref.watch(kidsOverviewProvider(session)).asData?.value.shortlisted ??
+        const <KidSummary>[];
+
     if (feed.entries.isEmpty) {
       return Center(
         child: Padding(
@@ -289,6 +299,8 @@ class _Grid extends ConsumerWidget {
                       entry: entry,
                       serverUrl: session.serverUrl,
                       childName: child?.name,
+                      childId: child?.id,
+                      holders: holdersOf(item: entry.item, children: kids),
                       suitability: suitabilityFor(
                         item: entry.item,
                         ladder: ladder,

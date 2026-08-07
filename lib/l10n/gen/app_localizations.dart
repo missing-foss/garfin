@@ -620,6 +620,18 @@ abstract class AppLocalizations {
   /// **'{count} titles'**
   String libraryCollectionCount(int count);
 
+  /// Spoken by a screen reader for a tile whose title has already been given to one or more children, listing all of them except the child currently selected — the badge has just named that one. Says GIVEN — the label is on the item — and deliberately not 'can watch', which is the server's answer and depends on the child's age limit as well as the label. TRANSLATORS: the grid carries films, series and collections, so any past participle here must not agree with the item. The French names the noun ('Titre donné à …') so that it agrees with 'titre' and stays correct for every type.
+  ///
+  /// In en, this message translates to:
+  /// **'Given to {names}'**
+  String libraryHolders(String names);
+
+  /// Chip after the avatars on a tile, for the children who did not fit in the row. Shown as +2.
+  ///
+  /// In en, this message translates to:
+  /// **'+{count}'**
+  String libraryHoldersMore(int count);
+
   /// Button that reloads the library grid after an error.
   ///
   /// In en, this message translates to:

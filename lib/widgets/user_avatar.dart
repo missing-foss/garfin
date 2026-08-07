@@ -23,6 +23,7 @@ class UserAvatar extends StatelessWidget {
     required this.name,
     required this.avatarUrl,
     this.radius = 24,
+    this.textStyle,
   });
 
   final String name;
@@ -34,12 +35,21 @@ class UserAvatar extends StatelessWidget {
 
   final double radius;
 
+  /// The initial's style, for the sizes `CircleAvatar`'s own default does not
+  /// fit (#84). It sizes the letter from `primaryTextTheme.titleMedium`
+  /// whatever the radius is, so an 18dp avatar on a poster gets a letter built
+  /// for a 48dp one and clips it.
+  final TextStyle? textStyle;
+
   @override
   Widget build(BuildContext context) {
     final initial = initialFor(name);
 
     if (avatarUrl == null) {
-      return CircleAvatar(radius: radius, child: Text(initial));
+      return CircleAvatar(
+        radius: radius,
+        child: Text(initial, style: textStyle),
+      );
     }
 
     return ClipOval(
@@ -51,9 +61,10 @@ class UserAvatar extends StatelessWidget {
         // The initial while loading *and* on error, so a picture that never
         // arrives degrades to the same thing as no picture rather than a blank
         // circle.
-        placeholder: (_, _) => CircleAvatar(radius: radius, child: Text(initial)),
+        placeholder: (_, _) =>
+            CircleAvatar(radius: radius, child: Text(initial, style: textStyle)),
         errorWidget: (_, _, _) =>
-            CircleAvatar(radius: radius, child: Text(initial)),
+            CircleAvatar(radius: radius, child: Text(initial, style: textStyle)),
       ),
     );
   }
