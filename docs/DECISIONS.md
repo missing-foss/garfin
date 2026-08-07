@@ -666,7 +666,7 @@ errors, no assertion fires.
 They now share one row. The difference from the top edge is worth stating, because it decides the
 behaviour: **the top shrinks and the bottom wraps.** A face can be dropped because a `+N` stands for
 it; "No age rating" and "7 titles" are words, and nothing stands for a word — so when they do not
-fit side by side the count takes the line above and both survive, at the cost of a little poster.
+fit side by side the count takes the line below and both survive, at the cost of a little poster.
 
 Rejected — naming the children on the tile instead of showing faces. A poster is ~110dp wide on
 the 3-column grid (2 under 400dp); three names do not fit, and the faces are the same ones from the

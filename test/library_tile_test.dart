@@ -612,6 +612,24 @@ void main() {
           reason: 'a narrow tile should stack them, count below');
     });
 
+    testWidgets('a lone count keeps the corner it has always had',
+        (tester) async {
+      // With no child selected there is no age hint, so the count is alone in
+      // the row — and that is the state the app opens in. Raised in review and
+      // unverified there; this is the check.
+      await pump(tester, LibraryItemState.unknown,
+          width: 178, childName: null, type: 'BoxSet', childCount: 7);
+      await tester.pumpAndSettle();
+
+      // Relative rather than to the pixel: `find.text` measures the label
+      // inside the badge's own padding, so an exact edge assertion is really
+      // an assertion about that padding.
+      final tile = tester.getRect(find.byType(LibraryTile));
+      final count = tester.getRect(find.text('7 titles'));
+      expect(count.center.dx, greaterThan(tile.center.dx),
+          reason: 'the count moved off the right-hand corner');
+    });
+
     testWidgets('a film with no collection count is unaffected',
         (tester) async {
       await pump(tester, LibraryItemState.notGiven,

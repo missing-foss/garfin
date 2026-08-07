@@ -131,16 +131,26 @@ class LibraryTile extends StatelessWidget {
                 //
                 // A `Wrap` rather than the top edge's shrink-to-fit, because
                 // neither of these can shrink: they are words. When both do
-                // not fit on one line the count takes the line above, which
-                // costs a little poster and keeps both facts. The top edge
-                // drops faces instead because a face has a `+N` that can
+                // not fit on one line the count takes the line **below**,
+                // which costs a little poster and keeps both facts. The top
+                // edge drops faces instead because a face has a `+N` that can
                 // stand for it; a number has nothing that stands for it.
+                //
+                // The alignment depends on what is in the row, and that is
+                // not cosmetic: `spaceBetween` has nothing to distribute with
+                // one child, so it puts it at the start — which moved a lone
+                // collection count from the right corner to the left on every
+                // tile with **no child selected**, the state the app opens in.
+                // Caught in review, and only because a test was written for
+                // the one case every other test had a child in.
                 Positioned(
                   bottom: 4,
                   left: 4,
                   right: 4,
                   child: Wrap(
-                    alignment: WrapAlignment.spaceBetween,
+                    alignment: _ageHint(l10n) == null
+                        ? WrapAlignment.end
+                        : WrapAlignment.spaceBetween,
                     spacing: 4,
                     runSpacing: 4,
                     children: [

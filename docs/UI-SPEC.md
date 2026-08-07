@@ -83,7 +83,8 @@ never persisted to survive it.
    anything narrower than a two-column tile, and it is a silent collision: everything stays inside
    the tile, so nothing errors. The top edge shrinks (three faces, then one and a `+N`, then
    nothing) because a `+N` can stand for a face; the bottom edge **wraps** instead, the count
-   taking the line above, because neither of those is a picture and nothing stands for a word.
+   taking the line below, because neither of those is a picture and nothing stands for a word. A
+   lone count — no child selected, so no hint — keeps the bottom-right corner it has always had.
    Already-shared items carry a check badge. Each tile shows avatars of the children who have it —
    **"have" meaning the label is on the item, never "can watch it"** (ground rule 4). Allow-list
    children only: for a block-list child the same tag means the title is *withheld*, and a
