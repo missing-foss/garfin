@@ -512,7 +512,7 @@ abstract class AppLocalizations {
   /// **'The rating limit and the hours are {name}\'s Jellyfin settings. Garfin reads them and never writes them.'**
   String kidsServerExplainPolicy(Object name);
 
-  /// Where to go. The three menu names are Jellyfin's own, verified against the 10.11.11 web client's strings rather than recalled — a wrong path is worse than none.
+  /// Where to go. TRANSLATORS: the three menu names are Jellyfin's own UI labels, not free-form prose — translate them to whatever Jellyfin's own client calls them in your locale, and verify against that locale's strings in the shipped web client rather than translating the English. A path is a per-locale claim: checking en proves nothing about fr. The English was read out of the 10.11.11 client (Dashboard, Users, Parental Control), and the French out of the same client's fr bundle (Tableau de bord, Utilisateurs, Contrôle parental). A wrong path is worse than none.
   ///
   /// In en, this message translates to:
   /// **'To change them, open Jellyfin and go to Dashboard → Users → {name} → Parental Control.'**

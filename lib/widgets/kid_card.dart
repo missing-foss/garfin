@@ -52,7 +52,12 @@ class KidCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                _ModeLabel(mode: kid.mode),
+                // Flexible for the same measured reason as the heading row
+                // below, and this one is **older than this change**: the
+                // status has always been an inflexible child beside an
+                // `Expanded`, and at 296dp/200% the header row overflowed
+                // too. Found while measuring the row the review asked about.
+                Flexible(child: _ModeLabel(mode: kid.mode)),
               ],
             ),
             const SizedBox(height: 12),
@@ -78,17 +83,28 @@ class KidCard extends ConsumerWidget {
             // above two existing lines, no new data.
             Row(
               children: [
-                Text(
-                  l10n.kidsServerSection,
-                  style: theme.textTheme.labelMedium
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                // `Flexible`, and it is not decoration: measured at a 296dp
+                // card with Android's 200% text scale, this row overflowed by
+                // 15px in English. Raised in review as probably-unreachable
+                // arithmetic; it is reachable.
+                Flexible(
+                  child: Text(
+                    l10n.kidsServerSection,
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
                 ),
                 // The tap the mode label used to promise and not have. One
                 // explanation for all three server-owned facts, next to the
                 // two that are hardest to place.
+                //
+                // **No `visualDensity: compact` here.** It measured 40x40,
+                // under the 48dp interactive minimum — on the one control
+                // that explains the card to a parent who could not work out
+                // what it was telling them, which is the worst place to save
+                // eight pixels.
                 IconButton(
                   icon: const Icon(Icons.help_outline, size: 18),
-                  visualDensity: VisualDensity.compact,
                   tooltip: l10n.kidsServerExplainAction,
                   onPressed: () =>
                       _explain(context, l10n, kid.user.name),

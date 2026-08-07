@@ -142,6 +142,62 @@ void main() {
           reason: 'the cap is the server\'s and belongs under it');
     });
 
+    testWidgets('the card survives a 296dp width at 200% text scale',
+        (tester) async {
+      // Raised in review as arithmetic that probably held. Measured, it did
+      // not: two rows overflowed — the heading added here, and the header
+      // row, which has had an inflexible status label beside an `Expanded`
+      // since long before this change.
+      //
+      // Both locales, because the strings differ in length and the one that
+      // overflowed first was the *shorter* one.
+      for (final locale in const [Locale('en'), Locale('fr')]) {
+        for (final scale in const [1.0, 1.5, 2.0]) {
+          await tester.pumpWidget(
+            ProviderScope(
+              child: MaterialApp(
+                locale: locale,
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: MediaQuery(
+                  data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                  child: Scaffold(
+                    // Scrollable, as the Kids screen itself is: at 200% the
+                    // card is simply taller than a test viewport, and a
+                    // vertical overflow here would be the harness rather than
+                    // the card. The claim under test is horizontal.
+                    body: SingleChildScrollView(
+                      child: SizedBox(
+                        width: 296,
+                        child: KidCard(kid: kid(), session: session),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(tester.takeException(), isNull,
+              reason: 'the card overflowed at ${locale.languageCode} '
+                  '${scale}x on a 296dp width');
+        }
+      }
+    });
+
+    testWidgets('the help button is big enough to hit', (tester) async {
+      // 48dp is the Material and Android interactive minimum. It measured
+      // 40x40 with `visualDensity: compact` — on the one control that
+      // explains the card to a parent who could not read it.
+      await pumpCard(tester, kid());
+      await tester.pumpAndSettle();
+
+      final size = tester.getSize(find.byType(IconButton));
+      expect(size.width, greaterThanOrEqualTo(48));
+      expect(size.height, greaterThanOrEqualTo(48));
+    });
+
     testWidgets('and the explanation says who owns them and where they live',
         (tester) async {
       await pumpCard(tester, kid());
