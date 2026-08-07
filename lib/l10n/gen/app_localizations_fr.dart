@@ -330,7 +330,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String libraryHolders(String names) {
-    return 'Donné à $names';
+    return 'Titre donné à $names';
   }
 
   @override

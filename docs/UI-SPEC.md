@@ -77,9 +77,12 @@ never persisted to survive it.
    conflicting account has no verb at all (ground rule 3), so neither appears. Three overlapped
    22dp circles at most, then a `+N` circle for the rest; a child with no picture falls back to
    their initial. They share the poster's top edge with the state badge and **shrink to whatever
-   the badge leaves** — three faces, then one, then the `+N` alone, then nothing. The badge is the
-   answer about the child the parent picked, so it keeps its width; the faces are in the tile's
-   spoken label either way, in full. The held-back nuance stays with the selected child's badge —
+   the badge leaves** — three faces and a `+N`, then two, then one, then nothing. The badge is the
+   answer about the child the parent picked, so it keeps its width. A `+N` is never drawn alone:
+   beside faces it means "N more than these", and on its own it would mean "N in total" — the same
+   glyph with two meanings, on the smallest tile. The faces are in the tile's spoken label at every
+   width, in full, minus the selected child, whom the badge has just named. The held-back nuance
+   stays with the selected child's badge —
    knowing it for everyone would cost a query per child per title. The faces show with no child
    selected, which is the case they exist for, and no badge exists then, so the whole edge is
    theirs.

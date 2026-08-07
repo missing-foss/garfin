@@ -24,6 +24,7 @@ class LibraryTile extends StatelessWidget {
     required this.entry,
     required this.serverUrl,
     this.childName,
+    this.childId,
     this.holders = const [],
     this.suitability = AgeSuitability.unknown,
   });
@@ -33,6 +34,13 @@ class LibraryTile extends StatelessWidget {
 
   /// The selected child, for the sentence explaining a held-back item.
   final String? childName;
+
+  /// The selected child's id, so the spoken label does not name them twice.
+  ///
+  /// An id rather than [childName]: names repeat on a Jellyfin server and can
+  /// be changed without the account changing, which is the same reason
+  /// `pickedChildProvider` keys on one.
+  final String? childId;
 
   /// The children who already have this title (#84), for the avatar row.
   ///
@@ -199,7 +207,7 @@ class LibraryTile extends StatelessWidget {
     return parts.join('. ');
   }
 
-  /// Who has it, said in words.
+  /// Who *else* has it, said in words.
   ///
   /// **Every one of them, not the ones the row had space for.** The `+N` exists
   /// because a poster is ~118dp wide and narrower beside a badge; a spoken
@@ -207,12 +215,21 @@ class LibraryTile extends StatelessWidget {
   /// answer than the two names. On the narrowest tile the row shows nothing at
   /// all and this sentence is the only place the faces survive.
   ///
+  /// **The selected child is left out, because the badge has just spoken about
+  /// them.** Otherwise the label reads "Given. Given to Emma", and the
+  /// held-back one reads as a contradiction — "the server isn't showing it to
+  /// them … Given to Emma" — to anyone who has not internalised the
+  /// given-versus-visible split this app is built on. Their face still goes in
+  /// the row: the row says who has it, the sentence adds who else.
+  ///
   /// Says *given*, like the avatars themselves: the label is on the item. See
   /// [holdersOf] — whether the title reaches the child is the server's answer,
   /// and ground rule 4 keeps this app out of it.
-  String? _holderSentence(AppLocalizations l10n) => holders.isEmpty
-      ? null
-      : l10n.libraryHolders(holders.map((h) => h.name).join(', '));
+  String? _holderSentence(AppLocalizations l10n) {
+    final others = holders.where((h) => h.userId != childId).toList();
+    if (others.isEmpty) return null;
+    return l10n.libraryHolders(others.map((h) => h.name).join(', '));
+  }
 }
 
 /// The faces along the top edge of a poster.
@@ -260,18 +277,26 @@ class _HolderRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         // How many circles fit, one more than the faces because the `+N` is
-        // one too. Zero is a real answer: on the narrowest tile, with a badge
-        // already there, the row says nothing rather than painting over it.
-        // The screen reader is told either way — that sentence is on the tile,
-        // not here.
+        // one too.
         final slots = _slotsIn(constraints.maxWidth);
-        if (slots == 0) return const SizedBox.shrink();
+        final showsEveryone =
+            holders.length <= slots && holders.length <= _maxFaces;
 
-        final faces = holders.length <= slots && holders.length <= _maxFaces
-            ? holders.length
-            : slots - 1;
+        // **A `+N` is never drawn alone.** Everywhere else it means "N more
+        // than the faces you can see"; with no face beside it the same glyph
+        // would mean "N in total", and the tile where that happens is the
+        // smallest one — the worst place to change what a symbol means. So
+        // the last rung before nothing is one face and a count, and below
+        // that the row says nothing rather than something ambiguous. The
+        // screen reader is told at every width; that sentence is on the tile,
+        // not here.
+        if (!showsEveryone && slots < 2) return const SizedBox.shrink();
 
-        return _circles(theme, l10n, faces: faces);
+        return _circles(
+          theme,
+          l10n,
+          faces: showsEveryone ? holders.length : slots - 1,
+        );
       },
     );
   }

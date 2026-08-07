@@ -631,8 +631,25 @@ and a tile is ~118dp at three columns, ~83dp at four — "Held back" and three f
 middle, and the row simply paints over the badge. Nothing errors, no test fails, and the geometry
 assertions all passed because each marker was inside the tile. So the two now sit in one row and the
 row measures: the badge takes its width, the faces take the remainder, and the count degrades three
-faces → one face and a `+N` → the `+N` alone → nothing. The badge wins because it is the answer
-about the child the parent picked; the faces are in the spoken label whatever the width.
+faces and a `+N` → two → one → nothing. The badge wins because it is the answer about the child the
+parent picked; the faces are in the spoken label whatever the width.
+
+**A `+N` is never drawn alone.** Beside faces it means "N more than these"; with nothing to be more
+than it would mean "N in total" — one glyph, two meanings, and the tile where the second one
+appears is the smallest, which is the worst place to change what a symbol means. So the last rung
+before nothing is one face and a count, and below that the row is silent. Nothing is lost: the
+spoken label carries every name at every width.
+
+**The spoken label names who *else* has it.** The selected child is dropped from that sentence
+because the badge has just spoken about them — otherwise a screen reader hears "Given. Given to
+Emma", and the held-back tile hears "the server isn't showing it to them … Given to Emma", which
+reads as a contradiction to anyone who has not internalised the given-versus-visible split. Their
+face stays in the row: the row says who has it, the sentence adds who else.
+
+**The French says "Titre donné à …", naming the noun.** A bare "Donné à" agrees with the item, and
+the grid carries *films*, *séries* and *collections* — masculine singular is right for one of the
+three. Naming `titre` fixes the agreement to a word that is always there and always masculine, which
+is cheaper than three strings and safer than a participle that has to guess.
 
 Every circle is the same size and overlaps by the same amount so the fit is arithmetic rather than
 an estimate — including the `+N`, which is a circle rather than a text chip for exactly that reason.

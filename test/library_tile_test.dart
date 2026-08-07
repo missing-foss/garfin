@@ -25,6 +25,7 @@ void main() {
     LibraryItemState state, {
     List<String> tags = const [],
     String? childName = 'Emma',
+    String? childId,
     String type = 'Movie',
     int? childCount,
     AgeSuitability suitability = AgeSuitability.unknown,
@@ -56,6 +57,7 @@ void main() {
                 ),
                 serverUrl: 'http://host:8096',
                 childName: childName,
+                childId: childId,
                 holders: holders,
                 suitability: suitability,
               ),
@@ -317,6 +319,11 @@ void main() {
         // sentence — see the semantics test below.
         expect(find.text('Held back'), findsOneWidget);
         expect(find.text('E'), findsNothing);
+        // And *nothing* on the poster, not a bare count: a `+N` with no face
+        // beside it would mean "N in total" where every other `+N` on the grid
+        // means "N more than these". Asserting only the absent face would pass
+        // for a lone `+5` too, which is the thing this pins.
+        expect(find.textContaining('+'), findsNothing);
         expect(tester.takeException(), isNull);
 
         final semantics = tester.getSemantics(find.byType(LibraryTile));
@@ -359,6 +366,12 @@ void main() {
               isFalse,
               reason: 'the count landed on the badge at ${width}dp',
             );
+          }
+          // A `+N` never appears alone, at any width: without a face beside it
+          // the same glyph would mean "N in total" rather than "N more".
+          if (find.textContaining('+').evaluate().isNotEmpty) {
+            expect(find.byType(UserAvatar), findsWidgets,
+                reason: 'a bare count with no face at ${width}dp');
           }
           expect(tester.takeException(), isNull,
               reason: 'the top row overflowed at ${width}dp');
@@ -470,13 +483,53 @@ void main() {
       await pump(
         tester,
         LibraryItemState.givenButHidden,
+        childId: 'id-Emma',
         holders: [holder('Emma'), holder('Léo')],
       );
       await tester.pumpAndSettle();
 
       final semantics = tester.getSemantics(find.byType(LibraryTile));
       expect(semantics.label, contains('the usual reason'));
-      expect(semantics.label, contains('Given to Emma, Léo'));
+      expect(semantics.label, contains('Given to Léo'));
+    });
+
+    testWidgets('the selected child is not named twice in one breath',
+        (tester) async {
+      // "Emma has this, but the server isn't showing it to them … Given to
+      // Emma" reads as a contradiction to anyone who has not internalised the
+      // given-versus-visible split — and on a plain given tile it reads as a
+      // stutter: "Given. Given to Emma." The badge has already spoken about
+      // the selected child; the sentence adds who *else*.
+      await pump(
+        tester,
+        LibraryItemState.given,
+        childId: 'id-Emma',
+        holders: [holder('Emma'), holder('Léo')],
+      );
+      await tester.pumpAndSettle();
+
+      final semantics = tester.getSemantics(find.byType(LibraryTile));
+      expect(semantics.label, contains('Given to Léo'));
+      expect(semantics.label, isNot(contains('Given to Emma')));
+      expect(semantics.label, isNot(contains('Emma')));
+      // Her face is still on the poster. The row says who has it; the sentence
+      // says who else — dropping her from both would lose a fact.
+      expect(find.text('E'), findsOneWidget);
+    });
+
+    testWidgets('a title only the selected child has says it once',
+        (tester) async {
+      await pump(
+        tester,
+        LibraryItemState.given,
+        childId: 'id-Emma',
+        holders: [holder('Emma')],
+      );
+      await tester.pumpAndSettle();
+
+      final semantics = tester.getSemantics(find.byType(LibraryTile));
+      expect(semantics.label, contains('Given'));
+      expect(semantics.label, isNot(contains('Given to')));
     });
 
     testWidgets('the row never replaces the state badge', (tester) async {

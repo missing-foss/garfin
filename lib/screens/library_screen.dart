@@ -299,6 +299,7 @@ class _Grid extends ConsumerWidget {
                       entry: entry,
                       serverUrl: session.serverUrl,
                       childName: child?.name,
+                      childId: child?.id,
                       holders: holdersOf(item: entry.item, children: kids),
                       suitability: suitabilityFor(
                         item: entry.item,
