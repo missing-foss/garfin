@@ -729,6 +729,28 @@ count would then wait on a library page before it could start.
 The gate is a test that **writes and then reads the line**, which is what the original PR lacked:
 seventeen tests, none of them exercising a write, over a defect that only a write produces.
 
+**A feed is meaningful for exactly one child, and now says which** (#96, the consequence of keeping
+the tiles). Not blanking the grid means the previous child's tiles stay on screen while a new
+selection's query is in flight, and every marker `_classify` computed is about the child who was
+selected when it ran. Measured one frame after switching from Emma to Léo:
+
+    before:  Paddington. Leo has this, but the server isn't showing it to them.
+    after:   Paddington. Given to Emma
+
+The first sentence names a child who had never been given the title — the exact shape of claim
+ground rule 4 exists to prevent, and the copy everywhere else is written carefully to avoid.
+`LibraryFeed` now carries `classifiedFor`, and the screen shows no per-child marker until it matches
+the current selection.
+
+**Only what the feed decided waits**, which is the distinction worth keeping: the state badge and
+the held-back sentence come from `_classify` and are stale; the age hint is computed on the screen
+from the *current* child's age against the item's own rating, and the avatar row says who has the
+title rather than anything about the selection. Suppressing those two as well would remove true
+statements and make the hint flicker on every switch.
+
+The invariant was always true and was never written down. Nothing enforced it because the spinner
+hid it: there was no stale feed on screen to misread until there was.
+
 ---
 
 ## Open questions

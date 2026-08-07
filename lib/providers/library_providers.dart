@@ -252,9 +252,28 @@ class LibraryFeed {
     required this.nextStartIndex,
     required this.hasMore,
     required this.totalRecordCount,
+    this.classifiedFor,
     this.loadingMore = false,
     this.moreFailed = false,
   });
+
+  /// **The child every [LibraryEntry.state] in here was computed against**, or
+  /// null for Everyone (#96).
+  ///
+  /// A feed is only meaningful for one child, and until this field existed
+  /// nothing said so — the invariant held by accident, because switching child
+  /// blanked the grid to a spinner and there was never a stale feed on screen
+  /// to misread. #94 stopped the blanking, correctly, and the accident stopped
+  /// with it: for as long as the new query is in flight the previous child's
+  /// tiles are on screen while every label around them has already changed.
+  ///
+  /// Measured, one frame after selecting Léo with Emma's feed still current:
+  ///
+  ///     Paddington. Leo has this, but the server isn't showing it to them.
+  ///
+  /// He had never been given it. The screen compares this against the current
+  /// selection and says nothing per-child until they agree.
+  final String? classifiedFor;
 
   final List<LibraryEntry> entries;
   final int nextStartIndex;
@@ -282,6 +301,9 @@ class LibraryFeed {
         nextStartIndex: nextStartIndex ?? this.nextStartIndex,
         hasMore: hasMore ?? this.hasMore,
         totalRecordCount: totalRecordCount,
+        // Never rewritten by a copy: the entries carry a classification, and
+        // whose it is is a property of them rather than of this call.
+        classifiedFor: classifiedFor,
         loadingMore: loadingMore ?? this.loadingMore,
         moreFailed: moreFailed ?? this.moreFailed,
       );
@@ -306,12 +328,16 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
     // describes it can never be refreshed apart.
     ref.watch(libraryRevisionProvider);
 
+    // Read here as well as inside `_fetch`, so the feed can record whose
+    // classification it carries (#96).
+    final child = ref.watch(pickedChildProvider(session));
     final slice = await _fetch(startIndex: 0);
     return LibraryFeed(
       entries: slice.entries,
       nextStartIndex: slice.nextStartIndex,
       hasMore: slice.hasMore,
       totalRecordCount: slice.totalRecordCount,
+      classifiedFor: child?.id,
     );
   }
 
@@ -345,6 +371,9 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
           nextStartIndex: slice.nextStartIndex,
           hasMore: slice.hasMore && slice.entries.isNotEmpty,
           totalRecordCount: current.totalRecordCount,
+          // A page appended to this feed was classified for the same child:
+          // changing the selection rebuilds rather than appending.
+          classifiedFor: current.classifiedFor,
         ),
       );
     } on Object {
