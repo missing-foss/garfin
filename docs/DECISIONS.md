@@ -388,8 +388,10 @@ policy, changing only `AllowedTags`, and writing it back.
 > and accepted the unsafe one, since the unsafe one is the one that *looks* like a small diff.
 >
 > If it is ever revisited: raw map only, never a typed model; a test asserting the object posted is
-> the object received plus one key; read-back verification per write; and a standing 43-key
-> round-trip diff, as rule 2 has. Measurements in `docs/JELLYFIN-API.md` § *Writing user policy*.
+> the object received plus one key; read-back verification per write; and a standing round-trip diff
+> asserting **every key that came back goes back**, as rule 2 has — *not* "all 43 keys", because a
+> child with no cap has 42: `MaxParentalRating` is absent until it is set, and a count would fail on
+> the ordinary starting state. Compare schedule *content* too; a row's `Id` churns on every write. Measurements in `docs/JELLYFIN-API.md` § *Writing user policy*.
 
 The rest of the original reasoning stands: `MaxParentalRating` disappearing removes a child's rating
 cap while every screen still reports success. Treat the ban as settled.
