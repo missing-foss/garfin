@@ -177,6 +177,16 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
   the code beside it was correct. A claim scoped to what you searched rather than to what exists
   reads exactly like a verified one. Tests here get mutation-tested as a matter of course; give
   sentences the same treatment, which costs one command.
+
+  **And prove the search can find something before believing it found nothing.** A grep that
+  returns zero is evidence about your pattern before it is evidence about the tree. Three times in
+  one afternoon a malformed or guessed pattern produced a **false negative that read as a defect**:
+  a filename guessed as `fr-fr-json.*` when the chunk is `fr-json.*` (so "these terms are absent
+  from Jellyfin's UI"), a phrase that wraps across a line, and a blockquote marker sitting inside
+  the joined string (both: "the correction never landed in this file"). A positive control — one
+  pattern you know is present, run first — costs nothing and catches all three. This is check 4 of
+  `docs/JELLYFIN-API.md` § *Measuring this without measuring your own harness*, which is written
+  for API sweeps and applies to prose exactly as well.
 - **A gate you have not tried to break is not a gate.** Mutation-test anything you add or rewrite
   that is supposed to catch something — delete the thing it guards and watch it fail. Two gates
   in this repo were vacuous when written.
