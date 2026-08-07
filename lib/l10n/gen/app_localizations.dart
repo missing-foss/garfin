@@ -488,6 +488,42 @@ abstract class AppLocalizations {
   /// **'No rating limit'**
   String get kidsRatingCapNone;
 
+  /// Heading above the two lines on a kid's card that come from the child's Jellyfin account rather than from Garfin — the rating limit and the access hours. It exists because those sit directly under the birth year, which IS editable here and is stored on this phone, and nothing said the three came from three different places.
+  ///
+  /// In en, this message translates to:
+  /// **'Set in Jellyfin'**
+  String get kidsServerSection;
+
+  /// Tooltip and screen-reader label for the button beside that heading, which opens the explanation.
+  ///
+  /// In en, this message translates to:
+  /// **'What is set in Jellyfin?'**
+  String get kidsServerExplainAction;
+
+  /// First paragraph of the explanation sheet. Answers the question the mode label provokes: what does 'Shortlist' mean and can I change it here.
+  ///
+  /// In en, this message translates to:
+  /// **'Garfin adds and removes titles from {name}\'s list. The list itself — and whether it is a shortlist or a blocklist — is set in Jellyfin.'**
+  String kidsServerExplainMode(String name);
+
+  /// Second paragraph. States the read-only boundary plainly — it is ground rule 8, and without saying so the two lines read as a missing feature rather than a deliberate limit.
+  ///
+  /// In en, this message translates to:
+  /// **'The rating limit and the hours are {name}\'s Jellyfin settings. Garfin reads them and never writes them.'**
+  String kidsServerExplainPolicy(Object name);
+
+  /// Where to go. The three menu names are Jellyfin's own, verified against the 10.11.11 web client's strings rather than recalled — a wrong path is worse than none.
+  ///
+  /// In en, this message translates to:
+  /// **'To change them, open Jellyfin and go to Dashboard → Users → {name} → Parental Control.'**
+  String kidsServerExplainWhere(String name);
+
+  /// Third paragraph. The birth year sits one line above the rating limit and sounds like it should drive it; it does not.
+  ///
+  /// In en, this message translates to:
+  /// **'The age above is not one of them. Jellyfin stores no birth year, so Garfin keeps the one you enter on this phone, and it only shapes the hints on the Library screen.'**
+  String get kidsServerExplainBirthYear;
+
   /// Title of the dialog where the parent types a child's birth year.
   ///
   /// In en, this message translates to:

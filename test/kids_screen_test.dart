@@ -93,6 +93,99 @@ void main() {
     expect(find.textContaining('years old'), findsOneWidget);
   });
 
+  group('whose settings these are (#74, #76)', () {
+    testWidgets('the status is not drawn as something you can press',
+        (tester) async {
+      // Reported from use as "a 'select' button — it doesn't seem to work".
+      // It never did: `_ModeChip` had no `onPressed`. The problem was that a
+      // `Chip` is what this app uses for the library filter bar's *tappable*
+      // `FilterChip`s and `ChoiceChip`s, so a pill taught the parent it was a
+      // button and then ignored them.
+      await pumpCard(tester, kid());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Shortlist'), findsOneWidget);
+      expect(find.widgetWithText(Chip, 'Shortlist'), findsNothing,
+          reason: 'the status is drawn as a chip again');
+      expect(find.widgetWithText(InkWell, 'Shortlist'), findsNothing,
+          reason: 'and it must not be tappable either — it reports, it does '
+              'not act');
+    });
+
+    testWidgets('the tags below it are still chips, which is correct',
+        (tester) async {
+      // A control: the fix is about one widget, not about banning `Chip` from
+      // the card. Without this the test above passes for a change that
+      // stripped every pill off the screen.
+      await pumpCard(tester, kid());
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(Chip, 'kids-emma'), findsOneWidget);
+    });
+
+    testWidgets('the server-owned lines are labelled as the server\'s',
+        (tester) async {
+      // The three lines come from three places — the age from this phone, the
+      // cap and the hours from Jellyfin — and stacked in one column they read
+      // as one list of Garfin's.
+      await pumpCard(tester, kid(birthYear: 2015));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Set in Jellyfin'), findsOneWidget);
+
+      final heading = tester.getRect(find.text('Set in Jellyfin'));
+      final age = tester.getRect(find.textContaining('years old'));
+      final cap = tester.getRect(find.text('Up to PG'));
+      expect(age.top, lessThan(heading.top),
+          reason: 'the age is this phone\'s and belongs above the heading');
+      expect(cap.top, greaterThan(heading.top),
+          reason: 'the cap is the server\'s and belongs under it');
+    });
+
+    testWidgets('and the explanation says who owns them and where they live',
+        (tester) async {
+      await pumpCard(tester, kid());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.help_outline));
+      await tester.pumpAndSettle();
+
+      // Reads them, never writes them — ground rule 8, said plainly, because
+      // a limit nobody explains reads as a missing feature.
+      expect(find.textContaining('never writes them'), findsOneWidget);
+      // The path, in Jellyfin's own menu names.
+      expect(find.textContaining('Dashboard'), findsOneWidget);
+      expect(find.textContaining('Parental Control'), findsOneWidget);
+      // The question the mode label used to provoke and never answer.
+      expect(find.textContaining('adds and removes titles'), findsOneWidget);
+      // And the birth year, which sounds like it should drive the cap.
+      expect(find.textContaining('Jellyfin stores no birth year'),
+          findsOneWidget);
+    });
+  });
+
+  testWidgets('in French the status reads as a state, not an action (#76)',
+      (tester) async {
+    // The other half of the report, and the reason it was read as a button:
+    // "Sélection" is both a noun and what a select button does. The pair was
+    // asymmetric too — a bare noun beside a named list — so the two did not
+    // read as two values of one setting.
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: KidCard(kid: kid(), session: session)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Liste de sélection'), findsOneWidget);
+    expect(find.text('Sélection'), findsNothing);
+  });
+
   testWidgets('a block-list account says so, and never says Shortlist',
       (tester) async {
     // Ground rule 3: opposite verbs. Labelling a blocklist as a shortlist

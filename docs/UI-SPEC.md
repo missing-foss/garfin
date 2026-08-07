@@ -211,6 +211,25 @@ they cannot be converted — and a child with no schedule is told they can watch
 than being left blank, which would read as the opposite. Below, a plain list of users with no shortlist set,
 including the admin.
 
+### Whose settings are on a kid's card, and where they live
+
+Three lines sit in one column and come from three different places: the **age**, from a birth year
+the parent enters and Garfin keeps on this phone; the **rating limit** and the **hours**, both read
+from the child's Jellyfin account and never written (ground rule 8). Stacked without a word they
+read as one list of Garfin's, and the birth year sounds like it drives the limit beneath it. It does
+not — it only shapes the Library's age hints.
+
+So the two server-owned lines sit under a **"Set in Jellyfin"** heading, with a help button beside
+it opening one explanation for all three facts: what Garfin does to the child's list, that it reads
+the limit and the hours and never writes them, where to change them — *Dashboard → Users → {name} →
+Parental Control*, which are Jellyfin's own menu names — and what the birth year is actually for.
+
+**The mode label is a label, not a chip.** It reports which kind of list the account uses and has
+never done anything on tap; drawn as a `Chip` it imitated the library filter bar's tappable
+`FilterChip`s, and was duly reported as a button that does not work. In French the pair reads as two
+values of one setting — *Liste de sélection* / *Liste d'exclusion* — rather than a bare noun that is
+also a verb.
+
 ### The users with no shortlist need an explanation, not just a listing
 
 Garfin cannot give a child their first label. A child is only under shortlist control because

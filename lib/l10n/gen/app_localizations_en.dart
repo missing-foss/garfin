@@ -249,6 +249,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get kidsRatingCapNone => 'No rating limit';
 
   @override
+  String get kidsServerSection => 'Set in Jellyfin';
+
+  @override
+  String get kidsServerExplainAction => 'What is set in Jellyfin?';
+
+  @override
+  String kidsServerExplainMode(String name) {
+    return 'Garfin adds and removes titles from $name\'s list. The list itself — and whether it is a shortlist or a blocklist — is set in Jellyfin.';
+  }
+
+  @override
+  String kidsServerExplainPolicy(Object name) {
+    return 'The rating limit and the hours are $name\'s Jellyfin settings. Garfin reads them and never writes them.';
+  }
+
+  @override
+  String kidsServerExplainWhere(String name) {
+    return 'To change them, open Jellyfin and go to Dashboard → Users → $name → Parental Control.';
+  }
+
+  @override
+  String get kidsServerExplainBirthYear =>
+      'The age above is not one of them. Jellyfin stores no birth year, so Garfin keeps the one you enter on this phone, and it only shapes the hints on the Library screen.';
+
+  @override
   String get kidsBirthYearTitle => 'Birth year';
 
   @override

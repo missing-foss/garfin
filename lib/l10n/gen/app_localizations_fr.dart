@@ -216,7 +216,7 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get kidsModeAllowList => 'Sélection';
+  String get kidsModeAllowList => 'Liste de sélection';
 
   @override
   String get kidsModeBlockList => 'Liste d\'exclusion';
@@ -248,6 +248,32 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get kidsRatingCapNone => 'Aucune limite d\'âge';
+
+  @override
+  String get kidsServerSection => 'Défini dans Jellyfin';
+
+  @override
+  String get kidsServerExplainAction =>
+      'Qu\'est-ce qui est défini dans Jellyfin ?';
+
+  @override
+  String kidsServerExplainMode(String name) {
+    return 'Garfin ajoute et retire des titres de la liste de $name. La liste elle-même — et le fait qu\'elle soit une liste de sélection ou d\'exclusion — est définie dans Jellyfin.';
+  }
+
+  @override
+  String kidsServerExplainPolicy(Object name) {
+    return 'La limite d\'âge et les horaires sont les réglages Jellyfin de $name. Garfin les lit et ne les modifie jamais.';
+  }
+
+  @override
+  String kidsServerExplainWhere(String name) {
+    return 'Pour les modifier, ouvrez Jellyfin et allez dans Tableau de bord → Utilisateurs → $name → Contrôle parental.';
+  }
+
+  @override
+  String get kidsServerExplainBirthYear =>
+      'L\'âge ci-dessus n\'en fait pas partie. Jellyfin ne stocke pas d\'année de naissance : Garfin garde sur ce téléphone celle que vous saisissez, et elle ne sert qu\'aux indications de l\'écran Bibliothèque.';
 
   @override
   String get kidsBirthYearTitle => 'Année de naissance';
