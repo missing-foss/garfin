@@ -26,6 +26,7 @@ each by a different accident:
 | **A shared `DeviceId`** | every call after the second answering 401 | the "device" client authenticated as the admin and invalidated the admin's own token (#40) |
 | **A query that fetched nothing** | "0 items, so the claim holds" | a wrong `parentId` and a true claim are the same empty list (#55) |
 | **Observing a state you wrote** | "descendants carry no tags" | the harness had written `Tags: []` to them itself (#55) |
+| **A fixture the scanner renamed** | `KeyError: 'Bravo'` — and, one step later, a fixture silently written to the wrong film | an empty `Bravo.mkv` is still matched by the metadata provider and the item comes back called **`Rio Bravo`**; `Charlie.mkv` became *Charlie and the Chocolate Factory* and `Delta.mkv` *The Delta Force* (#81). Key a fixture on **`Path`**, never on `Name` |
 
 The checks are cheap and none of them is clever:
 
@@ -580,6 +581,49 @@ uses commas correctly, so the conventions really are per parameter.
 
 It matters because a child may hold **several** shortlist tags and the server matches any of them:
 a member-counting query built with a comma returns 0, and a fully-shared set reads as untouched.
+
+### `tags=` ANDs with every other filter — measured, because #81 subtracts across them
+
+The Library's result line is `total − tagged` (§ *The result line is a subtraction*, `DECISIONS.md`),
+and that is only a number if both queries describe the **same population**. So each filter was
+checked against `tags=` directly rather than inferred from the `searchTerm` composition above.
+
+Six films, written through the full-object round-trip: `Alpha` (`kids-emma`, Family, 1991, G),
+`Rio Bravo` (`kids-emma`, Drama, 2001, PG-13), `Charlie…` (`family-films`, Family, 1991, G),
+`The Delta Force` (untagged, Family, 1991, G), `Echo` (`kids-emma`, Family, 2015, PG-13),
+`Foxtrot` (untagged, Drama, 2001, PG-13). All counts `Limit=0`, `IncludeItemTypes=Movie`:
+
+    (no filter)                                 -> 6
+    tags=kids-emma                              -> 3
+    genres=Family                               -> 4
+    tags=kids-emma&genres=Family                -> 2     <- AND
+    tags=kids-emma&genres=Drama                 -> 1     <- the other direction
+    tags=kids-emma&genres=Horror                -> 0     <- the control that can still say no
+    years=1991                                  -> 3
+    tags=kids-emma&years=1991                   -> 1
+    tags=kids-emma&years=1991,1992,1993         -> 1     <- a decade span, as the grid sends it
+    tags=kids-emma|family-films                 -> 4     <- OR, still an OR under a filter
+    tags=kids-emma|family-films&genres=Family   -> 3
+    tags=kids-emma&searchTerm=alpha             -> 1
+    tags=kids-emma&searchTerm=charlie           -> 0
+    maxOfficialRating=0                         -> 3
+    tags=kids-emma&maxOfficialRating=0          -> 1
+
+And the subtraction itself, per filter set — the numbers the result line puts on screen:
+
+    no filter        total=6  tagged=4  outstanding=2
+    genres=Family    total=4  tagged=3  outstanding=1
+    years=1991       total=3  tagged=2  outstanding=1
+
+**`PG-13` has no numeric value in this ladder** (`G=0`, `PG-13=null`), which is the same shape as the
+five names sharing value 0 recorded below: a cap is only ever sent as the number the child's policy
+holds, never as a name.
+
+<sub>Measured 2026-08-07 on 10.11.11 in a disposable container — port tested free and bound to
+127.0.0.1, `StartupWizardCompleted: false` asserted before any write, container and volumes removed
+after. Two harness traps hit on the way, both now in the table at the top of this file: the
+**camelCase-on-boot** reply that `dto_json.dart` already documents (the wait loop broke on the first
+200 and read an object whose every field looked absent), and the **scanner renaming the fixture**.</sub>
 
 ### A well-formed GUID that does not exist answers 404 — except the all-zero one
 

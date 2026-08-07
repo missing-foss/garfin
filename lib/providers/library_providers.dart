@@ -112,6 +112,35 @@ final libraryRepositoryProvider =
   return LibraryRepository(api: api, adminUserId: session.userId);
 });
 
+/// How many items carry the selected child's labels, under the active filters.
+///
+/// The other half of the result line's arithmetic (#81); the grid's own
+/// `TotalRecordCount` is the first half and is already in hand, so this is one
+/// `Limit=0` query and not a second page fetch.
+///
+/// **Filters are threaded on purpose.** The number is subtracted from a total
+/// the server computed under those filters, and a subtraction across two
+/// populations answers with something that looks perfectly reasonable. The
+/// rating cap rides along only when the cap chip is on, matching what
+/// `libraryPage` does with it.
+///
+/// Zero for a child with no labels to match — [UserPolicy.shortlistTags] is
+/// empty for a conflicting account, and asking `tags=` for nothing would count
+/// the whole library.
+final taggedItemCountProvider =
+    FutureProvider.family<int, AuthSession>((ref, session) async {
+  final child = ref.watch(pickedChildProvider(session));
+  final labels = child?.policy.shortlistTags ?? const <String>[];
+  if (labels.isEmpty) return 0;
+
+  return ref.watch(libraryApiProvider(session)).taggedItemCount(
+        userId: session.userId,
+        tags: labels,
+        filters: ref.watch(libraryFiltersProvider),
+        maxParentalRating: child!.policy.maxParentalRating,
+      );
+});
+
 /// What the filter bar is asking for. Reset by the bar's own Reset.
 class LibraryFilterState extends Notifier<LibraryFilters> {
   @override

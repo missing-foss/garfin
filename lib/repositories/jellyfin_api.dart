@@ -510,10 +510,22 @@ class JellyfinApi {
   /// and one series contributes nine instead of one, `count <= 1` stops being
   /// reachable in any library that has a series in it, and the warning silently
   /// never fires again. `test/tagged_item_count_test.dart` pins it.
+  /// **[tags] go out as one `|`-joined query, never one request per tag.**
+  /// Measured (§ *`tags=` takes `|`, not `,`*): `tags=a|b` is an OR, which is
+  /// the server's own shortlist semantics, and a sum of two requests would
+  /// double-count an item carrying both. A comma is not a separator — the
+  /// whole string becomes one tag name and the count silently answers 0.
+  ///
+  /// [filters] and [maxParentalRating] default to none, which is what the
+  /// last-item warning wants: that warning is about the **whole library**, and
+  /// narrowing it to whatever the grid happens to be showing would let the
+  /// warning miss the last tagged item because a genre chip was set.
   Future<int> taggedItemCount({
     required String userId,
-    required String tag,
+    required List<String> tags,
     List<String> itemTypes = const ['Movie', 'Series', 'BoxSet'],
+    LibraryFilters filters = const LibraryFilters(),
+    int? maxParentalRating,
   }) =>
       _call(() async {
         final response = await _dio.get<dynamic>(
@@ -522,8 +534,18 @@ class JellyfinApi {
             'userId': userId,
             'Recursive': true,
             'Limit': 0,
-            'tags': tag,
-            'IncludeItemTypes': itemTypes.join(','),
+            'tags': tags.join('|'),
+            'IncludeItemTypes':
+                (filters.type == null ? itemTypes : [filters.type!]).join(','),
+            // The same filters the grid's own query carries, because this
+            // count is subtracted from that query's total (#81). A filter on
+            // one side and not the other subtracts one population from a
+            // different one, and the answer looks perfectly reasonable.
+            if (filters.hasSearch) 'searchTerm': filters.searchTerm!.trim(),
+            if (filters.genre != null) 'genres': filters.genre,
+            if (filters.decade != null) 'years': filters.decadeYears.join(','),
+            if (filters.withinCap && maxParentalRating != null)
+              'maxOfficialRating': maxParentalRating,
           },
         );
         return readInt(_asMap(response.data), 'TotalRecordCount') ?? 0;

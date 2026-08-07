@@ -377,6 +377,18 @@
       }
     }
   },
+  "libraryWithheld": "{count} things kept from {name}",
+  "@libraryWithheld": {
+    "description": "Result line when the selected child is on a block-list, where a label takes a title away rather than handing it over. The mirror of libraryNotYetGiven, and the same caution applies: it counts labels, not what the child can see.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "libraryItemCount": "{count} things",
   "@libraryItemCount": {
     "description": "Result line when no child is selected.",

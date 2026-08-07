@@ -40,7 +40,7 @@ void main() {
   test('the count asks only about the types a parent hands over', () async {
     server.fallback(json: <String, dynamic>{'TotalRecordCount': 3});
 
-    await api.taggedItemCount(userId: 'admin-1', tag: 'kids-emma');
+    await api.taggedItemCount(userId: 'admin-1', tags: const ['kids-emma']);
 
     final types = (lastQuery()['IncludeItemTypes'] as String).split(',');
     expect(types.toSet(), {'Movie', 'Series', 'BoxSet'});
@@ -50,7 +50,7 @@ void main() {
       () async {
     server.fallback(json: <String, dynamic>{'TotalRecordCount': 3});
 
-    await api.taggedItemCount(userId: 'admin-1', tag: 'kids-emma');
+    await api.taggedItemCount(userId: 'admin-1', tags: const ['kids-emma']);
 
     final types = (lastQuery()['IncludeItemTypes'] as String).split(',');
     expect(types, isNot(contains('Episode')),
@@ -63,7 +63,7 @@ void main() {
     // Unfiltered, the same single write answers 9 rather than 1.
     server.fallback(json: <String, dynamic>{'TotalRecordCount': 3});
 
-    await api.taggedItemCount(userId: 'admin-1', tag: 'kids-emma');
+    await api.taggedItemCount(userId: 'admin-1', tags: const ['kids-emma']);
 
     expect(lastQuery().containsKey('IncludeItemTypes'), isTrue);
     expect(lastQuery()['tags'], 'kids-emma');

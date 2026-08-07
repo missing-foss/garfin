@@ -69,7 +69,13 @@ never persisted to survive it.
    replacing them. Typing is debounced at 350ms: every keystroke would otherwise be a
    library-sized query, which #68 measured at up to half a second. Whitespace is not a search, and
    an active search counts toward the filter badge like anything else.
-3. **Result line** — "N things Emma hasn't got yet", with a Show/Hide shared text button.
+3. **Result line** — "N things Emma hasn't got yet", with a Show/Hide shared text button. **N is
+   `total − tagged`, both counted by the server under the active filters** — never the number of
+   tiles loaded, which climbs as the parent scrolls, and never the grid's contents, which include
+   already-shared titles whenever Show shared is on. A block-list child reads the other way round —
+   "N things kept from Sam", the tagged count itself — and a conflicting account gets the library's
+   own count with no claim about them (ground rule 3). Until the count arrives, and if it fails,
+   the line says what the library holds: true either way, and better than a spinner over a number.
 4. **Poster grid** — 3 columns (2 under 400dp). Collections get a stacked cover and a count badge.
    Already-shared items carry a check badge. Each tile shows avatars of the children who have it —
    **"have" meaning the label is on the item, never "can watch it"** (ground rule 4). Allow-list

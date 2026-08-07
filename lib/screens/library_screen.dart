@@ -10,6 +10,7 @@ import '../models/auth_session.dart';
 import '../models/age_suitability.dart';
 import '../models/item_holder.dart';
 import '../models/jellyfin_user.dart';
+import '../models/library_count.dart';
 import '../models/kid_summary.dart';
 import '../models/parental_rating.dart';
 import '../providers/app_providers.dart';
@@ -153,6 +154,32 @@ class _PickChip extends StatelessWidget {
   );
 }
 
+/// The result line, from the two server counts and the child's mode.
+///
+/// [tagged] is null until the count arrives, and stays null if it failed. Both
+/// mean the same thing here: there is no per-child number to state yet, so the
+/// line falls back to the library's own count rather than to a guess or a
+/// spinner.
+String _resultLine(
+  AppLocalizations l10n, {
+  required LibraryFeed feed,
+  required JellyfinUser? child,
+  required int? tagged,
+}) {
+  final count = libraryCountFor(
+    total: feed.totalRecordCount,
+    tagged: tagged ?? 0,
+    child: tagged == null ? null : child,
+  );
+
+  return switch (count.kind) {
+    LibraryCountKind.everything => l10n.libraryItemCount(count.count),
+    LibraryCountKind.notYetGiven =>
+      l10n.libraryNotYetGiven(count.count, child!.name),
+    LibraryCountKind.withheld => l10n.libraryWithheld(count.count, child!.name),
+  };
+}
+
 /// The selected child's age, from the birth year the parent entered.
 ///
 /// Null when no child is selected or no year has been set — both of which make
@@ -205,6 +232,13 @@ class _Grid extends ConsumerWidget {
         ref.watch(kidsOverviewProvider(session)).asData?.value.shortlisted ??
         const <KidSummary>[];
 
+    // The result line's other half (#81). Null while it is in flight or if it
+    // failed — the line then says what the *library* holds, which is true
+    // either way, rather than holding a number back behind a spinner or
+    // showing a wrong one. Same shape as #68's verified count: state what you
+    // know, replace it when the server answers.
+    final tagged = ref.watch(taggedItemCountProvider(session)).asData?.value;
+
     if (feed.entries.isEmpty) {
       return Center(
         child: Padding(
@@ -235,12 +269,14 @@ class _Grid extends ConsumerWidget {
                   // can see. The second is the server's answer, tags and cap
                   // together, and claiming it here is what ground rule 4
                   // forbids.
-                  child == null
-                      ? l10n.libraryItemCount(feed.totalRecordCount)
-                      : l10n.libraryNotYetGiven(
-                          feed.entries.length,
-                          child!.name,
-                        ),
+                  //
+                  // **Both numbers are the server's** (#81). This line used to
+                  // read `feed.entries.length` — the page buffer — so it
+                  // counted what had been scrolled into view and, with
+                  // "Show shared" on, counted titles the child already had.
+                  // It is now `total − tagged`, both from `/Items` under the
+                  // same filters.
+                  _resultLine(l10n, feed: feed, child: child, tagged: tagged),
                   style: theme.textTheme.bodyMedium,
                 ),
               ),

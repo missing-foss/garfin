@@ -560,6 +560,12 @@ abstract class AppLocalizations {
   /// **'{count} things {name} hasn\'t got yet'**
   String libraryNotYetGiven(int count, String name);
 
+  /// Result line when the selected child is on a block-list, where a label takes a title away rather than handing it over. The mirror of libraryNotYetGiven, and the same caution applies: it counts labels, not what the child can see.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} things kept from {name}'**
+  String libraryWithheld(int count, String name);
+
   /// Result line when no child is selected.
   ///
   /// In en, this message translates to:
