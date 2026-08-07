@@ -20,6 +20,7 @@ class FakeJellyfinServer implements HttpClientAdapter {
   final List<RequestOptions> requests = <RequestOptions>[];
 
   final Map<String, List<_Reply>> _script = <String, List<_Reply>>{};
+  final List<_Matcher> _matchers = <_Matcher>[];
   _Reply? _fallback;
 
   /// Queues one reply for `path`. Queued replies are consumed in order, so a
@@ -33,6 +34,41 @@ class FakeJellyfinServer implements HttpClientAdapter {
   }) {
     _script.putIfAbsent(path, () => <_Reply>[]).add(
         _Reply(json: json, status: status, failWith: failWith, delay: delay));
+  }
+
+  /// Queues a reply matched on the **query** as well as the path, and reused
+  /// for every request that matches.
+  ///
+  /// [on] is positional: replies are consumed in order and the last one queued
+  /// answers everything after it. That is right for scripting a sequence — "not
+  /// approved, not approved, approved" — and wrong when several unrelated
+  /// questions share a path. `/Items` carries the grid's page, the visibility
+  /// lookup, the tagged count and the last-item warning, so a test scripting
+  /// two of them positionally is one provider rebuild away from handing the
+  /// page's answer to the count. That has produced a *plausible* wrong number
+  /// in three different tests rather than an error, which is the species
+  /// `docs/JELLYFIN-API.md` names at the top: a harness answering confidently.
+  ///
+  /// Matchers are checked before the positional script, newest first, so a
+  /// later registration can change one answer — the server having gained a tag
+  /// between two reads — without re-scripting the rest.
+  void onQuery(
+    String path,
+    bool Function(Map<String, dynamic> query) where, {
+    Object? json,
+    int status = 200,
+    DioExceptionType? failWith,
+    Duration? delay,
+  }) {
+    _matchers.insert(
+      0,
+      _Matcher(
+        path: path,
+        where: where,
+        reply: _Reply(
+            json: json, status: status, failWith: failWith, delay: delay),
+      ),
+    );
   }
 
   /// The reply for any path with nothing queued.
@@ -61,10 +97,21 @@ class FakeJellyfinServer implements HttpClientAdapter {
   ) async {
     requests.add(options);
 
-    final queued = _script[options.path];
-    final reply = (queued != null && queued.isNotEmpty)
-        ? (queued.length == 1 ? queued.first : queued.removeAt(0))
-        : _fallback;
+    _Reply? reply;
+    for (final matcher in _matchers) {
+      if (matcher.path == options.path &&
+          matcher.where(options.queryParameters)) {
+        reply = matcher.reply;
+        break;
+      }
+    }
+
+    if (reply == null) {
+      final queued = _script[options.path];
+      reply = (queued != null && queued.isNotEmpty)
+          ? (queued.length == 1 ? queued.first : queued.removeAt(0))
+          : _fallback;
+    }
 
     if (reply == null) {
       throw DioException(
@@ -91,6 +138,14 @@ class FakeJellyfinServer implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+class _Matcher {
+  _Matcher({required this.path, required this.where, required this.reply});
+
+  final String path;
+  final bool Function(Map<String, dynamic> query) where;
+  final _Reply reply;
 }
 
 class _Reply {

@@ -702,6 +702,33 @@ The count arrives asynchronously and the line does not wait for it: until then i
 library holds, which is true, and swaps to the per-child sentence when the server answers. Same
 shape as #68 — state what you know, replace it when the number arrives, never hold the screen.
 
+**The grid and the count refresh as one unit** (#93, found in review of the above and fixed after
+it shipped). The first version left the count invalidated *nowhere*: six call sites named the grid
+and none named the count, so giving a child a title made the tile vanish while the number beside it
+stood still — and since a `FutureProvider` is not auto-disposed, it stayed wrong until the app
+restarted, with no gesture in the app able to correct it. Allow mode read too high, block mode too
+low, by exactly the number of writes since the screen loaded.
+
+The fix is one signal both halves watch — `libraryRevisionProvider`, bumped by `refreshLibrary` —
+rather than an extra `invalidate` beside each existing one. Two reasons, and the second is the one
+that made it worth more than six lines:
+
+- **A call site cannot refresh half a sentence.** Nothing names either provider any more, so the
+  seventh refresh site is correct by construction. `test/library_refresh_test.dart` reads `lib/`
+  and fails if one starts naming them again — a convention is what failed here, and this is the
+  same shape as the equality guard #90 asked for one PR earlier.
+- **Both numbers now describe the same moment.** They were independently timed, so even with
+  correct invalidation the line could subtract a count taken at one instant from a total taken at
+  another. The docstring above is careful that both counts carry the same filters; the same
+  argument applies to the moment they were taken.
+
+Rejected — having the count `await` the grid's own future to inherit its refreshes. It would make
+the two automatically consistent and it serialises them, which is exactly what #68 removed: the
+count would then wait on a library page before it could start.
+
+The gate is a test that **writes and then reads the line**, which is what the original PR lacked:
+seventeen tests, none of them exercising a write, over a defect that only a write produces.
+
 ---
 
 ## Open questions

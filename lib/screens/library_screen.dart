@@ -48,6 +48,16 @@ class LibraryScreen extends ConsumerWidget {
         LibraryFilterBar(session: session),
         Expanded(
           child: feed.when(
+            // **Not the default, and the default is wrong here (#93 review).**
+            // The grid refreshes by watching `libraryRevisionProvider`, and a
+            // dependency change emits a plain `AsyncLoading` — `isReloading`,
+            // which `when` does *not* skip unless told. `ref.invalidate` used
+            // to emit `AsyncData(prev, isRefreshing)`, which it skips by
+            // default, so the swap would have replaced the tiles a parent was
+            // looking at with a spinner on every write, every pull-to-refresh
+            // and every Undo. The first load still shows one: `isReloading`
+            // requires a previous value.
+            skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => Center(
               child: Padding(
@@ -65,8 +75,7 @@ class LibraryScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     FilledButton(
-                      onPressed: () =>
-                          ref.invalidate(libraryControllerProvider(session)),
+                      onPressed: () => refreshLibrary(ref),
                       child: Text(l10n.libraryRetry),
                     ),
                   ],
@@ -295,8 +304,7 @@ class _Grid extends ConsumerWidget {
         ),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () async =>
-                ref.invalidate(libraryControllerProvider(session)),
+            onRefresh: () async => refreshLibrary(ref),
             child: NotificationListener<ScrollNotification>(
               // Paging by scroll position rather than by a sentinel widget:
               // the last tile of a 3-wide grid can be built long before it is
