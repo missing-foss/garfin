@@ -121,12 +121,31 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
 7. Admin account required. Refuse non-admin logins with a clear message rather than failing later.
 8. **Garfin is read-only on user policy.** Never `POST /Users/{id}/Policy`. It is a full-object
    replace over the child's entire permission set — `EnabledFolders`, `IsAdministrator`, and
-   `MaxParentalRating`, which is the actual safety control. A dropped field there does not
-   corrupt metadata, it silently removes a child's restrictions. Read policy; write only items.
-   **A read-modify-write of only `AllowedTags` is not an exception** — it is the same endpoint and
-   the same full replace, and looking safer is the problem with it. The consequence, deliberate:
-   Garfin cannot give a child their *first* label, so that one-time setup happens in Jellyfin. See
-   `docs/DECISIONS.md` and the Kids screen in `docs/UI-SPEC.md`.
+   `MaxParentalRating`, which is the actual safety control. **An omitted key is silently reset to
+   its default and the server answers 204**: measured one key at a time on 10.11.11, that is the
+   rating cap gone, the access schedule emptied, both tag lists cleared and three restrictions
+   *lifted*, with every screen reporting success (#75, `docs/JELLYFIN-API.md`). Read policy; write
+   only items.
+
+   **The ban stands, and its reason is narrower than it used to read.** What is catastrophic is
+   building the body from a *typed model*, which omits whatever it does not model. A raw round-trip
+   — `GET`, mutate one key on the `Map<String, dynamic>` **as received**, `POST` the whole map — is
+   measured lossless, and carries keys a future Jellyfin adds through untouched, which a DTO cannot.
+   So the old phrasing had it backwards in one specific: the danger is not the read-modify-write
+   shape, it is deserializing. **Today's apparent protection is a coincidence** — a DTO write fails
+   with 400 only because `UserPolicy` happens not to model `AuthenticationProviderId` and
+   `PasswordResetProviderId`. Add either for an unrelated reason and the same write returns 204 and
+   strips the cap.
+
+   The rule is kept anyway, as a product decision rather than a technical one: what it costs is a
+   one-time setup that happens in Jellyfin, and what it buys is that the endpoint which can silently
+   remove a child's restrictions is not in the app at all. **If it is ever revisited**, the
+   discipline is not optional — raw map only, never a typed model; a test asserting the object
+   posted is the object received plus one key; read-back verification per write; and a standing
+   43-key round-trip diff, as rule 2 has.
+
+   The consequence, deliberate: Garfin cannot give a child their *first* label, so that one-time
+   setup happens in Jellyfin. See `docs/DECISIONS.md` and the Kids screen in `docs/UI-SPEC.md`.
 9. **The app itself is gated behind device auth.** Garfin holds an admin token on a phone that
    gets handed to children by design — that is the product's normal interaction, and it is
    precisely the case device lock does not cover. Biometric/PIN on cold start and on resume
