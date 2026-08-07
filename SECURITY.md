@@ -254,9 +254,9 @@ logger must never receive tokens, passwords or Quick Connect secrets.
 **Verified against the implementation (2026-08-04, #19).** Two ways, because a
 static reading and a behavioural one fail differently.
 
-*Statically*, every write in `lib/` was enumerated — **twenty-one
-`shared_preferences` call sites across six files** (2026-08-06, updated for #52
-and #57), which is the complete list:
+*Statically*, every write in `lib/` was enumerated — **twenty-two
+`shared_preferences` call sites across six files** (2026-08-06, updated for #52,
+#57 and #69), which is the complete list:
 
 | File | Sites | Stored |
 |---|---|---|
@@ -264,7 +264,7 @@ and #57), which is the complete list:
 | `app_settings_store.dart` | 8 | Settings: the collection prompt, refresh-after-write, the starting child's id, hide-shared, theme, dynamic colour, poster size |
 | `birth_year_store.dart` | 3 | a child's **birth year**, keyed by Jellyfin user id — write, clear, and the sweep `signOut` calls — see below |
 | `activity_store.dart` | 2 | the **Activity log** — see below |
-| `unlock_settings_store.dart` | 2 | whether the unlock gate is required (bool), the idle timeout (int seconds) |
+| `unlock_settings_store.dart` | 3 | whether the unlock gate is required (bool), the idle timeout (int seconds), whether the one-time unlock question has been answered (bool, #69) |
 | `device_identity.dart` | 1 | `device_id` — see below |
 
 > **This count was wrong between #52 and #40.** It read "eleven across four
@@ -390,6 +390,12 @@ Limits worth stating plainly:
   user out of their own app.
 - The token remains in `flutter_secure_storage` either way; the gate covers the *session*, not
   the storage.
+- **A signed-out Garfin shows the remembered server URL without asking (#69).** The gate used to
+  sit above sign-in, so it hid that too. What it cost was demanding biometrics before a new user
+  had typed an address, to protect an app holding no token, no children and no policy; the URL is
+  the entire remaining exposure, it is on this phone's Jellyfin client anyway, and there is no
+  signed-out state in which Garfin can do anything with it. Stated here rather than left as a
+  silent change in what an unattended phone reveals.
 - The app stays mounted behind the gate so a relock does not discard what the user was in the
   middle of. It is covered by an opaque screen, made untouchable, and hidden from screen readers,
   but it is not unmounted.

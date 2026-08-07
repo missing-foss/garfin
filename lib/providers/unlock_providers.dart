@@ -203,9 +203,61 @@ class LockController extends Notifier<UnlockState> {
     }
   }
 
+  /// Applies the one-time answer from `UnlockChoiceScreen` (#69).
+  ///
+  /// [UnlockChoice] owns writing the answer down; this half is only about where
+  /// the gate stands afterwards. Answering "keep asking" must not leave the app
+  /// unlocked behind the question — the gate has not run in this session, so it
+  /// starts locked exactly as a cold start would. Answering "not now" opens it.
+  ///
+  /// Kept separate from [setRequired] because the two happen at different
+  /// moments for different reasons: this one is a first-run choice, that one is
+  /// a parent changing their mind in Settings, and that one must *not* throw
+  /// them out of the screen they are on.
+  ///
+  /// The direction that actually needs this is "not now". On a fresh boot the
+  /// controller is *built* after the preference is written, so [build] reads the
+  /// new value and lands in the right phase unaided — a mutation removing this
+  /// call left the "locks immediately" test green. A controller that is already
+  /// alive keeps its state, and before any answer that state is locked; so the
+  /// case that needs telling is opening the gate, and `unlock_start_test.dart`
+  /// pins the controller alive to test exactly that.
+  void applyUnlockChoice(bool required) {
+    state = UnlockState(
+      phase: required ? LockPhase.locked : LockPhase.unlocked,
+    );
+  }
+
   Future<void> setIdleTimeout(Duration value) => _settings.setIdleTimeout(value);
 
   /// What Settings should show as the current values.
   bool get isRequired => _settings.required;
   Duration get idleTimeout => _settings.idleTimeout;
 }
+
+/// Whether the parent has been asked the unlock question yet (#69).
+///
+/// A notifier rather than a plain read of [UnlockSettingsStore] at the call
+/// site, because the answer changes *while the app is running* and the screen
+/// asking the question is the thing that has to disappear when it does. A
+/// `Provider` returning the store cannot do that: the store's identity never
+/// changes when a preference is written, so nothing rebuilds and the question
+/// stays on screen after being answered. That was the actual behaviour until a
+/// test caught it.
+class UnlockChoice extends Notifier<bool> {
+  @override
+  bool build() => ref.watch(unlockSettingsStoreProvider).choiceRecorded;
+
+  /// Writes the answer down, then tells the gate where to stand.
+  Future<void> record({required bool required}) async {
+    await ref
+        .read(unlockSettingsStoreProvider)
+        .recordChoice(required: required);
+    if (!ref.mounted) return;
+    ref.read(lockControllerProvider.notifier).applyUnlockChoice(required);
+    state = true;
+  }
+}
+
+final unlockChoiceProvider =
+    NotifierProvider<UnlockChoice, bool>(UnlockChoice.new);

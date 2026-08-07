@@ -263,6 +263,41 @@ app restricts. Biometric/PIN on cold start and on resume after an idle timeout. 
 every write, which would cost the one-tap promise the product is built on while still leaving
 every child's policy readable.
 
+> **Amendment, 2026-08-05 (issue #69).** The gate sat *above* the whole app, so it also guarded
+> sign-in — where Garfin holds no token, no server address and no children. It demanded biometrics
+> from someone who had not yet typed a server address, to protect an empty app. The premise of the
+> rule is "Garfin holds an admin token", and that becomes true the instant a session exists, which
+> is now where the gate starts: inside the signed-in branch of `AppRoot`, never over sign-in.
+>
+> The same change puts the choice to a new parent once, on first sign-in: keep asking, or not now.
+> **It is only ever offered to someone who has just signed in interactively.** A *restored* session
+> is gated with no question asked — whoever picked the phone up has proved nothing, and offering
+> them "not now" would be offering to skip the gate to exactly the person it exists for. That
+> asymmetry is the whole point of the screen and is the case `test/unlock_start_test.dart` guards
+> hardest.
+>
+> Answering "keep asking" leaves the app **locked**, not open behind the answered question: the
+> gate has not run this session, so it stands exactly as a cold start would leave it.
+>
+> **And the offer expires with the moment it belonged to.** Provenance was the only thing gating
+> the question, and provenance does not expire on its own: signing in, leaving it unanswered and
+> putting the phone down left that screen up — with "Not now" on it — for whoever picked the phone
+> up next, which is the person the gate exists for. Backgrounding now drops `justSignedIn`, so the
+> next frame routes through the gated branch and the lock screen stands in front of the app.
+> Nothing is recorded by that: an interruption is not an answer, and the next interactive sign-in
+> asks properly.
+>
+> Rejected: wrapping the question in `UnlockGate` instead, which looks cheaper. The gate's
+> controller starts locked whenever unlock is required, and it is required by default — so a
+> parent who had just typed their Jellyfin password would be asked for a fingerprint *before*
+> being asked whether they wanted one. The question must be reachable at the moment it is asked;
+> what it must not do is outlive that moment.
+>
+> Found in review rather than by a test, and the reason is worth keeping: the suite covered
+> provenance exhaustively — restored versus just-signed-in, answered versus not, both answers, a
+> live gate — and never once sent the app to the background. A mutation table only catches what
+> the harness can express.
+
 **Previews show the current count, never a predicted one.** A `− Frozen` line does not tell a
 parent that the library is about to go dark. But predicting the resulting count means simulating
 the server's policy evaluation locally, which is the one thing "never compute visibility

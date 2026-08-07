@@ -224,5 +224,10 @@
   "aboutIssues": "Signaler un problème",
   "aboutReleases": "Versions",
   "aboutOpenFailed": "Impossible d'ouvrir ce lien.",
-  "settingsAbout": "À propos de Garfin"
+  "settingsAbout": "À propos de Garfin",
+  "unlockChoiceTitle": "Demander votre empreinte avant d'ouvrir Garfin ?",
+  "unlockChoiceBody": "Garfin reste connecté à votre serveur en tant qu'administrateur. C'est le téléphone que vous confiez à vos enfants : il peut donc demander qui vous êtes avant de s'ouvrir.",
+  "unlockChoiceChangeable": "Vous pouvez changer cela à tout moment dans les réglages.",
+  "unlockChoiceAsk": "Demander à chaque fois",
+  "unlockChoiceNotNow": "Pas maintenant"
 }

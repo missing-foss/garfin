@@ -862,4 +862,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAbout => 'About Garfin';
+
+  @override
+  String get unlockChoiceTitle =>
+      'Ask for your fingerprint before opening Garfin?';
+
+  @override
+  String get unlockChoiceBody =>
+      'Garfin stays signed in to your server as an administrator. This is the phone you hand to your children, so it can ask who you are before it opens.';
+
+  @override
+  String get unlockChoiceChangeable =>
+      'You can change this any time in Settings.';
+
+  @override
+  String get unlockChoiceAsk => 'Ask every time';
+
+  @override
+  String get unlockChoiceNotNow => 'Not now';
 }

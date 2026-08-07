@@ -1217,5 +1217,25 @@
   "settingsAbout": "About Garfin",
   "@settingsAbout": {
     "description": "Settings tile that opens the About screen. Replaces the four tiles that used to be the About section."
+  },
+  "unlockChoiceTitle": "Ask for your fingerprint before opening Garfin?",
+  "@unlockChoiceTitle": {
+    "description": "The one-time unlock question, asked right after the first sign-in (#69) \u2014 the first moment at which Garfin holds anything worth asking about."
+  },
+  "unlockChoiceBody": "Garfin stays signed in to your server as an administrator. This is the phone you hand to your children, so it can ask who you are before it opens.",
+  "@unlockChoiceBody": {
+    "description": "Why the gate exists, in the present tense, at the moment it becomes true. Says what the app holds rather than making a promise about safety \u2014 docs/DECISIONS.md \u00a7 Voice bans 'safe', 'protected' and 'secure'."
+  },
+  "unlockChoiceChangeable": "You can change this any time in Settings.",
+  "@unlockChoiceChangeable": {
+    "description": "The setting has always existed; before this it lived behind the prompt it controls."
+  },
+  "unlockChoiceAsk": "Ask every time",
+  "@unlockChoiceAsk": {
+    "description": "Turns the gate on. The default, and the first button."
+  },
+  "unlockChoiceNotNow": "Not now",
+  "@unlockChoiceNotNow": {
+    "description": "Turns the gate off. Not 'never': Settings can turn it back on, and the wording should not imply the choice is final."
   }
 }
