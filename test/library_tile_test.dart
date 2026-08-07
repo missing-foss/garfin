@@ -541,6 +541,89 @@ void main() {
     });
   });
 
+  group('the bottom edge, which had the same collision (#89)', () {
+    // The age hint and the collection count were pinned to opposite corners
+    // and appear together on a collection tile with a child selected.
+    // Rendered at 83dp and 118dp the count painted straight over the hint and
+    // spilled past the poster — inside the tile, so no assertion saw it, and
+    // nothing errored. The same defect #84 fixed at the top edge.
+
+    Future<void> pumpBottom(WidgetTester tester, double width) => pump(
+          tester,
+          LibraryItemState.notGiven,
+          width: width,
+          type: 'BoxSet',
+          childCount: 7,
+          suitability: AgeSuitability.unknown,
+        );
+
+    testWidgets('at every width, the two never share a pixel', (tester) async {
+      for (final width in <double>[83, 110, 118, 178]) {
+        await pumpBottom(tester, width);
+        await tester.pumpAndSettle();
+
+        final hint = tester.getRect(find.text('No age rating'));
+        final count = tester.getRect(find.text('7 titles'));
+        expect(hint.overlaps(count), isFalse,
+            reason: 'they collided at ${width}dp');
+        expect(tester.takeException(), isNull,
+            reason: 'the bottom row overflowed at ${width}dp');
+      }
+    });
+
+    testWidgets('and both survive — neither is dropped to make room',
+        (tester) async {
+      // The top edge drops faces when it runs out of room, because a `+N`
+      // stands for them. Neither of these has anything that stands for it, so
+      // the narrow answer is to stack rather than to hide.
+      for (final width in <double>[83, 118, 178]) {
+        await pumpBottom(tester, width);
+        await tester.pumpAndSettle();
+
+        expect(find.text('No age rating'), findsOneWidget,
+            reason: 'the hint went missing at ${width}dp');
+        expect(find.text('7 titles'), findsOneWidget,
+            reason: 'the count went missing at ${width}dp');
+      }
+    });
+
+    testWidgets('side by side when there is room, stacked when there is not',
+        (tester) async {
+      // 300dp rather than a real tile width, deliberately: how much fits
+      // depends on how wide the badge text measures, and the font in a widget
+      // test is not the font on the phone — rendered with the shipped fonts
+      // these sit side by side at 178dp, and in here they do not. The claim
+      // worth pinning is that *enough* room keeps them on one line, not the
+      // exact width at which that starts being true.
+      await pumpBottom(tester, 300);
+      await tester.pumpAndSettle();
+      final wideHint = tester.getRect(find.text('No age rating'));
+      final wideCount = tester.getRect(find.text('7 titles'));
+      expect(wideHint.center.dy, closeTo(wideCount.center.dy, 1),
+          reason: 'a wide tile should keep them on one line');
+      expect(wideHint.left, lessThan(wideCount.left),
+          reason: 'the hint keeps the left corner it has always had');
+
+      await pumpBottom(tester, 83);
+      await tester.pumpAndSettle();
+      final narrowHint = tester.getRect(find.text('No age rating'));
+      final narrowCount = tester.getRect(find.text('7 titles'));
+      expect(narrowCount.center.dy, greaterThan(narrowHint.center.dy),
+          reason: 'a narrow tile should stack them, count below');
+    });
+
+    testWidgets('a film with no collection count is unaffected',
+        (tester) async {
+      await pump(tester, LibraryItemState.notGiven,
+          width: 83, suitability: AgeSuitability.unknown);
+      await tester.pumpAndSettle();
+
+      expect(find.text('No age rating'), findsOneWidget);
+      expect(find.textContaining('titles'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('a collection says how many titles it holds', (tester) async {
     await pump(
       tester,

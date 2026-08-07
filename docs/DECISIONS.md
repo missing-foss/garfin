@@ -657,6 +657,17 @@ The tests assert *no overlap at four widths* rather than a count at one, because
 depends on how wide the badge's text measures, and the font in a widget test is not the font on the
 phone.
 
+**The bottom edge had the identical defect and was fixed the same way** (#89, filed off this PR's
+render and fixed after it). The age hint and the collection count were pinned to opposite corners,
+and on a collection tile with a child selected — the only case where both appear — the count painted
+over the hint at 118dp and spilled past the poster at 83dp. Same silence: inside the tile, nothing
+errors, no assertion fires.
+
+They now share one row. The difference from the top edge is worth stating, because it decides the
+behaviour: **the top shrinks and the bottom wraps.** A face can be dropped because a `+N` stands for
+it; "No age rating" and "7 titles" are words, and nothing stands for a word — so when they do not
+fit side by side the count takes the line above and both survive, at the cost of a little poster.
+
 Rejected — naming the children on the tile instead of showing faces. A poster is ~110dp wide on
 the 3-column grid (2 under 400dp); three names do not fit, and the faces are the same ones from the
 picker row directly above, which is what makes them readable at that size. The names are all in the
