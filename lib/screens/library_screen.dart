@@ -65,8 +65,7 @@ class LibraryScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     FilledButton(
-                      onPressed: () =>
-                          ref.invalidate(libraryControllerProvider(session)),
+                      onPressed: () => refreshLibrary(ref),
                       child: Text(l10n.libraryRetry),
                     ),
                   ],
@@ -295,8 +294,7 @@ class _Grid extends ConsumerWidget {
         ),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () async =>
-                ref.invalidate(libraryControllerProvider(session)),
+            onRefresh: () async => refreshLibrary(ref),
             child: NotificationListener<ScrollNotification>(
               // Paging by scroll position rather than by a sentinel widget:
               // the last tile of a 3-wide grid can be built long before it is

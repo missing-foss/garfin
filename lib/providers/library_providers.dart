@@ -112,6 +112,45 @@ final libraryRepositoryProvider =
   return LibraryRepository(api: api, adminUserId: session.userId);
 });
 
+/// One signal that refreshes the Library, and the only one (#93).
+///
+/// The grid's page and the tagged count are two queries feeding **one
+/// sentence** — "N things Emma hasn't got yet" is `total − tagged` — and they
+/// were refreshed separately. Every post-write path invalidated the grid and
+/// not the count, so a parent gave a child a title, watched the tile vanish,
+/// and watched the number beside it stand still. The count is a `FutureProvider`
+/// and so not auto-disposed: it stayed wrong until the app restarted, and no
+/// gesture in the app could fix it.
+///
+/// Both halves watch this instead. Bumping it re-runs them **together**, which
+/// is the fix for a second gap the per-site version would have left: the two
+/// counts were independently timed, so the line could subtract a number taken
+/// at one moment from a total taken at another. `LibraryCount` is careful that
+/// both counts carry the same filters; the same argument applies to the moment.
+///
+/// **Nothing invalidates those two providers directly any more.** Naming them
+/// at a call site is how the seventh site forgets one, and the symptom is a
+/// quietly wrong number rather than an error —
+/// `test/library_refresh_test.dart` reads the source and fails if a call site
+/// starts naming them again.
+class LibraryRevision extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  /// Refetch the grid and the count, as one unit.
+  void bump() => state = state + 1;
+}
+
+final libraryRevisionProvider =
+    NotifierProvider<LibraryRevision, int>(LibraryRevision.new);
+
+/// Refresh the Library: the grid and the count that describes it, together.
+///
+/// The one call every screen makes — after a write, on pull-to-refresh, on
+/// *Try again*, and when a setting changes what the grid should show.
+void refreshLibrary(WidgetRef ref) =>
+    ref.read(libraryRevisionProvider.notifier).bump();
+
 /// How many items carry the selected child's labels, under the active filters.
 ///
 /// The other half of the result line's arithmetic (#81); the grid's own
@@ -129,6 +168,9 @@ final libraryRepositoryProvider =
 /// the whole library.
 final taggedItemCountProvider =
     FutureProvider.family<int, AuthSession>((ref, session) async {
+  // Refetched with the grid, never on its own — see [libraryRevisionProvider].
+  ref.watch(libraryRevisionProvider);
+
   final child = ref.watch(pickedChildProvider(session));
   final labels = child?.policy.shortlistTags ?? const <String>[];
   if (labels.isEmpty) return 0;
@@ -259,6 +301,11 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
 
   @override
   Future<LibraryFeed> build() async {
+    // The other half of the refresh unit (#93). Watched here rather than
+    // invalidated from six call sites, so the grid and the count that
+    // describes it can never be refreshed apart.
+    ref.watch(libraryRevisionProvider);
+
     final slice = await _fetch(startIndex: 0);
     return LibraryFeed(
       entries: slice.entries,

@@ -214,7 +214,7 @@ class _EntryTileState extends ConsumerState<_EntryTile> {
       }
       if (!mounted) return;
       ref.invalidate(activityLogProvider);
-      ref.invalidate(libraryControllerProvider(widget.session));
+      refreshLibrary(ref);
       ref.invalidate(kidsOverviewProvider(widget.session));
       messenger.showSnackBar(SnackBar(content: Text(l10n.assignUndone)));
     } on Object {
