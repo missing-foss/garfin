@@ -278,6 +278,25 @@ every child's policy readable.
 >
 > Answering "keep asking" leaves the app **locked**, not open behind the answered question: the
 > gate has not run this session, so it stands exactly as a cold start would leave it.
+>
+> **And the offer expires with the moment it belonged to.** Provenance was the only thing gating
+> the question, and provenance does not expire on its own: signing in, leaving it unanswered and
+> putting the phone down left that screen up — with "Not now" on it — for whoever picked the phone
+> up next, which is the person the gate exists for. Backgrounding now drops `justSignedIn`, so the
+> next frame routes through the gated branch and the lock screen stands in front of the app.
+> Nothing is recorded by that: an interruption is not an answer, and the next interactive sign-in
+> asks properly.
+>
+> Rejected: wrapping the question in `UnlockGate` instead, which looks cheaper. The gate's
+> controller starts locked whenever unlock is required, and it is required by default — so a
+> parent who had just typed their Jellyfin password would be asked for a fingerprint *before*
+> being asked whether they wanted one. The question must be reachable at the moment it is asked;
+> what it must not do is outlive that moment.
+>
+> Found in review rather than by a test, and the reason is worth keeping: the suite covered
+> provenance exhaustively — restored versus just-signed-in, answered versus not, both answers, a
+> live gate — and never once sent the app to the background. A mutation table only catches what
+> the harness can express.
 
 **Previews show the current count, never a predicted one.** A `− Frozen` line does not tell a
 parent that the library is about to go dark. But predicting the resulting count means simulating

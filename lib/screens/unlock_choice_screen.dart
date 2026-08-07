@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
+import '../providers/auth_providers.dart';
 import '../providers/unlock_providers.dart';
 
 /// The unlock question, asked once, at the only moment its answer means
@@ -27,11 +28,60 @@ import '../providers/unlock_providers.dart';
 ///
 /// Asked only after an *interactive* sign-in, never after a restored session:
 /// see `AuthSignedIn.justSignedIn`.
-class UnlockChoiceScreen extends ConsumerWidget {
+///
+/// **And only while that sign-in is still the current moment.** Provenance was
+/// the whole gate on this question, and provenance does not expire by itself:
+/// sign in, leave it unanswered, put the phone down, and a resume hours later
+/// still showed this screen with "Not now" on it — offering to skip the gate to
+/// whoever is holding the phone, which is precisely what the gate exists to
+/// deny. Narrow, because it needs the process to stay resident, but unbounded
+/// in time. Caught in review, not by a test: the suite covered provenance
+/// exhaustively and never backgrounded the app.
+///
+/// So this screen watches the lifecycle and drops the flag on `paused`. The
+/// next frame routes through the gated branch and the lock screen stands in
+/// front of the app.
+///
+/// **Not wrapped in `UnlockGate` instead**, which was the cheaper-looking fix:
+/// the gate's controller starts locked whenever unlock is required, and it is
+/// required by default — so a parent who had just typed their Jellyfin
+/// password would be asked for a fingerprint *before* being asked whether they
+/// wanted to be. The question has to be reachable at the moment it is asked;
+/// what it must not do is outlive that moment.
+class UnlockChoiceScreen extends ConsumerStatefulWidget {
   const UnlockChoiceScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UnlockChoiceScreen> createState() => _UnlockChoiceScreenState();
+}
+
+class _UnlockChoiceScreenState extends ConsumerState<UnlockChoiceScreen>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // `paused` only, never `inactive`. The same distinction the lock
+    // controller draws: a system prompt or a notification shade makes the app
+    // inactive, and treating that as "the parent walked away" would snatch the
+    // question away mid-answer.
+    if (state == AppLifecycleState.paused) {
+      ref.read(authControllerProvider.notifier).noteNoLongerFresh();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
 

@@ -151,6 +151,30 @@ class AuthController extends AsyncNotifier<AuthState> {
     );
   }
 
+  /// The moment has passed: this session is no longer *newly* interactive.
+  ///
+  /// Called when Garfin is backgrounded while the unlock question is still on
+  /// screen (#72's review). Provenance was the only thing gating that
+  /// question, and provenance does not expire on its own — so sign in, walk
+  /// away, and whoever picks the phone up next is still being offered "not
+  /// now". The offer is exactly what the gate exists to deny them.
+  ///
+  /// Dropping the flag routes the next frame through the gated branch, so the
+  /// question is simply not asked again this run and the lock screen stands in
+  /// front of the app. Nothing is recorded: `choiceRecorded` stays false, so
+  /// the next interactive sign-in asks properly.
+  void noteNoLongerFresh() {
+    final current = state.value;
+    if (current is! AuthSignedIn || !current.justSignedIn) return;
+    state = AsyncData(
+      AuthSignedIn(
+        session: current.session,
+        verified: current.verified,
+        offlineReason: current.offlineReason,
+      ),
+    );
+  }
+
   Future<void> signOut() async {
     await _repository.signOut();
     if (!ref.mounted) return;

@@ -227,6 +227,78 @@ void main() {
     expect(find.byType(LockScreen), findsNothing);
   });
 
+  testWidgets('backgrounding ends the moment the question belonged to',
+      (tester) async {
+    // **The hold from #72's review, and the case the nine other tests could
+    // not express: none of them ever sends the app to the background.**
+    //
+    // Provenance was the only thing gating this question, and provenance does
+    // not expire on its own. Sign in, leave it unanswered, put the phone down —
+    // and a resume later showed the same screen with "Not now" still on it, to
+    // whoever is now holding the phone. That is the offer this whole feature
+    // exists to withhold from them.
+    await boot(<String, Object>{});
+
+    await pump(
+      tester,
+      const AuthSignedIn(session: session, verified: true, justSignedIn: true),
+    );
+    expect(find.byType(UnlockChoiceScreen), findsOneWidget, reason: 'control');
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+
+    expect(find.byType(UnlockChoiceScreen), findsNothing,
+        reason: 'the moment has passed; the question goes with it');
+    expect(find.byType(LockScreen), findsOneWidget,
+        reason: 'and the gate stands in front of the app, as for any resumed '
+            'session');
+  });
+
+  testWidgets('a notification shade does not snatch the question away',
+      (tester) async {
+    // `inactive`, not `paused` — the same distinction the lock controller
+    // draws. A system prompt or a pulled-down shade must not read as "the
+    // parent walked away" and take the question off screen mid-answer.
+    await boot(<String, Object>{});
+
+    await pump(
+      tester,
+      const AuthSignedIn(session: session, verified: true, justSignedIn: true),
+    );
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(find.byType(UnlockChoiceScreen), findsOneWidget);
+  });
+
+  testWidgets('nothing is recorded, so the next sign-in asks properly',
+      (tester) async {
+    // Backgrounding is not an answer. If it recorded one, a parent who was
+    // interrupted would silently get whichever default the code picked, and
+    // would never be asked again.
+    await boot(<String, Object>{});
+
+    await pump(
+      tester,
+      const AuthSignedIn(session: session, verified: true, justSignedIn: true),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+
+    expect(UnlockSettingsStore(prefs).choiceRecorded, isFalse);
+  });
+
   group('the store', () {
     test('being asked and being required are different facts', () async {
       await boot(<String, Object>{});

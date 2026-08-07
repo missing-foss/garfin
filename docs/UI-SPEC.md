@@ -30,6 +30,11 @@ A **restored** session skips the question entirely and goes to the lock screen. 
 only to someone who has just proved they hold the Jellyfin credentials; anyone else holding the
 phone is the reason the gate exists.
 
+**Backgrounding ends it.** Leave the question unanswered and put the phone down, and the resume
+lands on the lock screen rather than back on the offer — the same treatment a restored session
+gets, because by then that is what it is. A notification shade or a system prompt does not count:
+`paused`, never `inactive`. Nothing is recorded either way, so the next sign-in asks properly.
+
 Below API 28 there is no `BiometricPrompt`, so 26–27 go straight to device credential. If the
 device has no credential set at all, say so plainly and let the user continue — a lock Garfin
 cannot enforce shouldn't become a lock-out.
