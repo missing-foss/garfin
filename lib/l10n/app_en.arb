@@ -1145,5 +1145,13 @@
   "sessionsUncontrollable": "This device doesn't accept remote commands. Ending the session still works.",
   "@sessionsUncontrollable": {
     "description": "Shown when SupportsRemoteControl is false. Measured: the message and stop commands answer 204 anyway, so without this the parent would be told something was sent to a device that cannot receive it."
+  },
+  "librarySearchHint": "Search titles",
+  "@librarySearchHint": {
+    "description": "Placeholder in the library search field (#73). 'Titles' rather than 'library', because the server matches the title and nothing else \u2014 measured: not the overview, the cast, tags or genres."
+  },
+  "librarySearchClear": "Clear search",
+  "@librarySearchClear": {
+    "description": "Tooltip on the x inside the search field."
   }
 }

@@ -206,5 +206,7 @@
   "sessionsEndConfirm": "Déconnecter {name} de {device} ?",
   "sessionsEndExplain": "Il faudra que vous approuviez un nouveau code pour qu'il puisse se reconnecter.",
   "sessionsEnded": "{device} est déconnecté.",
-  "sessionsUncontrollable": "Cet appareil n'accepte pas les commandes à distance. Fermer la session fonctionne quand même."
+  "sessionsUncontrollable": "Cet appareil n'accepte pas les commandes à distance. Fermer la session fonctionne quand même.",
+  "librarySearchHint": "Rechercher un titre",
+  "librarySearchClear": "Effacer la recherche"
 }

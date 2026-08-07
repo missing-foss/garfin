@@ -9,6 +9,7 @@ import '../l10n/gen/app_localizations.dart';
 import '../models/auth_session.dart';
 import '../models/library_filters.dart';
 import '../providers/library_providers.dart';
+import 'library_search_field.dart';
 
 /// `docs/UI-SPEC.md` § Library — one row: a tune button that opens every group
 /// with Reset, then dropdown chips for Type, Genre and Decade, then the rating
@@ -46,6 +47,13 @@ class LibraryFilterBar extends ConsumerWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         children: [
+          // First in the row, because it is the thing most likely to be
+          // reached for and the only one that answers "the film they asked for
+          // at dinner". The category chips narrow; this one finds.
+          const Padding(
+            padding: EdgeInsets.only(right: 8, top: 2, bottom: 2),
+            child: LibrarySearchField(),
+          ),
           IconButton(
             tooltip: l10n.filterAll,
             isSelected: !filters.isEmpty,

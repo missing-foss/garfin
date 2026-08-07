@@ -615,6 +615,72 @@ rather than a place.**
 Blocking a series takes its episodes with it. Ground rule 3's inversion holds at every level, which
 means neither verb needs a cascade.
 
+## Searching by title — measured before it was built (#73)
+
+`searchTerm` is a parameter on the same `/Items` call as every other filter. All
+of the below is from a throwaway 10.11.11 with five films built to be
+*confusable* — one whose overview says "Nothing like Paddington at all" and
+which carries the tag `paddington`, and an actor named `Sam London` in a
+different film from the one whose overview mentions London.
+
+**Title only.**
+
+    searchTerm=Paddington  -> 1   ['Paddington']       not the film whose overview and tag say it
+    searchTerm=Anatolia    -> 0   []                   an overview word
+    searchTerm=Tautou      -> 0   []                   an actor
+    searchTerm=London      -> 0   []                   an actor, and another film's overview
+    searchTerm=wildlife    -> 0   []                   a tag
+    searchTerm=Comedy      -> 0   []                   a genre
+
+The trap film is the point: without it, "Paddington returns Paddington" is
+equally consistent with a search that reads overviews and tags.
+
+**Substring, anywhere in the title — not a word prefix.**
+
+    add    -> Paddington        ington -> Paddington
+    eep    -> Winter Sleep      inter  -> Winter Sleep
+
+**Case- and accent-insensitive.** `Amelie`, `amelie`, `AMELIE` and `Amélie` all
+return `Amélie`.
+
+**It ANDs with the other filters**, checked in both directions so that "it
+composes" is not read off a single agreeing case:
+
+    searchTerm=bear                        -> 1  ['The Bear']
+    searchTerm=bear&genres=Family          -> 1  ['The Bear']
+    searchTerm=bear&genres=Drama           -> 0  []
+    searchTerm=bear&years=1988             -> 1  ['The Bear']
+    searchTerm=bear&years=2014             -> 0  []
+    searchTerm=bear&tags=kids-emma         -> 0  []      (it is tagged wildlife)
+
+**`Recursive=true` is required**, and this is the silent one:
+
+    /Items?searchTerm=bear&Recursive=true   -> 1  ['The Bear']
+    /Items?searchTerm=bear                  -> 2  ['Movies', 'Playlists']
+
+Without it the query answers with *folders*, not films — a 200, a plausible
+count, and nothing a parent searched for.
+
+**An empty or whitespace term is not a filter.** `searchTerm=` and
+`searchTerm=%20` both return the whole library, so Garfin omits the parameter
+rather than sending it blank.
+
+### A caution about `maxOfficialRating` that this exercise nearly got wrong
+
+While checking composition, `searchTerm=bear&maxOfficialRating=0` returned
+nothing and looked like it contradicted the recorded finding that an unrated
+title passes every cap. It did not. The films had been given `GB-PG` and `GB-15`
+by the scan, so they were never unrated, and the genuinely unrated ones behave
+exactly as recorded:
+
+    Winter Sleep (OfficialRating: null)   cap=0 -> visible   cap=1000 -> visible
+    whole library                          cap=0 -> 2 items (both unrated)
+                                           cap=10 -> 4 items
+                                           cap=1000 -> 5 items
+
+The recorded claim stands. Check what the fixture actually holds before
+reporting that a measurement disagrees with one.
+
 ## Filtering the grid — and the delimiters, which are not a house style
 
 **Measured 2026-08-06 for #44**, six films with genres, years and certificates written onto them.
