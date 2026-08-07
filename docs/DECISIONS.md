@@ -664,6 +664,46 @@ tile's semantic label, in full, including the ones the `+N` chip stands for.
 
 ---
 
+## The result line is a subtraction (settled 2026-08-07, from issue #81)
+
+"N things Emma hasn't got yet" was `feed.entries.length` — the page buffer. It counted what the
+infinite scroll had loaded, so it climbed as the parent scrolled; and because the grid only drops
+shared titles when hide-shared is **on**, with Show shared active — the default — it counted titles
+the child already had. A number that reads as a total, changes as you scroll, and counts the wrong
+population.
+
+**It is now `total − tagged`, and both come from the server.** `/Items` has no `excludeTags` — 86
+parameters and not one of them, which is why hide-shared filters client-side in the first place — so
+"not handed over yet" cannot be asked for directly and has to be derived. The grid's own
+`TotalRecordCount` is one half and is already in hand; `taggedItemCount` is the other, one `Limit=0`
+query.
+
+**Both halves must carry the same filters**, and that is the actual work: a genre chip on one side
+and not the other subtracts one population from a different one and returns something that looks
+entirely reasonable. Measured rather than assumed — `JELLYFIN-API.md` § *`tags=` ANDs with every
+other filter* checks each filter against `tags=` directly, in both directions, with a control that
+still answers 0.
+
+**The verb follows the child's mode**, per ground rule 3. An allow-list child gets what has not been
+handed over; a block-list child gets the tagged count itself, because for them the label is what
+*takes a title away* — `total − tagged` would be the number they can reach, which is a different
+statement and a visibility claim besides. A conflicting account gets the library's own count and no
+claim about them at all.
+
+**It stays "not handed over", never "cannot see".** Ground rule 4: the rating cap silently overrides
+tags, so the number of titles not given is not the number invisible to the child. The subtraction is
+over *labels*, which is exactly what the tiles say.
+
+Rejected — showing `entries.length` honestly as "showing N", the cheap alternative the issue offers.
+It is true, and it answers a question nobody has: the parent wants to know how much is left to do,
+not how much has been fetched.
+
+The count arrives asynchronously and the line does not wait for it: until then it says what the
+library holds, which is true, and swaps to the per-child sentence when the server answers. Same
+shape as #68 — state what you know, replace it when the number arrives, never hold the screen.
+
+---
+
 ## Open questions
 
 - Whether to offer a migration when the tag prefix changes, or just document it

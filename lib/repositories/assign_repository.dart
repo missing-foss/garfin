@@ -215,7 +215,7 @@ class AssignRepository {
 
       final count = await _api.taggedItemCount(
         userId: _adminUserId,
-        tag: change.label,
+        tags: [change.label],
       );
       // Exactly one left, and this removal is it.
       if (count <= 1) {

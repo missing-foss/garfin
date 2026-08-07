@@ -290,6 +290,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String libraryWithheld(int count, String name) {
+    return '$count things kept from $name';
+  }
+
+  @override
   String libraryItemCount(int count) {
     return '$count things';
   }

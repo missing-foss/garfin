@@ -291,6 +291,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String libraryWithheld(int count, String name) {
+    return '$count titres retirés à $name';
+  }
+
+  @override
   String libraryItemCount(int count) {
     return '$count titres';
   }
