@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+SPDX-FileCopyrightText: 2026 missing-foss
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- The adaptive icon, which is what every device running Garfin uses: minSdk
+     is 26 and adaptive icons are universal from 26. The PNGs in mipmap-*dpi/
+     are the pre-adaptive fallback for launchers that still ask for one.
+
+     Background is a colour rather than a drawable — the brand background is a
+     flat #2B2035, and a colour cannot be blurred or scaled wrongly by a
+     launcher's parallax. Both come from brand/svg/ via
+     brand/make-android-icons.sh; regenerate rather than editing the PNGs. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

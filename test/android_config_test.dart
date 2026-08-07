@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,6 +18,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// Everything here reads *comment-stripped* text. These files explain silent
 /// failures at length, so their prose names the very things being asserted.
 void main() {
+  // For `instantiateImageCodec` in the pixel assertions below.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   final manifest =
       File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
 
@@ -213,4 +217,190 @@ void main() {
       );
     }
   });
+
+  group('the launcher, which is the first thing anyone sees (#67)', () {
+    // The icon shipped as Flutter's stock blue "F" through every release build
+    // this project made, and nothing failed — an icon cannot fail, it can only
+    // be wrong. The manifest and the resource tree are the only places that
+    // is checkable without eyes on a device.
+
+    test('the app is called Garfin, not garfin', () {
+      // The launcher is where this name is read most often, and it was
+      // lowercase from the `flutter create` template onward.
+      expect(effective, contains('android:label="Garfin"'));
+      expect(effective, isNot(contains('android:label="garfin"')));
+    });
+
+    test('there is an adaptive icon, and the manifest points at it', () {
+      // minSdk is 26 and adaptive icons are universal from 26, so this is what
+      // every device actually renders. Its absence is what left the stock icon
+      // in place.
+      final adaptive = File(
+        'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+      );
+      expect(adaptive.existsSync(), isTrue,
+          reason: 'no adaptive icon means the legacy PNG is all there is');
+
+      final xml = adaptive.readAsStringSync();
+      expect(xml, contains('<adaptive-icon'));
+      // Per element, not `contains`: the file names the foreground drawable
+      // twice — once as `<foreground>` and once as `<monochrome>` — so a bare
+      // substring check passes even when the foreground has been repointed at
+      // something else. Mutation-tested; that is exactly what slipped through.
+      expect(
+        RegExp(r'<foreground[^>]*android:drawable="@mipmap/ic_launcher_foreground"')
+            .hasMatch(xml),
+        isTrue,
+        reason: 'the foreground must be the brand mark',
+      );
+      expect(
+        RegExp(r'<background[^>]*android:drawable="@color/ic_launcher_background"')
+            .hasMatch(xml),
+        isTrue,
+      );
+
+      expect(effective, contains('android:icon="@mipmap/ic_launcher"'));
+      expect(effective, contains('android:roundIcon="@mipmap/ic_launcher_round"'));
+      // Round has the anydpi-v26 XML and deliberately *no* legacy PNG: at
+      // minSdk 26 every device resolves the XML, so a round bitmap would be
+      // five files nothing reads. Written down because its absence looks like
+      // an oversight to anyone auditing the mipmap folders.
+      expect(
+        File('android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml')
+            .existsSync(),
+        isTrue,
+      );
+      expect(
+        File('android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png')
+            .existsSync(),
+        isFalse,
+        reason: 'a legacy round PNG is unreachable at minSdk 26 — if one is '
+            'wanted, the XML and the manifest are what decide, not this file',
+      );
+    });
+
+    test('every density carries both icons', () {
+      // A missing density does not fail a build; it makes one launcher, on one
+      // phone, fall back to a scaled-up smaller asset.
+      for (final density in ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
+        for (final name in ['ic_launcher.png', 'ic_launcher_foreground.png']) {
+          final file =
+              File('android/app/src/main/res/mipmap-$density/$name');
+          expect(file.existsSync(), isTrue, reason: 'missing $density/$name');
+          expect(file.lengthSync(), greaterThan(0));
+        }
+      }
+    });
+
+    test('the launcher icon is the mark, not whatever was there before',
+        () async {
+      // **The one assertion that would have caught #67.** Every other check in
+      // this group locks the *wiring* — the manifest points at the adaptive
+      // XML, the XML points at the right drawables, the files exist and are
+      // non-empty. All of that was true for every build this project ever made,
+      // while the icon was Flutter's blue "F". Present, non-empty, correctly
+      // referenced and completely wrong.
+      //
+      // So this reads pixels. Dominant colour rather than a checksum,
+      // deliberately: a hash is the stronger check and the more brittle one —
+      // it fails on a librsvg upgrade that changes one edge pixel, which is not
+      // a defect. A flat brand field is 3/4 of this image and no stock asset
+      // has it. Measured on the committed PNGs: #2B2035 is 76.6% at mdpi and
+      // 78.6% at xxxhdpi; the stock icon's dominant colour is #000000.
+      for (final density in ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
+        final histogram = await _colours(
+          'android/app/src/main/res/mipmap-$density/ic_launcher.png',
+        );
+        final total = histogram.values.reduce((a, b) => a + b);
+        final dominant = histogram.entries
+            .reduce((a, b) => a.value >= b.value ? a : b);
+
+        expect(dominant.key, _brandDeep,
+            reason: '$density/ic_launcher.png is not on the brand field — '
+                'found ${_hex(dominant.key)}');
+        expect(dominant.value / total, greaterThan(0.5),
+            reason: 'the brand field should dominate $density');
+
+        // And the mark is actually on it. The field alone would pass on a
+        // plain #2B2035 square, which is a wrong icon that happens to be the
+        // right colour.
+        expect(histogram[_brandLilac] ?? 0, greaterThan(0),
+            reason: 'no brand lilac in $density/ic_launcher.png — '
+                'the field is there but the fish is not');
+      }
+    });
+
+    test('the adaptive foreground is a mark with padding, not a full square',
+        () async {
+      // The failure this catches is the plausible fix for the one above:
+      // dropping the legacy icon into the foreground slot. It is the right
+      // picture and the wrong asset — an opaque square on top of the adaptive
+      // background, which every launcher then crops to its own shape, so the
+      // mark shrinks and the brand field gains a visible edge inside the mask.
+      //
+      // Measured on the committed PNGs: 88.8% fully transparent at mdpi, 89.5%
+      // at xxxhdpi. That padding *is* the safe zone.
+      for (final density in ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
+        final histogram = await _colours(
+          'android/app/src/main/res/mipmap-$density/ic_launcher_foreground.png',
+        );
+        final total = histogram.values.reduce((a, b) => a + b);
+        final transparent = histogram.entries
+            .where((e) => e.key & 0xFF == 0)
+            .fold<int>(0, (sum, e) => sum + e.value);
+
+        expect(transparent / total, greaterThan(0.5),
+            reason: '$density/ic_launcher_foreground.png is mostly opaque — '
+                'a foreground must be a mark with room around it');
+        expect(histogram[_brandLilac] ?? 0, greaterThan(0),
+            reason: 'no brand lilac in $density/ic_launcher_foreground.png');
+      }
+    });
+
+    test('the icon background is the brand colour, in one place', () {
+      // BRANDING.md's flat #2B2035, which garfin-icon-background.svg also
+      // paints. A colour resource rather than a drawable, so a launcher's
+      // parallax cannot scale or blur it.
+      final colors =
+          File('android/app/src/main/res/values/colors.xml').readAsStringSync();
+      expect(colors, contains('ic_launcher_background'));
+      expect(colors.toUpperCase(), contains('#2B2035'));
+    });
+
+    test('the icons are generated, and the generator is in the repo', () {
+      // The PNGs are output, not source. Without the script beside them the
+      // next change to the mark would be a hand-edit of five bitmaps.
+      final script = File('brand/make-android-icons.sh');
+      expect(script.existsSync(), isTrue);
+      final text = script.readAsStringSync();
+      expect(text, contains('garfin-icon-foreground.svg'));
+      expect(text, contains('garfin-icon-background.svg'));
+    });
+  });
+}
+
+/// `0xRRGGBBAA`, so a colour is one comparable int.
+const _brandDeep = 0x2B2035FF;
+const _brandLilac = 0xB69DF8FF;
+
+String _hex(int colour) =>
+    '#${(colour >> 8).toRadixString(16).toUpperCase().padLeft(6, '0')}';
+
+/// Every distinct pixel of a PNG, counted.
+///
+/// Decoded through `dart:ui` rather than a package: `flutter_test` already has
+/// a working codec, and the alternative is a new dependency for two assertions.
+Future<Map<int, int>> _colours(String path) async {
+  final codec = await ui.instantiateImageCodec(File(path).readAsBytesSync());
+  final frame = await codec.getNextFrame();
+  final data = await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba);
+  final counts = <int, int>{};
+  for (var i = 0; i < data!.lengthInBytes; i += 4) {
+    final colour = (data.getUint8(i) << 24) |
+        (data.getUint8(i + 1) << 16) |
+        (data.getUint8(i + 2) << 8) |
+        data.getUint8(i + 3);
+    counts[colour] = (counts[colour] ?? 0) + 1;
+  }
+  return counts;
 }
