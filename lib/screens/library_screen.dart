@@ -11,6 +11,8 @@ import '../models/age_suitability.dart';
 import '../models/item_holder.dart';
 import '../models/jellyfin_user.dart';
 import '../models/library_count.dart';
+import '../models/library_item.dart';
+import '../repositories/library_repository.dart';
 import '../models/kid_summary.dart';
 import '../models/parental_rating.dart';
 import '../providers/app_providers.dart';
@@ -330,7 +332,31 @@ class _Grid extends ConsumerWidget {
                 ),
                 itemCount: feed.entries.length,
                 itemBuilder: (context, index) {
-                  final entry = feed.entries[index];
+                  // **Says nothing about a child until the tiles are that
+                  // child's** (#96). While a new selection's query is in
+                  // flight the previous child's feed is still on screen —
+                  // #94 keeps it there rather than blanking the grid, which
+                  // is right — and every per-child marker on it was computed
+                  // for somebody else. Measured before the fix: a tile said
+                  // "Leo has this, but the server isn't showing it to them"
+                  // about a title he had never been given.
+                  //
+                  // **Only what the feed decided.** The state badge and the
+                  // held-back sentence come from `_classify`, which ran for
+                  // the previous child, so they wait. The age hint does not:
+                  // it is computed here, from the current child's age and the
+                  // item's own rating, so it is already about the child on
+                  // screen — suppressing it would remove a true statement and
+                  // make the hint flicker. The avatar row (#84) is untouched
+                  // for the same reason: it says who *has* the title, which is
+                  // not relative to the selection at all.
+                  final classified = feed.classifiedFor == child?.id;
+                  final entry = classified
+                      ? feed.entries[index]
+                      : LibraryEntry(
+                          item: feed.entries[index].item,
+                          state: LibraryItemState.unknown,
+                        );
                   return InkWell(
                     // Step 5: tapping a tile is what opens the write preview.
                     // Nothing is written until Apply — ground rule 1.
