@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
 import 'device_sign_in_sheet.dart';
+import 'user_avatar.dart';
 import '../models/auth_session.dart';
 import '../models/jellyfin_user.dart';
 import '../models/kid_summary.dart';
@@ -40,7 +40,7 @@ class KidCard extends ConsumerWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Avatar(kid: kid),
+                UserAvatar(name: kid.user.name, avatarUrl: kid.avatarUrl),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -211,38 +211,6 @@ class KidCard extends ConsumerWidget {
     return name == null
         ? l10n.kidsRatingCapValue(value)
         : l10n.kidsRatingCap(name);
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.kid});
-
-  final KidSummary kid;
-
-  @override
-  Widget build(BuildContext context) {
-    final initial = kid.user.name.trim().isEmpty
-        ? '?'
-        : kid.user.name.trim().characters.first.toUpperCase();
-
-    // No URL means the user has no avatar — measured as key-absence rather than
-    // a null, so this is not a guess. Asking anyway would put a 404 behind
-    // every initial.
-    if (kid.avatarUrl == null) {
-      return CircleAvatar(radius: 24, child: Text(initial));
-    }
-
-    return ClipOval(
-      child: CachedNetworkImage(
-        imageUrl: kid.avatarUrl!,
-        width: 48,
-        height: 48,
-        fit: BoxFit.cover,
-        placeholder: (_, _) => CircleAvatar(radius: 24, child: Text(initial)),
-        errorWidget: (_, _, _) =>
-            CircleAvatar(radius: 24, child: Text(initial)),
-      ),
-    );
   }
 }
 
