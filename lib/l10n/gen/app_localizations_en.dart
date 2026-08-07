@@ -328,6 +328,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String libraryHolders(String names) {
+    return 'Given to $names';
+  }
+
+  @override
+  String libraryHoldersMore(int count) {
+    return '+$count';
+  }
+
+  @override
   String get libraryRetry => 'Try again';
 
   @override

@@ -597,6 +597,56 @@ four times slower to make the extreme case twice as fast.
 
 ---
 
+## A face on a poster means *given* (settled 2026-08-07, from issue #84)
+
+`UI-SPEC` has asked since the beginning for "avatars of the children who have it" on every library
+tile. Only the check badge was ever built, and the badge answers about the **selected** child —
+so the grid said nothing at all to a parent who had not picked anyone, which is the state the app
+opens in.
+
+**Avatars mean the label is on the item. They do not mean the child can watch it.** That is ground
+rule 4 in one design decision: what a child can actually see is the server's answer, tags and the
+rating cap together, and the app never predicts it. The distinction already exists as
+`givenButHidden` — but only for the selected child, because knowing it for everyone would cost a
+per-child visibility query *per title*, on the screen that scrolls. So the faces say given, and the
+held-back nuance stays with the selected child's badge, one corner of the same tile away.
+
+**Block-list children are left out rather than marked.** For a block-list child a matching tag
+means the title is *withheld*, so their face in a row that means "has it" would say the exact
+opposite — and nobody scanning a grid stops to work out which verb a particular child is under.
+Marking them distinctly was the alternative and is worse: it puts two meanings in one row, and the
+one that reads wrong at a glance is the one about a child being kept from something. Conflicting
+accounts are out for the reason ground rule 3 gives — no verb, no answer.
+
+**It is a join, not a query.** Everything needed is already in memory: the grid asks for
+`Fields=Tags` on every item, and the Kids overview already carries each child's labels and picture
+(`avatarUrlFor`, #79). So this costs no request, which is also why it is computed where the age
+hint is computed — in the screen, per tile — rather than inside `LibraryRepository.fetch`. Putting
+it in the fetch would tie the grid's *data* to the Kids overview, and re-fetch a library page,
+measured at up to half a second in #68, every time a write invalidated it.
+
+**Opposite corners do not work, and only a render said so.** The first build put the faces
+top-right and left the state badge top-left, which is what the issue suggested. Rendered at 110dp —
+and a tile is ~118dp at three columns, ~83dp at four — "Held back" and three faces want the same
+middle, and the row simply paints over the badge. Nothing errors, no test fails, and the geometry
+assertions all passed because each marker was inside the tile. So the two now sit in one row and the
+row measures: the badge takes its width, the faces take the remainder, and the count degrades three
+faces → one face and a `+N` → the `+N` alone → nothing. The badge wins because it is the answer
+about the child the parent picked; the faces are in the spoken label whatever the width.
+
+Every circle is the same size and overlaps by the same amount so the fit is arithmetic rather than
+an estimate — including the `+N`, which is a circle rather than a text chip for exactly that reason.
+The tests assert *no overlap at four widths* rather than a count at one, because how many fit
+depends on how wide the badge's text measures, and the font in a widget test is not the font on the
+phone.
+
+Rejected — naming the children on the tile instead of showing faces. A poster is ~110dp wide on
+the 3-column grid (2 under 400dp); three names do not fit, and the faces are the same ones from the
+picker row directly above, which is what makes them readable at that size. The names are all in the
+tile's semantic label, in full, including the ones the `+N` chip stands for.
+
+---
+
 ## Open questions
 
 - Whether to offer a migration when the tag prefix changes, or just document it

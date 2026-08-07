@@ -329,6 +329,16 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String libraryHolders(String names) {
+    return 'Donné à $names';
+  }
+
+  @override
+  String libraryHoldersMore(int count) {
+    return '+$count';
+  }
+
+  @override
   String get libraryRetry => 'Réessayer';
 
   @override

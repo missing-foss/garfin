@@ -437,6 +437,24 @@
       }
     }
   },
+  "libraryHolders": "Given to {names}",
+  "@libraryHolders": {
+    "description": "Spoken by a screen reader for a tile whose title has already been given to one or more children, listing all of them. Says GIVEN — the label is on the item — and deliberately not 'can watch', which is the server's answer and depends on the child's age limit as well as the label.",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryHoldersMore": "+{count}",
+  "@libraryHoldersMore": {
+    "description": "Chip after the avatars on a tile, for the children who did not fit in the row. Shown as +2.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "libraryRetry": "Try again",
   "@libraryRetry": {
     "description": "Button that reloads the library grid after an error."
