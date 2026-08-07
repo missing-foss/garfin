@@ -78,7 +78,10 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
    visibility computation: rule 8 means Garfin cannot alter `AllowedTags` itself, so the
    policy entry survives and simply stops matching. Rule 4 is untouched — no rating cap is
    involved. After applying, re-fetch and report the **verified** new count; that is what
-   explains a share the rating cap swallowed.
+   explains a share the rating cap swallowed. **Verified does not mean blocking**: that count
+   costs what the child's visible library is large — measured 19 ms to 538 ms — so it arrives
+   *into* the confirmation rather than gating it (#68). Never predicted, never skipped, never
+   waited for with a spinner over a write that already finished.
 2. **`POST /Items/{id}` replaces the whole item.** Always `GET` the full metadata object first,
    mutate only `Tags`, and post the complete object back. Dropping fields corrupts the library.
    "The full object" is not one thing — the DTO varies by endpoint and by `Fields`. The exact

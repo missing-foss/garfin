@@ -220,6 +220,85 @@ Read policy, write items. See ground rule 8.
 The server applies the policy. Never compute this client-side. Per library, add
 `parentId={libraryId}`.
 
+### Measured, 2026-08-06 — what this call costs, and what it scales with (#68)
+
+`Limit=0` keeps the *payload* empty. It does not make the server's work small,
+and the doc comment in `jellyfin_api.dart` used to claim this was therefore
+"cheap enough to do per child". That claim was never measured. It is wrong.
+
+A throwaway 10.11.11, films generated with ffmpeg, no metadata fetchers, medians
+of seven calls after a discarded warm-up, with `/System/Info/Public` timed
+alongside at every size as a control (0.6–1.2 ms throughout, so none of the
+below is the harness or the machine):
+
+| library | GET full item | POST full item | count, child sees 1 | count, admin sees all |
+|---|---|---|---|---|
+| 100 | 10.1 ms | 9.4 ms | 15.9 ms | 15.0 ms |
+| 500 | 8.7 ms | 7.5 ms | 13.9 ms | 28.7 ms |
+| 2000 | 9.4 ms | 8.9 ms | 17.4 ms | **525.8 ms** |
+| 6000 | 9.4 ms | 8.3 ms | — | **7613.6 ms** |
+
+**The write is flat. The count is not.** And the first reading of that table is
+wrong: it looks like the child's query is cheap and the admin's is expensive,
+but those two differ in the size of the *result set* as much as in whose policy
+applies. Holding the library at 2000 and growing what the child can see:
+
+| child can see | count | library |
+|---|---|---|
+| 1 | 18.8 ms | 2000 |
+| 250 | 27.2 ms | 2000 |
+| 1000 | 214.3 ms | 2000 |
+| 2000 | 538.3 ms | 2000 |
+| 4646 | 5363.8 ms | 6000 |
+| 6000 | 8726.2 ms | 6000 |
+
+The 6000 rows were measured on a **settled** library — the item count held at
+6000 across five consecutive thirty-second checks before anything was timed —
+with `/System/Info/Public` at 0.7 ms alongside. An earlier attempt at these
+timed while the scan was still ingesting (4499 items, then 4617, *during* the
+run) and reported 5.2 s for the admin total; that is the harness competing with
+the thing it measures, and the number is not usable. Three stable readings were
+not enough to detect it either, because a Jellyfin scan pauses. Five were.
+
+**The cost tracks the result set, not the library.** A child who can see
+everything costs exactly what the admin costs. So this call gets slower as a
+parent shares more, which is the app being used successfully — the worst shape a
+cost curve can have.
+
+**And it is worse than linear.** 100 → 2000 items is 20× the library for 35× the
+time; 2000 → 6000 is 3× for **14×**. At 6000 titles one verified count is
+between five and nine seconds, and the write it verifies is still nine
+milliseconds.
+
+Consequences, both now in the code: the verified count is not something to block
+a UI on, and a loop of them must not be serial.
+
+#### `/Items/Counts` is not the way out
+
+It answers the same question — checked in four cases that could tell them apart,
+not just the easy one:
+
+| case | `/Items` | `/Items/Counts` | agree |
+|---|---|---|---|
+| child sees a subset (250 of 2000) | 250 | 250 | yes |
+| child sees nothing | 0 | 0 | yes |
+| child blocked by `BlockUnratedItems` | 0 | 0 | yes |
+| the admin | 2000 | 2000 | yes |
+
+**The first version of this test proved nothing**: every film was tagged for
+that child, so all six candidates returned 2000 and a query ignoring the policy
+entirely would have "agreed" too. Two numbers matching under a condition that
+cannot tell them apart is the harness answering its own question.
+
+But it is the wrong trade. `/Items/Counts` is roughly flat where `/Items`
+scales — 122 ms against 30 ms for a child seeing 250, and 221 ms against 492 ms
+for the admin. Swapping would make the common case four times slower to make the
+extreme case twice as fast.
+
+Also measured and rejected: `enableTotalRecordCount=false` (returns 0 — it is
+the number, not an extra), and `Limit=1` instead of `Limit=0` (**slower**, 1041
+ms against 540 ms).
+
 ### Measured, 2026-08-05 — the admin token honours `userId`
 
 This was asserted here for two days before anyone checked it, and it is the

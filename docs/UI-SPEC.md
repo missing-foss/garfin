@@ -91,6 +91,13 @@ The preview shows the count as it stands, not a prediction. Predicting the resul
 simulating the server's policy evaluation, including the rating cap, which ground rule 4 forbids
 precisely because it goes wrong silently.
 
+**Apply closes the sheet as soon as the write lands, not when the count does (#68).** The write is
+two round trips and does not get slower; re-reading the child's verified count costs what their
+visible library is large — measured from 19 ms to 538 ms — so the spinner was covering work that
+had already finished. The toast appears immediately with what is true — *Shared with Emma*, or
+*Taken back from Emma* — and the counted sentence, *Emma now sees 24 of 400*, replaces it when the
+server answers. If the count never arrives, the first sentence stays; it was complete on its own.
+
 **One case gets a hard warning, not a diff line.** If this removal would take the child's label
 off the **last item still carrying it**, they will see *nothing* — not everything. Their
 `AllowedTags` still lists the label; it just stops matching anything.

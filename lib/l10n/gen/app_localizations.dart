@@ -1382,13 +1382,13 @@ abstract class AppLocalizations {
   /// **'No releases published yet'**
   String get aboutUpdateNone;
 
-  /// Result: 60 anonymous requests an hour per address, measured.
+  /// Result: 60 anonymous requests an hour per address, measured. A parent pressing a button will not see this; a shared connection might.
   ///
   /// In en, this message translates to:
   /// **'GitHub is rate-limiting this connection. Try again in a while.'**
   String get aboutUpdateRateLimited;
 
-  /// Result: the request never arrived. Distinct from a bad answer, because the fix is different.
+  /// Result: the request never arrived. Distinct from a bad answer, because the fix is different — this one is the network.
   ///
   /// In en, this message translates to:
   /// **'Couldn\'t reach GitHub.'**
@@ -1436,7 +1436,7 @@ abstract class AppLocalizations {
   /// **'Releases'**
   String get aboutReleases;
 
-  /// Shown when no app on the phone would take an https intent.
+  /// Shown when no app on the phone would take an https intent, which is rare but not impossible.
   ///
   /// In en, this message translates to:
   /// **'Couldn\'t open that link.'**
@@ -1477,6 +1477,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not now'**
   String get unlockChoiceNotNow;
+
+  /// The assign toast before the verified count lands (#68). The write is done in ~18ms; the count takes as long as the child's visible library is large. True on its own, not a placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared with {name}'**
+  String assignDonePendingAdded(Object name);
+
+  /// The same moment, for a removal. Separate string because 'Shared with' is a lie about a removal and both directions reach this toast.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken back from {name}'**
+  String assignDonePendingRemoved(Object name);
+
+  /// A diff that gives to one child and takes from another — DiffDirection.mixed. No name, because there is more than one and nothing directional can be said.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes applied'**
+  String get assignDonePendingMixed;
 }
 
 class _AppLocalizationsDelegate

@@ -2,8 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/models/jellyfin_user.dart';
 import 'package:garfin/models/tag_diff.dart';
@@ -319,7 +321,10 @@ void main() {
         ]),
       );
 
-      expect(outcome.counts['kid-1'], 25);
+      // Awaited here because this test is about the number. The app does not
+      // await it before closing the sheet (#68) — the write is done when
+      // `apply` returns, and the verification lands in the toast afterwards.
+      expect((await outcome.counts)['kid-1'], 25);
       // Asked *after* the POST. A count read before it would report the old
       // number and look like the write did nothing.
       final order = server.requests.map((r) => '${r.method} ${r.path}').toList();
@@ -367,6 +372,114 @@ void main() {
       expect(tags, isNot(contains('kids-emma')), reason: 'the label came off');
       expect(tags, contains('added-by-someone-else'),
           reason: "a stale snapshot would have wiped someone else's edit");
+    });
+
+    test('Undo asks for no counts at all (#68)', () async {
+      // Undo used to go through `apply`, which verifies. Nothing read those
+      // numbers — the sheet's Undo takes a `Future<void>` and the toast after
+      // it names none — and the call is the expensive one in the whole path:
+      // measured at 538 ms against a child who can see 2000 titles. Half a
+      // second of the server's time, asked for and discarded, after every Undo.
+      server
+        ..on('/Users/admin-1/Items/item-1', json: fullItem())
+        ..fallback(json: <String, dynamic>{'TotalRecordCount': 10});
+
+      await repository.undo(
+        itemId: 'item-1',
+        diff: TagDiff([
+          TagChange(child: emma, label: 'kids-emma', adding: true),
+        ]),
+      );
+
+      expect(server.callsTo('/Items/item-1'), 1, reason: 'control: it wrote');
+      expect(server.callsTo('/Items'), 0,
+          reason: 'a verifying count nobody reads is a request not to make');
+    });
+  });
+
+  group('the wait, and who does it (#68)', () {
+    test('apply returns as soon as the write is done', () async {
+      // The reported symptom: the sheet sat on a spinner long after the film
+      // was shared. Measured on 10.11.11 — the write is ~18 ms and flat, while
+      // the verifying count runs from 19 ms to 538 ms depending on how much the
+      // child can already see. So the write returns; the number follows.
+      final counting = Completer<void>();
+      server
+        ..on('/Users/admin-1/Items/item-1', json: fullItem())
+        // The write must be scripted *separately* from the fallback, or the
+        // delay lands on the POST and the test measures the write being slow —
+        // which is the one thing it is not. Cost me a confident red.
+        ..on('/Items/item-1', json: fullItem())
+        ..fallback(json: <String, dynamic>{'TotalRecordCount': 25},
+            delay: const Duration(seconds: 30));
+
+      final outcome = await repository
+          .apply(
+            itemId: 'item-1',
+            diff: TagDiff([
+              TagChange(child: emma, label: 'kids-emma', adding: true),
+            ]),
+          )
+          .timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => throw StateError(
+                'apply waited for the verification; #68 is back'),
+          );
+
+      // The write happened...
+      expect(server.callsTo('/Items/item-1'), 1);
+      // ...and the number is still in flight, which is the whole point.
+      unawaited(outcome.counts.then((_) => counting.complete()));
+      expect(counting.isCompleted, isFalse);
+    });
+
+    test('a verification that fails does not become an unhandled error',
+        () async {
+      // This future is handed to the UI unawaited. If it could throw, a failed
+      // *verification* would surface as a crash for a write that succeeded.
+      server
+        ..on('/Users/admin-1/Items/item-1', json: fullItem())
+        ..on('/Items/item-1', json: fullItem())
+        ..fallback(failWith: DioExceptionType.connectionError);
+
+      final outcome = await repository.apply(
+        itemId: 'item-1',
+        diff: TagDiff([
+          TagChange(child: emma, label: 'kids-emma', adding: true),
+        ]),
+      );
+
+      expect(await outcome.counts, isEmpty,
+          reason: 'empty is "asked, could not verify" — the toast then keeps '
+              'the sentence that is still true');
+    });
+
+    test('two children are counted together, not one after the other',
+        () async {
+      // `mapBounded` rather than a `for` loop with an `await` in it. Both make
+      // the same requests in the same order and differ only in *when*, so the
+      // only way to tell them apart is to make each call take measurable time.
+      server
+        ..on('/Users/admin-1/Items/item-1', json: fullItem())
+        ..on('/Items/item-1', json: fullItem())
+        ..fallback(json: <String, dynamic>{'TotalRecordCount': 25},
+            delay: const Duration(milliseconds: 300));
+
+      final outcome = await repository.apply(
+        itemId: 'item-1',
+        diff: TagDiff([
+          TagChange(child: emma, label: 'kids-emma', adding: true),
+          TagChange(child: sam, label: 'block-sam', adding: false),
+        ]),
+      );
+
+      final started = DateTime.now();
+      await outcome.counts;
+      final elapsed = DateTime.now().difference(started);
+
+      expect(elapsed, lessThan(const Duration(milliseconds: 500)),
+          reason: 'serial would be two 300ms calls end to end; '
+              'took ${elapsed.inMilliseconds}ms');
     });
   });
 }

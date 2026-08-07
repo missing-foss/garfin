@@ -1176,11 +1176,11 @@
   },
   "aboutUpdateRateLimited": "GitHub is rate-limiting this connection. Try again in a while.",
   "@aboutUpdateRateLimited": {
-    "description": "Result: 60 anonymous requests an hour per address, measured."
+    "description": "Result: 60 anonymous requests an hour per address, measured. A parent pressing a button will not see this; a shared connection might."
   },
   "aboutUpdateOffline": "Couldn't reach GitHub.",
   "@aboutUpdateOffline": {
-    "description": "Result: the request never arrived. Distinct from a bad answer, because the fix is different."
+    "description": "Result: the request never arrived. Distinct from a bad answer, because the fix is different \u2014 this one is the network."
   },
   "aboutUpdateFailed": "Couldn't read GitHub's answer.",
   "@aboutUpdateFailed": {
@@ -1212,7 +1212,7 @@
   },
   "aboutOpenFailed": "Couldn't open that link.",
   "@aboutOpenFailed": {
-    "description": "Shown when no app on the phone would take an https intent."
+    "description": "Shown when no app on the phone would take an https intent, which is rare but not impossible."
   },
   "settingsAbout": "About Garfin",
   "@settingsAbout": {
@@ -1237,5 +1237,17 @@
   "unlockChoiceNotNow": "Not now",
   "@unlockChoiceNotNow": {
     "description": "Turns the gate off. Not 'never': Settings can turn it back on, and the wording should not imply the choice is final."
+  },
+  "assignDonePendingAdded": "Shared with {name}",
+  "@assignDonePendingAdded": {
+    "description": "The assign toast before the verified count lands (#68). The write is done in ~18ms; the count takes as long as the child's visible library is large. True on its own, not a placeholder."
+  },
+  "assignDonePendingRemoved": "Taken back from {name}",
+  "@assignDonePendingRemoved": {
+    "description": "The same moment, for a removal. Separate string because 'Shared with' is a lie about a removal and both directions reach this toast."
+  },
+  "assignDonePendingMixed": "Changes applied",
+  "@assignDonePendingMixed": {
+    "description": "A diff that gives to one child and takes from another \u2014 DiffDirection.mixed. No name, because there is more than one and nothing directional can be said."
   }
 }

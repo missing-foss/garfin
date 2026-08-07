@@ -29,15 +29,25 @@ class FakeJellyfinServer implements HttpClientAdapter {
     Object? json,
     int status = 200,
     DioExceptionType? failWith,
+    Duration? delay,
   }) {
-    _script
-        .putIfAbsent(path, () => <_Reply>[])
-        .add(_Reply(json: json, status: status, failWith: failWith));
+    _script.putIfAbsent(path, () => <_Reply>[]).add(
+        _Reply(json: json, status: status, failWith: failWith, delay: delay));
   }
 
   /// The reply for any path with nothing queued.
-  void fallback({Object? json, int status = 200}) {
-    _fallback = _Reply(json: json, status: status);
+  ///
+  /// [delay] makes a scripted call take measurable time, which is the only way
+  /// to tell a bounded-parallel batch from a serial loop: both make the same
+  /// requests, in the same order, and differ only in when.
+  void fallback({
+    Object? json,
+    int status = 200,
+    Duration? delay,
+    DioExceptionType? failWith,
+  }) {
+    _fallback =
+        _Reply(json: json, status: status, delay: delay, failWith: failWith);
   }
 
   int callsTo(String path) =>
@@ -64,6 +74,8 @@ class FakeJellyfinServer implements HttpClientAdapter {
       );
     }
 
+    if (reply.delay != null) await Future<void>.delayed(reply.delay!);
+
     if (reply.failWith != null) {
       throw DioException(requestOptions: options, type: reply.failWith!);
     }
@@ -82,11 +94,12 @@ class FakeJellyfinServer implements HttpClientAdapter {
 }
 
 class _Reply {
-  _Reply({this.json, this.status = 200, this.failWith});
+  _Reply({this.json, this.status = 200, this.failWith, this.delay});
 
   final Object? json;
   final int status;
   final DioExceptionType? failWith;
+  final Duration? delay;
 }
 
 /// A Jellyfin user DTO, with only the fields sign-in reads.
