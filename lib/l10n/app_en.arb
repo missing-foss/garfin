@@ -1176,11 +1176,11 @@
   },
   "aboutUpdateRateLimited": "GitHub is rate-limiting this connection. Try again in a while.",
   "@aboutUpdateRateLimited": {
-    "description": "Result: 60 anonymous requests an hour per address, measured."
+    "description": "Result: 60 anonymous requests an hour per address, measured. A parent pressing a button will not see this; a shared connection might."
   },
   "aboutUpdateOffline": "Couldn't reach GitHub.",
   "@aboutUpdateOffline": {
-    "description": "Result: the request never arrived. Distinct from a bad answer, because the fix is different."
+    "description": "Result: the request never arrived. Distinct from a bad answer, because the fix is different \u2014 this one is the network."
   },
   "aboutUpdateFailed": "Couldn't read GitHub's answer.",
   "@aboutUpdateFailed": {
@@ -1212,7 +1212,7 @@
   },
   "aboutOpenFailed": "Couldn't open that link.",
   "@aboutOpenFailed": {
-    "description": "Shown when no app on the phone would take an https intent."
+    "description": "Shown when no app on the phone would take an https intent, which is rare but not impossible."
   },
   "settingsAbout": "About Garfin",
   "@settingsAbout": {

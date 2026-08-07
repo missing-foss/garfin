@@ -91,9 +91,30 @@ class KidsRepository {
     );
 
     // Everything is in flight by here; this is where the screen waits, once.
-    final ladder = await ladderRequest;
-    final libraryTotal = await totalRequest;
-    final counted = await countRequest;
+    //
+    // **`Future.wait`, not three awaits in a row**, and the difference is not
+    // style. Awaiting them in sequence means that if the second throws — the
+    // server is unreachable, so all three are failing together — this method
+    // unwinds while the third is still running. Nothing is listening to it when
+    // it completes with its own error, and an unawaited future that errors is
+    // an unhandled asynchronous error.
+    //
+    // Which is the exact sentence `AssignRepository._countsFor` carries, one
+    // file away: the same reasoning was applied on the write path and missed
+    // here, on the screen that had just gone from three sequential requests to
+    // three concurrent ones. Caught in review, on a second read of code that
+    // had already been approved.
+    //
+    // `Future.wait` attaches to all three, so every error is observed; it waits
+    // for all of them before completing; and it completes with the *original*
+    // error rather than a wrapper, which is what keeps `JellyfinException`
+    // reaching the screen's error mapping instead of a generic one.
+    final settled = await Future.wait<Object?>(
+      <Future<Object?>>[ladderRequest, totalRequest, countRequest],
+    );
+    final ladder = settled[0]! as ParentalRatingLadder;
+    final libraryTotal = settled[1]! as int;
+    final counted = settled[2]! as List<({JellyfinUser user, int seen})>;
 
     final shortlisted = <KidSummary>[
       for (final entry in counted)

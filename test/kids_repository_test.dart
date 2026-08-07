@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/models/jellyfin_user.dart';
 import 'package:garfin/models/parental_rating.dart';
 import 'package:garfin/repositories/birth_year_store.dart';
 import 'package:garfin/repositories/device_identity.dart';
 import 'package:garfin/repositories/jellyfin_api.dart';
+import 'package:garfin/repositories/jellyfin_exception.dart';
 import 'package:garfin/repositories/kids_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -281,6 +283,40 @@ void main() {
       expect(elapsed, lessThan(const Duration(milliseconds: 1000)),
           reason: 'serial would be 1.5s of counts; '
               'took ${elapsed.inMilliseconds}ms');
+    });
+  });
+
+  group('when the server is unreachable (#68 review)', () {
+    test('the failure surfaces as itself, and nothing is left unobserved',
+        () async {
+      // **The case: three requests in flight, one await point.** Awaiting them
+      // one after another meant that if the library total threw, this method
+      // unwound while the per-child counts were still running — and nothing was
+      // listening when those failed too. An unawaited future that errors is an
+      // unhandled asynchronous error, which is precisely what the assign path
+      // guards against one file away.
+      //
+      // `flutter_test` reports an unobserved async error as a test failure, so
+      // *this test failing* is the assertion. It is not decorative: it fails
+      // against the three-sequential-awaits version.
+      await build(
+        users: [
+          user('k1', 'Emma', allowed: ['t']),
+          user('k2', 'Sam', allowed: ['t']),
+        ],
+      );
+      // Everything after /Users is gone — the realistic shape of "the server
+      // went away", where the total and the counts fail together rather than
+      // one of them being unlucky.
+      server.fallback(failWith: DioExceptionType.connectionError);
+
+      await expectLater(
+        repository.load(),
+        throwsA(isA<JellyfinException>()),
+        reason: 'the original error must reach the screen, not a wrapper — '
+            'the Kids screen maps JellyfinException to a sentence a parent '
+            'can act on and everything else to a generic one',
+      );
     });
   });
 

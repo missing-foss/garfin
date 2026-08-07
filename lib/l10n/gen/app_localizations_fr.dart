@@ -886,14 +886,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String assignDonePendingAdded(Object name) {
-    return 'Shared with $name';
+    return 'Partagé avec $name';
   }
 
   @override
   String assignDonePendingRemoved(Object name) {
-    return 'Taken back from $name';
+    return 'Repris à $name';
   }
 
   @override
-  String get assignDonePendingMixed => 'Changes applied';
+  String get assignDonePendingMixed => 'Modifications appliquées';
 }

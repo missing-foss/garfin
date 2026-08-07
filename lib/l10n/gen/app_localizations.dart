@@ -1382,13 +1382,13 @@ abstract class AppLocalizations {
   /// **'No releases published yet'**
   String get aboutUpdateNone;
 
-  /// Result: 60 anonymous requests an hour per address, measured.
+  /// Result: 60 anonymous requests an hour per address, measured. A parent pressing a button will not see this; a shared connection might.
   ///
   /// In en, this message translates to:
   /// **'GitHub is rate-limiting this connection. Try again in a while.'**
   String get aboutUpdateRateLimited;
 
-  /// Result: the request never arrived. Distinct from a bad answer, because the fix is different.
+  /// Result: the request never arrived. Distinct from a bad answer, because the fix is different — this one is the network.
   ///
   /// In en, this message translates to:
   /// **'Couldn\'t reach GitHub.'**
@@ -1436,7 +1436,7 @@ abstract class AppLocalizations {
   /// **'Releases'**
   String get aboutReleases;
 
-  /// Shown when no app on the phone would take an https intent.
+  /// Shown when no app on the phone would take an https intent, which is rare but not impossible.
   ///
   /// In en, this message translates to:
   /// **'Couldn\'t open that link.'**
