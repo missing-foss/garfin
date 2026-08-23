@@ -1,0 +1,146 @@
+# SPDX-FileCopyrightText: 2026 missing-foss
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# CI: the pre-merge verify gate. Runs on every push/PR. Read-only token,
+# pinned majors.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Callable so release.yml runs these exact gates rather than a copy of them.
+  # A release path that duplicates CI drifts from it, and the drift is only
+  # discovered at the moment you least want a surprise.
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # Flutter's Android build tooling is Gradle underneath (same as
+      # trobar-android) and needs a JDK — pin it explicitly rather than
+      # trusting whatever the runner image happens to default to, same
+      # reasoning and same version as trobar-android's own ci.yml.
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Read the pinned toolchain
+        id: tools
+        run: |
+          echo "flutter=$(awk '/^flutter /{print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
+          echo "java=$(awk '/^java /{print $2}' .tool-versions | sed 's/^temurin-//; s/+.*//')" >> "$GITHUB_OUTPUT"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ steps.tools.outputs.flutter }}
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      # SAFEGUARD (this differs from trobar-desktop's own ci.yml, which skips
+      # a build step — desktop packaging needs GTK/native toolchains it
+      # deliberately keeps out of this job). A mobile target has none of that
+      # friction and `flutter analyze`/`flutter test` alone won't catch every
+      # real compile break (Android-specific API usage, a manifest error, a
+      # native-plugin Gradle wiring issue) — same reasoning as
+      # trobar-android's own `./gradlew assembleDebug` step. Delete this step
+      # only once you're confident analyze+test cover what you need.
+      - name: Build debug APK
+        run: flutter build apk --debug
+      # THE RELEASE BUILD IS NOT REDUNDANT WITH THE DEBUG ONE (#30). Flutter's
+      # scaffold declares `android.permission.INTERNET` only in the debug and
+      # profile manifests, for hot reload — so Garfin shipped a release build
+      # with no network access at all while every gate here was green over it,
+      # because every gate built debug. Debug and release also differ in
+      # manifest merging, signing, minification, icon tree-shaking and asset
+      # packing. Whatever replaces this step must still build release.
+      - name: Build release APK
+        run: flutter build apk --release
+      - name: Release APK is correct where it differs from debug
+        run: |
+          apk=build/app/outputs/flutter-apk/app-release.apk
+          [ -f "$apk" ] || { echo "::error::no release APK was produced"; exit 1; }
+
+          # Fail closed if the tool is missing rather than passing having
+          # checked nothing — the #404 lesson from the leak scan below.
+          aapt2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+          [ -n "$aapt2" ] || { echo "::error::aapt2 not found; cannot inspect the APK"; exit 1; }
+
+          # NEITHER CHECK BELOW MAY BE PUT BEHIND A PIPE. Not `producer | grep`,
+          # and not `printf '%s' "$captured" | grep` either — capturing first
+          # does not fix this, it only raises the threshold to the pipe buffer.
+          #
+          # `grep -q` exits at its first match, so whatever is still writing
+          # takes SIGPIPE, and under `pipefail` the pipeline then reports
+          # failure on a *successful* match. GitHub's default `bash -e {0}`
+          # leaves `pipefail` off today — adding `shell: bash` or a `defaults:`
+          # block, a routine hardening change, turns it on.
+          #
+          # Measured under pipefail, match emitted first:
+          #    64 KB payload -> pipe + grep -q: 0    (works, by luck of size)
+          #   128 KB payload -> pipe + grep -q: 141  (SIGPIPE)
+          #   any size       -> [[ ... ]]:      0    (no subprocess to break)
+          #
+          # `unzip -l` on this APK is ~22 KB over 433 entries today, so a piped
+          # version would pass — until the APK grows past roughly 1,300 entries.
+          # The two checks also fail in OPPOSITE directions, which is why the
+          # second matters most: INTERNET (`|| exit 1`) would report missing
+          # though present — noisy but safe, and how this was first caught in
+          # dev/verify.sh, which does set pipefail. The signature check
+          # (`if ...; then`) would report absent though present: FAIL-OPEN, a
+          # signed APK sailing through the gate whose only job is catching one.
+          badging=$("$aapt2" dump badging "$apk")
+          [[ $badging == *"uses-permission: name='android.permission.INTERNET'"* ]] \
+            || { echo "::error::release APK declares no INTERNET permission"; exit 1; }
+
+          # The signing key never exists in CI, by design (CONTRIBUTING.md), and
+          # build.gradle.kts promises an *unsigned* release rather than a silent
+          # debug-key sign. A signed artifact here means that promise broke.
+          listing=$(unzip -l "$apk")
+          signature_re='META-INF/.*\.(RSA|EC|DSA)'
+          if [[ $listing =~ $signature_re ]]; then
+            echo "::error::release APK is signed — CI must never have a signing key"
+            exit 1
+          fi
+      - name: Translations (FR ARB complete, #32)
+        # gen-l10n validates placeholder/ICU parity (errors on a mismatch) and
+        # lists untranslated keys in the untranslated-messages-file; a "[" in it
+        # means a key lacks its FR value, so the build fails instead of shipping
+        # an English fallback in French. Delete this step (and the l10n.yaml
+        # untranslated-messages-file entry) if you're not translating yet.
+        run: |
+          flutter gen-l10n
+          if grep -q "\[" lib/l10n/untranslated.txt; then
+            echo "::error::untranslated FR messages:"; cat lib/l10n/untranslated.txt; exit 1
+          fi
+      - name: Copy rules (docs/DECISIONS.md § Voice)
+        # Bans "safe"/"protected"/"secure" and surveillance framing in
+        # user-facing copy, per-locale so the rule survives translation rather
+        # than being an English-only style note. Scoped to lib/l10n/*.arb, which
+        # is the complete user-facing surface because every string goes through
+        # AppLocalizations.
+        run: python3 dev/check-copy.py
+      - name: No print() in app code
+        # flutter_lints' avoid_print covers this today, but a lint rule can be
+        # switched off in analysis_options.yaml and this grep survives that.
+        run: |
+          if grep -rnE '(^|[^.\w])print\s*\(' lib/ --include='*.dart' | grep -v 'lib/l10n/gen'; then
+            echo "::error::use the logger — and never log tokens, passwords or Quick Connect secrets"
+            exit 1
+          fi
+      - name: Secret scan
+        # Binary download rather than gitleaks-action: the org Actions policy
+        # only allows GitHub-owned + verified-creator actions.
+        run: |
+          v=8.24.3
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${v}/gitleaks_${v}_linux_x64.tar.gz" | tar -xz gitleaks
+          ./gitleaks git --no-banner .
+      - name: REUSE lint (per-file SPDX licensing)
+        # Python tool; the org Actions policy blocks fsfe/reuse-action, so run it
+        # via pipx (preinstalled on the runner). The charset-normalizer extra
+        # supplies reuse's encoding detection without needing libmagic.
+        run: pipx run --spec 'reuse[charset-normalizer]' reuse lint

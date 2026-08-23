@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+SPDX-FileCopyrightText: 2026 missing-foss
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Garfin syncs nothing to anyone's cloud. See docs/DECISIONS.md § Nothing
+  syncs to a cloud account, and issue #35.
+
+  `android:allowBackup="false"` on its own is NOT enough, which is the whole
+  reason this file exists. Android's own documentation:
+
+      "For apps targeting Android 12 (API level 31) or higher, this behavior
+       varies. On devices from some device manufacturers, specifying
+       android:allowBackup="false" disables cloud-based backup and restore
+       (such as Google Drive backups) but doesn't disable device-to-device
+       transfers for the app."
+
+  Garfin targets well past 31, so that gap is ours, and it is manufacturer-
+  dependent — the worst kind, because it would hold on whatever handset it was
+  checked on and not on someone else's.
+
+  Two things about the format that are easy to get wrong, both from the same
+  docs:
+
+  - `path` is REQUIRED on every rule. A rule without it is not a broader rule,
+    it is an invalid one.
+  - An EMPTY section means the mode is FULLY ENABLED, not disabled: "If there
+    are no rules for a particular backup mode, such as if the <device-transfer>
+    section is missing, that mode is fully enabled for all content except for
+    no-backup and cache directories." So `<device-transfer />` would be the
+    exact opposite of what it looks like. Each section must carry real excludes.
+
+  `root` is the app's private credential-protected directory, which is where
+  shared_preferences lives. `device_root` is device-protected storage, a
+  separate location that `root` does not cover — nothing writes there today,
+  and it is excluded so that stays true by default rather than by remembering.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="device_root" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="device_root" path="." />
+    </device-transfer>
+</data-extraction-rules>

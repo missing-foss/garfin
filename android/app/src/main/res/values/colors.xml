@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+SPDX-FileCopyrightText: 2026 missing-foss
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- The adaptive icon's background. BRANDING.md's flat #2B2035, which is also
+     what brand/svg/garfin-icon-background.svg paints — the two must agree, and
+     a colour resource is the one place a launcher cannot rescale it. -->
+<resources>
+    <color name="ic_launcher_background">#2B2035</color>
+</resources>

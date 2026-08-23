@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 missing-foss
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Pre-push verification gate for garfin. Run from the repo root:
+#   dev/verify.sh
+# Needs flutter on PATH.
+#
+# CI (.github/workflows/ci.yml) runs a SUBSET of what follows. Four checks
+# run ONLY here: the hardcoded-UI-string check, the leak scan, the
+# tracker-reference check and the toolchain-pin check. Everything else --
+# analyze, tests, both APK builds, translations, copy rules, no-print,
+# gitleaks and REUSE -- runs in both places.
+set -uo pipefail
+fail=0
+step() { echo; echo "== $1 =="; }
+
+step "flutter analyze"
+flutter analyze && echo ok || fail=1
+
+step "flutter test"
+flutter test && echo ok || fail=1
+
+step "build debug APK"
+# See ci.yml's own comment on why this is here (not in trobar-desktop's own
+# verify.sh) — analyze+test alone won't catch every real Android compile
+# break. Delete if this stops being a mobile target.
+flutter build apk --debug && echo ok || fail=1
+
+step "build release APK (#30)"
+# Not redundant with the debug build. INTERNET is declared only in Flutter's
+# debug/profile manifests, so a release build once shipped with no network
+# access while every gate was green. Debug and release also differ in manifest
+# merging, signing, minification and icon tree-shaking.
+if flutter build apk --release; then
+  apk=build/app/outputs/flutter-apk/app-release.apk
+  aapt2=$(ls "${ANDROID_HOME:-$HOME/sdk/android}"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+  if [ -z "$apk" ] || [ ! -f "$apk" ]; then
+    echo "RELEASE: no APK produced"; fail=1
+  elif [ -z "$aapt2" ]; then
+    # Unlike CI, a contributor may genuinely not have build-tools on PATH.
+    echo "SKIP (aapt2 not found) — CI still checks the APK's permissions"
+  # No pipe. This script sets `pipefail`, and `grep -q` exits at its first
+  # match, so whatever is still writing takes SIGPIPE and the pipeline reports
+  # failure on a *successful* match. Capturing first does NOT fix that — it
+  # only raises the threshold to the pipe buffer, measured at ~64 KB. It is
+  # safe here today solely because aapt2's output is ~4 KB, which is a property
+  # of the tool rather than of this code. A bash `==` test has no subprocess
+  # and so nothing to break. See the longer note in .github/workflows/ci.yml.
+  elif [[ $("$aapt2" dump badging "$apk" 2>/dev/null) \
+          == *"uses-permission: name='android.permission.INTERNET'"* ]]; then
+    echo ok
+  else
+    echo "RELEASE: the APK declares no INTERNET permission"; fail=1
+  fi
+  # Deliberately no "must be unsigned" check here: that is a property of CI,
+  # where the key must never exist. A maintainer with the real keystore should
+  # get a signed APK from this and must not be told it is a failure.
+else
+  echo "RELEASE: build failed"; fail=1
+fi
+
+step "translations (FR ARB complete, #32)"
+# gen-l10n validates placeholder/ICU parity (it errors on a mismatch) and writes
+# every untranslated key to the untranslated-messages-file set in l10n.yaml. The
+# file is "{}" when complete and "{\"fr\": [...]}" when a key lacks its FR value,
+# so a "[" means a gap — a new string then fails the build instead of shipping an
+# English fallback in French. Delete this step (and l10n.yaml) if not translating.
+if flutter gen-l10n; then
+  if grep -q "\[" lib/l10n/untranslated.txt 2>/dev/null; then
+    echo "UNTRANSLATED FR messages:"; cat lib/l10n/untranslated.txt; fail=1
+  else
+    echo ok
+  fi
+else
+  echo "flutter gen-l10n failed (placeholder/ICU mismatch?)"; fail=1
+fi
+
+step "no hardcoded UI strings (must go through AppLocalizations)"
+# A Text() built from a string literal bypasses l10n and renders in English
+# regardless of locale. Adjust the allowlist below for your own legitimate
+# exceptions (e.g. native language names in a language picker).
+if grep -rnE "Text\(\s*(const\s+)?['\"]" lib/ --include='*.dart' \
+     | grep -v 'l10n/gen'; then
+  echo "HARDCODED: localize the Text() string(s) above via AppLocalizations"; fail=1
+else
+  echo "ok"
+fi
+
+step "copy rules (docs/DECISIONS.md § Voice)"
+# Bans "safe"/"protected"/"secure" and surveillance framing in user-facing copy,
+# in both catalogues. Stated-but-unenforced rules erode; this makes it a gate.
+python3 dev/check-copy.py && echo ok || fail=1
+
+step "no print() in app code"
+# flutter_lints' avoid_print covers this today, but a lint rule can be turned
+# off in analysis_options.yaml and this grep survives that. Excludes generated
+# l10n output, which we don't author.
+if grep -rnE '(^|[^.\w])print\s*\(' lib/ --include='*.dart' | grep -v 'lib/l10n/gen'; then
+  echo "PRINT: use the logger — and never log tokens, passwords or Quick Connect secrets"; fail=1
+else
+  echo "ok"
+fi
+
+step "leak scan (strings that must never ship)"
+# #404: `grep -f` on a missing terms file exits 2 (swallowed by 2>/dev/null
+# below), the `if` is then false, and this printed "ok" having scanned
+# nothing — fail-open, not fail-safe. `-s` catches missing AND empty in one
+# test, skipping the grep entirely so this doesn't ALSO scan (and pass)
+# against a pattern file with nothing in it.
+# The pattern list is NOT in this repository. A denylist that ships the terms
+# it exists to exclude publishes exactly what it is protecting -- which is what
+# used to happen here. Supply one via LEAK_PATTERNS to run it; with no
+# list configured this reports that it did not run rather than passing.
+if [ -n "${LEAK_PATTERNS:-}" ] && [ -s "${LEAK_PATTERNS}" ]; then
+  if git ls-files | xargs grep -InE -f "${LEAK_PATTERNS}" 2>/dev/null; then
+    echo "LEAK: forbidden term(s) above"; fail=1
+  else
+    echo "ok"
+  fi
+else
+  echo "SKIP (no LEAK_PATTERNS configured)"
+fi
+
+step "gitleaks (secrets)"
+# TWO scans, and the second is the one that matches CI.
+#
+# `gitleaks git` walks history. Locally that is a full clone, so it sees each
+# commit's diff. In CI `actions/checkout` fetches depth 1, so the same command
+# sees a single commit containing the whole tree — meaning CI effectively scans
+# every file while a local run scans only what changed. That divergence let a
+# secret-shaped test fixture reach CI green locally and red there (#34).
+#
+# `gitleaks dir` scans the working tree, which reproduces CI's coverage. It also
+# walks build/ when one exists, which is a bonus rather than a cost: a
+# credential baked into an APK is exactly the thing worth catching.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --no-banner . && gitleaks dir --no-banner . && echo ok || fail=1
+else
+  echo "SKIP (gitleaks not installed) — CI still runs it, and see above: a"
+  echo "     local run would not have matched it anyway. Install it:"
+  echo "     https://github.com/gitleaks/gitleaks/releases"
+fi
+
+step "REUSE (per-file SPDX licensing)"
+# Every file must declare copyright + license (inline SPDX header, or via
+# REUSE.toml for binaries / generated / Flutter-scaffolding). A new unlicensed
+# file then fails here rather than shipping unattributed.
+if command -v reuse >/dev/null 2>&1; then
+  if reuse lint >/dev/null 2>&1; then echo ok; else reuse lint | tail -20; fail=1; fi
+else
+  echo "FAIL: reuse is not installed (pipx install reuse) — the licensing check cannot run"; fail=1
+fi
+
+step "Tracker references in published prose"
+# Public docs must stand alone: an issue number that outlives the tracker it
+# points at is worse than no citation. Excludes fenced blocks, inline code, hex
+# colours and heading anchors -- a guard that false-positives gets switched
+# off, and then protects nothing.
+if python3 dev/check-tracker-refs.py docs README.md SECURITY.md CONTRIBUTING.md; then
+  echo ok
+else
+  fail=1
+fi
+
+echo
+step "Toolchain pin agrees with CI"
+# .tool-versions is the source of truth; CI must not drift from it. Deliberately
+# a consistency check rather than making CI read the exact string: setup-java's
+# acceptance of a "17.0.20+8" style version is not something this repo can test,
+# and a check that both agree catches the drift either way.
+if [ -f .tool-versions ]; then
+  tv_java=$(awk '/^java /{print $2}' .tool-versions | sed 's/^temurin-//; s/\..*//')
+  ci_java=$(grep -hoE 'java-version: *"?[0-9]+' .github/workflows/*.yml 2>/dev/null | grep -oE '[0-9]+' | sort -u)
+  if [ -n "$tv_java" ] && [ -n "$ci_java" ] && [ "$tv_java" != "$ci_java" ]; then
+    echo "PIN DRIFT: .tool-versions says java $tv_java, CI says $ci_java"; fail=1
+  else
+    echo ok
+  fi
+else
+  echo "SKIP (no .tool-versions in this repo)"
+fi
+
+echo
+if [ "$fail" -eq 0 ]; then echo "VERIFY OK"; else echo "VERIFY FAILED"; fi
+exit "$fail"

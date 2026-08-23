@@ -1,0 +1,549 @@
+<!--
+SPDX-FileCopyrightText: 2026 missing-foss
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+# UI spec
+
+Screen by screen. `docs/ui-mockup.jsx` is the clickable version — reference only, not source.
+
+Bottom navigation, four destinations: **Library · Kids · Activity · Settings** — a
+**navigation rail** on the left instead, from 600dp (see § Large screens).
+
+## Large screens
+
+Garfin is a phone app that is handed a 1280dp window whether or not it is ready for one: nothing in
+the manifest restricts orientation, aspect ratio or resizability, and for apps targeting API 36 the
+platform ignores those restrictions anyway on any display 600dp or wider. So the tablet case is not
+a migration, it is a layout that had no upper end.
+
+Four widths, and every one of them is read off the **space a widget is handed** rather than off
+`MediaQuery` — beside a rail or a panel those are different numbers, and it is the second that
+decides whether a layout fits:
+
+| from | measured on | what changes |
+|---|---|---|
+| any | the widget's own space | a column of rows stops widening at **640dp**, centred |
+| 600dp | the **window** | the bottom bar becomes a **navigation rail** — the same four destinations, never both at once |
+| 840dp | the space **beside the rail** | the Library and a collection show the **assign panel** beside the grid (360dp) instead of a modal sheet |
+| 1240dp | the **window** | the rail **extends**: labels beside the icons rather than under them |
+
+**The 840dp row is not a window width, and there is no window width to quote** — which matters,
+because the next person to test this on a device will set one. The rail takes its share of the body
+first, so the Library sees `window − rail − 1`, and the rail is as wide as its widest label: measured
+**116.0dp in English and 153.5dp in French**, so the same layout gets the panel at **957dp** of window
+in one locale and about **994dp** in the other, and text scale moves it again. So it is asserted as
+the relationship it is — the panel appears when the pane beside the rail reaches 840 — in both
+locales, rather than as a figure that would be wrong for half of them.
+
+**640dp is a chosen number, not a fitted one.** At Nunito's body size it is roughly 70 characters —
+near the top of the comfortable range for prose — and it keeps a switch within one glance of the
+label it switches. Uncapped, a settings row on a tablet in landscape parks its trailing control a
+hand's width from its own title.
+
+**The cap is applied as the list's padding, never as a box around it.** The two look identical and
+are different apps: narrowing the scrollable means a drag started in the margin of a tablet scrolls
+nothing, and the scrollbar leaves the window's edge to come and meet the text. It also caps the
+*content*, leaving each screen's own padding outside it, so every screen lands on the same column
+width rather than one that varies with the insets it happens to declare.
+
+The **poster grid is deliberately not capped** — it is the one thing on screen that gets better with
+room, which is what the target-width rule in § Library is for. Both **modal bottom sheets** are
+capped, because between 600dp and 840dp there is a rail but no panel yet and a sheet is still
+allowed to be 839dp wide.
+
+## Unlock
+
+On cold start with a session already stored, and on resume after the idle timeout: biometric,
+falling back to device PIN/pattern. Garfin holds an admin token on a phone that gets handed to
+children as its normal mode of use, so device lock alone doesn't cover the case the app itself
+creates.
+
+**Not over sign-in.** The gate starts where the token does. Before a session there is nothing to
+gate, and asking for biometrics before a server address has been typed protects an empty app.
+
+**The question, once.** Straight after an interactive sign-in — and only then — a full-screen
+choice: *Ask every time* (recommended, and what a fresh install does anyway) or *Not now*, with the
+note that Settings can change it later. Answering "ask every time" drops straight to the lock
+screen; answering "not now" opens the app. Either answer is remembered, and the screen never
+appears again.
+
+A **restored** session skips the question entirely and goes to the lock screen. The question is put
+only to someone who has just proved they hold the Jellyfin credentials; anyone else holding the
+phone is the reason the gate exists.
+
+**Backgrounding ends it.** Leave the question unanswered and put the phone down, and the resume
+lands on the lock screen rather than back on the offer — the same treatment a restored session
+gets, because by then that is what it is. A notification shade or a system prompt does not count:
+`paused`, never `inactive`. Nothing is recorded either way, so the next sign-in asks properly.
+
+Below API 28 there is no `BiometricPrompt`, so 26–27 go straight to device credential. If the
+device has no credential set at all, say so plainly and let the user continue — a lock Garfin
+cannot enforce shouldn't become a lock-out.
+
+## Sign in
+
+Server URL (remembered), then Quick Connect (default) or password. Quick Connect shows a
+six-digit code and an indeterminate progress bar while polling. Non-admin accounts are refused
+with an explanation, not a generic error.
+
+Backgrounding during Quick Connect is normal — authorising the code means opening a signed-in
+Jellyfin session. If the process is killed, pairing restarts with a fresh code; the secret is
+never persisted to survive it.
+
+## Library — the landing screen
+
+1. **"Picking for"** — a horizontal row of Jellyfin avatars for every label-controlled user, plus
+   "Everyone". Selecting one filters the grid to what that child can't see yet, exposes their
+   rating cap as a chip, and carries into the assign sheet.
+2. **Filter bar** — one row: a **search field** first, then a tune button (opens all groups with
+   Reset), then dropdown chips for Type, Genre, Decade, then the rating toggle when a child is
+   selected. Chips show the filter name when unset, the value when set. Sticky on scroll.
+
+ **Search finds; the chips narrow.** The grid is the administrator's whole library — that
+   is what makes "not given yet" answerable — so it is as long as the library gets, and no
+   category filter answers *the one film they asked for at dinner*. The server does the matching:
+ `searchTerm` on the same request, never a filter applied to a page after it arrives, because
+   the match is usually not in the first 24 rows.
+
+   It matches the **title only** — measured, not the overview, cast, tags or genres — any
+   substring, case- and accent-insensitively, and it combines with the other filters rather than
+   replacing them. Typing is debounced at 350ms: every keystroke would otherwise be a
+   library-sized query, which was measured at up to half a second. Whitespace is not a search, and
+   an active search counts toward the filter badge like anything else.
+3. **Result line** — "N things Emma hasn't got yet", with a Show/Hide shared text button. **N is
+ `total − tagged`, both counted by the server under the active filters** — never the number of
+   tiles loaded, which climbs as the parent scrolls, and never the grid's contents, which include
+   already-shared titles whenever Show shared is on. A block-list child reads the other way round —
+   "N things kept from Sam", the tagged count itself — and a conflicting account gets the library's
+   own count with no claim about them (ground rule 3). Until the count arrives, and if it fails,
+   the line says what the library holds: true either way, and better than a spinner over a number.
+4. **Poster grid** — **the poster size setting is a target width, and the column count falls out
+ of the window**: 175dp at regular, 360 at large, 112 at small. **This is the first thing
+   written down here about large screens**, and the reason is that the old fixed count had no upper
+   end: the same three columns were used at 412dp and at 1280dp, so a 10" tablet in landscape drew
+   posters 3.4× wider than the phone they were meant for, ~703dp tall against a ~800dp viewport —
+   not one complete row visible, and at the large setting a single poster taller than the screen.
+
+   **The old "2 columns under 400dp" now reads "under about 406dp".** That rule was a hard cliff and
+   a continuous target cannot reproduce one — forcing the crossover onto 400 exactly pins the small
+   size into a ~0.3dp window, which is a fitted constant rather than a chosen number. So the
+   crossover lands where the arithmetic puts it, and the targets are chosen to decide *which* band
+   moves: every phone width below 400dp behaves exactly as before, including 393dp — a Pixel 4a/5/5a
+   — and 400–406dp gets one column fewer than it used to. That direction is deliberate: posters get
+   bigger there, never smaller, which is what the old rule cared about when it called three columns
+   on a small phone "stamps".
+
+   The width read is the one the grid is *given*, not the display, so a narrow parent inside a wide
+   window — split-screen, a folded foldable — gets the narrow answer. Collections get a
+   stacked cover and a count badge. **Both edges of a poster lay their markers out against each
+   other rather than pinning them to opposite corners** — the state badge against the avatars at
+   the top, the age hint against the collection count at the bottom. Opposite corners collide on
+   anything narrower than a two-column tile, and it is a silent collision: everything stays inside
+ the tile, so nothing errors. The top edge shrinks (three faces, then one and a `+N`, then
+ nothing) because a `+N` can stand for a face; the bottom edge **wraps** instead, the count
+   taking the line below, because neither of those is a picture and nothing stands for a word. A
+   lone count — no child selected, so no hint — keeps the bottom-right corner it has always had.
+   Already-shared items carry a check badge. Each tile shows avatars of the children who have it —
+   **"have" meaning the label is on the item, never "can watch it"** (ground rule 4). Allow-list
+   children only: for a block-list child the same tag means the title is *withheld*, and a
+   conflicting account has no verb at all (ground rule 3), so neither appears. Three overlapped
+ 22dp circles at most, then a `+N` circle for the rest; a child with no picture falls back to
+   their initial. They share the poster's top edge with the state badge and **shrink to whatever
+ the badge leaves** — three faces and a `+N`, then two, then one, then nothing. The badge is the
+ answer about the child the parent picked, so it keeps its width. A `+N` is never drawn alone:
+   beside faces it means "N more than these", and on its own it would mean "N in total" — the same
+   glyph with two meanings, on the smallest tile. The faces are in the tile's spoken label at every
+   width, in full, minus the selected child, whom the badge has just named. The held-back nuance
+   stays with the selected child's badge —
+   knowing it for everyone would cost a query per child per title. The faces show with no child
+   selected, which is the case they exist for, and no badge exists then, so the whole edge is
+   theirs.
+
+   A tile's spoken label names the **kind** as well as the title when it is a set — "Collection,
+ 7 titles". The count badge is a picture, and without this a box set and a film were the
+   same sentence to a screen reader, on the one tile whose tap goes somewhere different. It comes
+   second, straight after the name, because it is what the thing *is* rather than what has been
+   done with it; it is spoken whatever the selection is, unlike the state badge, because it is not
+   a claim about a child; and it falls back to "Collection" alone when the server sent no
+ `ChildCount`, rather than inventing "0 titles".
+
+5. **The assign panel**, from 840dp — the write preview beside the grid rather than a sheet over
+   it. "Pick a child, pick a film" is a comparison, and on a tablet there is room to keep the thing
+   being compared against on screen: the tiles stay visible and stay tappable while a preview is
+   open. Below 840dp the same tap opens the modal sheet, and the two are never both live — a sheet
+   over a panel would be two previews of one write, either of which could be applied.
+
+   The panel is on screen **whether or not anything is picked**, showing a line about what the
+   space is for. Appearing only on demand would re-flow the grid on every selection, moving the
+   poster that was just tapped out from under the finger that tapped it.
+
+   It is **keyed by the item**, which is not a detail: the panel's state is the pending toggles, and
+   reused across a selection it would let a parent flick *give to Emma* on one film, change their
+   mind, tap another, and write the second film to Emma from a switch they set for the first —
+   with the switch on screen agreeing, because it is the switch they flicked. Opening a collection
+   empties the panel for the same reason.
+
+## Collection screen
+
+**Tapping a collection opens it. It asks nothing.** Before this, a collection tile behaved like a
+film — one tap opened the assign sheet for the whole set, whose Apply writes to every member *and*
+the container. A parent tapping a box set is looking, and "give all eight to Emma?" is an answer to
+a question they did not ask.
+
+- The members, as ordinary library tiles — same badges, same age hints, same faces, because a title
+  has to mean the same thing inside a set as it does on the grid. They are classified by the same
+  code the grid uses, not a second copy of it.
+- **"Give the whole set"** is a button on this screen, not the tap. It opens exactly the sheet the
+  tap used to, so nothing is lost from the old flow except that it stops happening by accident. It
+  is disabled until a child is picked, because the preview is a preview *for a child*.
+- The child chips stay on screen, and the selection carries in and back out — deciding about a set
+  is when a parent is most likely to want to check it against a second child.
+- Tapping a member opens the ordinary assign sheet for that member. Members arrive from
+ `GET /Items?parentId=` with 16 fields against the write path's 41, so nothing on this screen
+  posts one back: the sheet re-reads its own body (ground rule 2).
+
+**What this screen deliberately does not change:** giving some members and not others still leaves
+the container unlabelled, so the child reaches those films by search while the collection itself
+answers 401. That is today's behaviour, not something browsing introduced — it is simply much
+easier to reach now. Tracked separately rather than decided here.
+
+### How much of the set is theirs
+
+Under the title count, whenever a child is picked: **"Nothing here is Emma's yet"**, **"4 of 6 given
+to Emma"**, or **"All 6 given to Emma"** — and the same three inverted for a block-list child, who is
+*kept from* rather than *given* (ground rule 3). Nobody picked, or an account ground rule 3 refuses
+to interpret, and the line is absent rather than guessed.
+
+The same sentence appears on **each child's row of a set's write preview**, where it answers a
+different question from the row above it: *"Emma sees 24 of 400"* is what the server shows her across
+the library, and this is what has been handed over inside this set.
+
+**It counts labels, not visibility**, and the two never share a line. A rating cap can hide a
+labelled title, so "4 of 6 given" and "sees 4 of 6" are different facts — computing the second here
+is what ground rule 4 forbids.
+
+Free on both screens: the members are already fetched and already classified, so this is a count of
+what is on screen rather than a question for the server. **The grid's collection tile does not carry
+it yet** — the grid has no membership to count without building the collection index, which is 1 + N
+requests, and that cost wants measuring before it goes on the landing screen.
+
+## Assign sheet (modal bottom sheet — or a side panel, from 840dp)
+
+Cover, title, metadata. For a collection: a note that labels land on all N titles inside **and on
+the collection itself** — measured, a set whose members alone are labelled hands the child the
+films without the set, and browsing it answers 401. For a film in a collection: a softer note
+naming the set, **one per set**, because a film can belong to several.
+
+One row per label-controlled child, the selected one first. Rows above the child's rating cap are
+flagged. Each row carries that child's **current** visible count — "Emma sees 24 of 400" —
+fetched from the server, never computed here.
+
+Toggling updates a **tag diff** — the exact additions and removals — which is the only place a
+write is previewed. Apply, or Cancel.
+
+**The preview and the surface it appears on are separate things.** The same view is the sheet
+on a phone and the panel on a tablet; what a surface owns is how it is dismissed, and it hands that
+in. Nothing else about the preview changes with the width — the rows, the diff, the last-item
+warning, the cascade question and Apply are the same code on both.
+
+The preview shows the count as it stands, not a prediction. Predicting the result would mean
+simulating the server's policy evaluation, including the rating cap, which ground rule 4 forbids
+precisely because it goes wrong silently.
+
+**Apply closes the sheet as soon as the write lands, not when the count does.** The write is
+two round trips and does not get slower; re-reading the child's verified count costs what their
+visible library is large — measured from 19 ms to 538 ms — so the spinner was covering work that
+had already finished. The toast appears immediately with what is true — *Shared with Emma*, or
+*Taken back from Emma* — and the counted sentence, *Emma now sees 24 of 400*, replaces it when the
+server answers. If the count never arrives, the first sentence stays; it was complete on its own.
+
+**One case gets a hard warning, not a diff line.** If this removal would take the child's label
+off the **last item still carrying it**, they will see *nothing* — not everything. Their
+`AllowedTags` still lists the label; it just stops matching anything.
+
+Garfin cannot empty `AllowedTags` itself — ground rule 8 means it never writes user policy — so
+the trigger is a **count of items carrying the tag**, reached zero. That is a library query, not
+a visibility computation, so ground rule 4 is not in play: no rating cap enters into it. It must
+be impossible to apply without having read the warning.
+
+If a single film belongs to a collection and labels were added, an **AlertDialog** asks whether to
+keep the set together, listing the other members with their ratings. "Just this one" / "All N".
+
+Result: a Snackbar with Undo, carrying the **re-fetched** count — "Emma now sees 25 of 400".
+That is the server's answer after the write, so it is also what explains a share the rating cap
+swallowed: the tag landed, the number didn't move, and the app says so rather than looking broken.
+
+If a collection write partly fails, the sheet reports the exact state — "7 of 12" — and offers
+*finish the rest* or *remove all*, in place of Apply and without closing over the top of it. It
+never silently undoes what succeeded; see ground rule 5. *Finish the rest* is the same write again,
+which is safe because tag writes are idempotent.
+
+If the **pre-flight** fails instead, the sheet says so in different words — nothing was written at
+all, and the difference between "untouched" and "half done" is the whole reason the pre-flight
+exists.
+
+**That report is written per direction, and it has to be.** A removal reaches it too — the
+container's label comes off first, so a container write that fails while every title succeeds ends
+there. Labels left *on* the container mean the child keeps a collection that is now empty; labels
+left *off* it mean they have the films and no set to find them in. Those are opposite sentences,
+and the reversing button is "remove all" after an addition and "put it all back" after a removal —
+naming the other one would name the opposite of what pressing it does.
+
+### How Undo works — everywhere it appears
+
+**Undo is a new forward write, never a restore.** Fresh `GET /Users/{adminId}/Items/{itemId}`,
+remove the specific tag Garfin added, post the full object back. It reverses the *effect*, not
+the object. **Garfin never re-posts a previously captured item body.**
+
+Restoring a snapshot is the intuitive reading and the dangerous one. Two reasons, and the second
+is not recoverable:
+
+- The item may have changed since — a Jellyfin metadata refresh, an edit in the web admin, a
+  second Garfin session. Re-posting a stale body silently discards all of it.
+- A body that isn't a faithful full single-item read is rejected with 400 **and leaves the item's
+  detail endpoints returning 400 afterwards**, while list views keep showing correct data. The
+ only known repair wipes every Garfin label on that item. See `docs/JELLYFIN-API.md`. Undo — the
+  feature whose entire purpose is making a mistake recoverable — would become the one that makes
+  it unrecoverable in place.
+
+Consequences that follow from Undo being a forward write:
+
+- **`Tags` is shared with the metadata provider**, so remove only the one label. Never restore a
+ captured `Tags` array either: provider keywords may have changed underneath it.
+- **It stays safe however long has passed**, which is what lets the Activity log offer Undo on
+  old entries. A restore would grow more dangerous with age; a forward write does not.
+- **It is idempotent.** If the label is already gone — removed by hand, or by a second session —
+  Undo succeeds and says so, rather than erroring.
+- **If the fresh `GET` fails, stop and surface it.** That is the signal the item is already in
+  the broken state above, and pressing on would neither help nor be honest about it.
+
+**The toast's Undo expires after eight seconds; Activity's does not.** The toast used to
+stay on screen indefinitely — `SnackBar.persist` defaults to `action != null`, so the app's only
+action-bearing toast was also its only permanent one. It now behaves like the other five.
+
+That expiry is deliberate and it is not a loss of function, precisely *because* Undo is a forward
+write: the same act is available from Activity for as long as the entry exists. What expires is
+the shortcut, not the ability. And a shortcut that outlives the moment it belonged to is the
+worse option — an Undo button still sitting on the grid an hour later performs a real write
+against a list the parent may have changed since, which is the one thing the button's placement
+implies it will not do.
+
+Eight seconds is the long end of Material's 4–10s: this message names a child, a count and a
+total, and only then asks for a decision.
+
+## Kids
+
+Cards for label-controlled users: avatar, name, age, cap, **the access hours**, an
+allow-list/block-list chip, the tags, a progress bar, and "N of M things visible".
+
+The hours are the other half of what Jellyfin enforces, and the card shows both or summarises
+neither honestly. They are **the server's hours, said so** — measured, the API exposes no offset, so
+they cannot be converted — and a child with no schedule is told they can watch at any time rather
+than being left blank, which would read as the opposite. Below, a plain list of users with no shortlist set,
+including the admin.
+
+### Whose settings are on a kid's card, and where they live
+
+Three lines sit in one column and come from three different places: the **age**, from a birth year
+the parent enters and Garfin keeps on this phone; the **rating limit** and the **hours**, both read
+from the child's Jellyfin account and never written (ground rule 8). Stacked without a word they
+read as one list of Garfin's, and the birth year sounds like it drives the limit beneath it. It does
+not — it only shapes the Library's age hints.
+
+So the two server-owned lines sit under a **"Set in Jellyfin"** heading, with a help button beside
+it opening one explanation for all three facts: what Garfin does to the child's list, that it reads
+the limit and the hours and never writes them, where to change them — *Dashboard → Users → {name} →
+Parental Control*, which are Jellyfin's own menu names — and what the birth year is actually for.
+
+**The mode label is a label, not a chip.** It reports which kind of list the account uses and has
+never done anything on tap; drawn as a `Chip` it imitated the library filter bar's tappable
+`FilterChip`s, and was duly reported as a button that does not work. In French the pair reads as two
+values of one setting — *Liste de sélection* / *Liste d'exclusion* — rather than a bare noun that is
+also a verb.
+
+### The users with no shortlist need an explanation, not just a listing
+
+Garfin cannot give a child their first label. A child is only under shortlist control because
+`Policy.AllowedTags` already contains one, and adding the first one is a **policy** write, which
+ground rule 8 forbids. So this list is a boundary, not a to-do list — and without a word of
+explanation it reads as a dead end someone will file a bug about.
+
+Give the section a short line of copy and leave the rows **non-interactive**. A row that looks
+tappable and does nothing is worse than one that plainly isn't.
+
+**They show their pictures.** The rows used to draw a letter and nothing else — not as a
+fallback, as the only branch — while the children above them showed avatars. This is the screen a
+parent reads to see *which* accounts Garfin treats as unmanaged, and in a household where those
+are Mum, Dad and a guest, names alone means three identical grey circles. Same widget as the kid
+cards, so the fallbacks match: the initial while loading, the initial on error. Non-interactive is
+unchanged — a greyed row with a picture is still a greyed row.
+
+The copy stays plain and short — a parent does not need to know why:
+
+> Set their shortlist up in Jellyfin first, then come back here.
+
+The *reason* belongs in this document and in `docs/DECISIONS.md`, not on screen. Explaining
+full-object replaces to a parent would be technical detail dressed as reassurance, and the Voice
+rules exist to stop that.
+
+Once a label exists on the account, everything after it happens in Garfin — which is the split
+worth being deliberate about: the one-time setup is in Jellyfin, the repeated work of tagging
+hundreds of titles is here. That is the product's premise, not a retreat from it.
+
+### Signed in now
+
+Above the cards when anyone is: who, on which device, and what they are watching with how far in.
+Absent entirely when nobody is signed in, and absent while it loads or if it fails — a sessions
+list that cannot be fetched is not news a parent can act on, and it must not displace the cards.
+
+Three actions, in the order a parent reaches for them: **send a message** (which costs the child
+nothing and so needs no confirmation), **stop playback**, and **end session**. The last two are
+confirmed, per ground rule 6.
+
+**The copy says what was sent, not what happened.** Measured: the message and stop commands answer
+204 against a device that cannot act on either, so only ending a session — which really does revoke
+the token — is reported as done. A device that says it cannot be remote-controlled says so on the
+card, rather than letting a parent believe a message arrived.
+
+**And then it says what happened, because "sent" was being read as "done".** Reported from
+use: Stop doesn't stop the film and End session has no visible effect, both reporting success. The
+requests were correct — the bug was that a 204 is all Garfin waited for. So the two disruptive
+commands now read `/Sessions` back three seconds later and replace the sentence:
+
+| | while waiting | read back |
+|---|---|---|
+| Stop | "Asked *device* to stop." | "*device* stopped playing." / "Asked *device* to stop, but it's still playing." |
+| End | "*device* is signed out." | unchanged, or "*device* signed out, then signed straight back in." |
+
+Four things this pins down:
+
+- **The outcome arrives *into* the toast, never gating it** — the same shape, and its reasoning: the
+  command has already finished, and a spinner over finished work is what was removed from the
+  assign path. A read-back that fails leaves the first sentence up. It was true when it was said.
+- **The card refreshes after the read-back, not before.** Invalidating the sessions list on the way
+ out re-read `/Sessions` before the server could reflect anything, so the card redrew identical —
+  half of why "nothing happened" was the obvious reading.
+- **Ending is matched on the device, and on the device alone.** Measured on 10.11.11:
+ `DELETE /Devices?id=` is **device-wide** — one revoke put both users signed in on a shared device
+ onto 401 — and `/Sessions` holds at most one row per device id, a second user's sign-in taking
+ that row over rather than adding to it. So there is no per-user session for a `userId` clause to
+ exclude, and no sibling session to mistake for the child's. Comparing `userId` would also make
+  the sentence less true, since the copy names the device.
+- **Stop stays enabled when `SupportsRemoteControl` is false.** That flag is the client's own claim
+  and the commands answer 204 either way, so disabling on it withdraws a control that may work, on
+  the strength of a self-report. What was dishonest was the copy, and the copy now reads back.
+
+**Three seconds is a choice, not a measurement** — the one number here that is neither. It errs
+long on purpose: too short accuses a client that was about to comply, too long costs a few seconds
+of a toast that already said something true.
+
+**Not covered: whether a film already playing survives its own token being revoked.** An ended
+session is not in `/Sessions` to be asked, so this route is invisible to the read-back and remains
+unmeasured. Nothing in the copy claims either way.
+
+**The message command does not read back**, and that is a decision rather than an oversight: no
+endpoint was looked for that would report whether a line of text was displayed, and none was
+measured. "Sent" stays the whole of what that command claims.
+
+**Garfin's own session is never in this list.** Ending it is a 204 followed by an immediate 401:
+the app signing the parent out of itself.
+
+## Kid detail
+
+Hero block in the child's hue: avatar, the visible count as a large number, progress, and a
+sentence explaining the mode in words. Then one row per library with its own visible/total, greyed
+when access is denied — a missing library is usually a folder-permission mistake, not a tag one.
+Extended FAB: "Add titles".
+
+## Activity
+
+Reverse-chronological list of every label write: item, "Handed to / Taken from {child}", relative
+time, and the tag that changed. Entries offer Undo — a forward write, per the assign sheet's
+*How Undo works* above, which is why an entry stays safely undoable however old it is. That is also
+why the offer is not limited to recent ones: age was the only reason to withhold it, and a forward
+write removes that reason.
+
+**This is Garfin's own record, and the screen says so.** Measured: Jellyfin logs nothing
+when an item's metadata is written, so there is no server history to read back — a label added in
+the web admin, or from a second phone, cannot appear here. The list carries that caveat at its foot
+and on its empty state.
+
+**One entry per action, not per write.** Handing over a twelve-film collection is one thing a
+parent did; twelve rows would bury it. A part-written set records nothing at all — it is not
+something they did yet, it is a state the sheet is still offering to finish or reverse.
+
+**An entry per child**, because a single Apply can hand a film to one child and take it from
+another, and "Handed to Emma" cannot say both.
+
+**Undoing a collection re-resolves its membership** rather than replaying the titles it wrote to:
+a set can gain or lose films in between, and a captured list is the same mistake as a captured
+item body.
+
+**An undo is itself an action, and appears as one.** Undoing an entry appends a new entry pointing
+the other way; the original row stays exactly as it was, still offering Undo — which is safe,
+because a forward write that removes an absent label changes nothing. The log is an append-only
+record of *what Garfin did*, not a view of what is currently true, and the difference matters here
+more than it usually would: marking a row "undone" would be a claim Garfin cannot back. The label
+can be changed in the web admin or from a second phone, which this screen already admits it cannot
+see, so an "undone" badge would quietly become a lie in exactly the case the caveat exists for.
+
+The log is bounded — the oldest entries fall off the end — and lives in `shared_preferences`, so it
+does not survive an uninstall and does not leave the phone.
+
+## Settings
+
+- **Unlock** — require biometric/PIN (on by default), and the idle timeout before Garfin asks
+  again on resume. Default 2 minutes. Long enough not to nag while the parent is picking, short
+  enough that handing the phone over expires the session in practice.
+- **Server** — host, signed-in user, sign out, refresh cache
+- **Labels** — collection prompt behaviour (ask each time / the whole set / just the one title),
+  refresh metadata after write
+- **Picking** — starting child, hide shared
+- **Looks** — theme, dynamic colour, poster size
+- **About** — one tile, showing the version, opening the About screen below
+
+## About
+
+Reached from Settings → About. Top bar with a back button, centred scrolling column:
+
+- **The mark**, 84dp, from `assets/brand/` — output of `brand/make-app-assets.sh`, whose source
+  is the same SVG the launcher icon comes from.
+- **Garfin** in Fredoka, semi-bold, `headlineSmall`. The product name, not a translated string.
+- **Version**, in `colorScheme.outline`.
+- **Check for updates** — one call to GitHub *per press*, never automatic. The answer appears in
+  place and stays there rather than in a snackbar that slides away: someone opened this screen in
+  order to read something. Six outcomes, each with its own sentence — a newer release (named by
+  its tag, with an Open button), up to date, nothing published yet, rate-limited, unreachable,
+  unreadable. "Nothing published yet" is not phrased as a failure, because it is true of Garfin
+  itself until the first release ships.
+- **Links** — Documentation, Source code, Report an issue, Releases. Each shows its address as
+  the subtitle: the tile leaves the app, and someone handing a phone around should be able to see
+  where a tap goes before taking it.
+- **Licences** — the GPL line, then Flutter's own licence page, then the non-affiliation note.
+
+The mark is not tappable. The five-tap Easter egg is a follow-up, not a stub.
+
+### Three switches this list used to carry, and why they are gone
+
+Each was written before the rule that rules it out was settled. A switch that controls nothing
+reads as a promise, so they are recorded here rather than left on the screen.
+
+- **Tag prefix, on/off and the prefix itself.** Garfin never composes a label: it reads the child's
+ existing one out of `Policy.AllowedTags` and writes that string back in the policy's own casing.
+  There is nothing to prefix. Giving a child their *first* label is a policy write, which ground
+  rule 8 forbids — the same consequence as the Kids screen's "set their shortlist up in Jellyfin
+  first".
+- **Cascade to collection members.** `docs/DECISIONS.md` § Collections: a collection **always**
+  writes to its members, and measurement showed what the alternative does — the child gets a visible,
+  empty collection. Off is not a preference, it is a broken write.
+- **Cascade to episodes.** Not a gap after all, which was established by measuring it: the policy
+  filter inherits from the series, so a label on a series is already enough for the child to see
+  every season and episode inside it — they inherit the label, report it, and are matched by
+ `tags=`. There is nothing for a switch to turn on, and the old note was wrong rather than
+  half-right.
+
+**Respect age cap** is the filter bar's rating toggle, not a setting, and **libraries to
+browse** waits on the same grid work — `/Items` takes one `parentId`, so more than one library is
+a pagination question rather than a preference.

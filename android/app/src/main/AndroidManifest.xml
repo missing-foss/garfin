@@ -1,0 +1,121 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Do NOT reach for `usesCleartextTraffic` or a networkSecurityConfig
+         when plain HTTP appears not to work. It was tried while diagnosing
+         exactly that, and measured on GrapheneOS / Android 17: `http://` to a
+         LAN Jellyfin works **without** either. Android's cleartext policy is
+         enforced by the Java HTTP stacks, and dio talks over `dart:io` sockets,
+         which never consult it. Adding one permits unencrypted traffic app-wide
+         and buys nothing. The real cause was the missing INTERNET permission
+         below. See SECURITY.md.
+
+         Garfin talks to the user's Jellyfin server, so it needs this in the
+         MAIN manifest. Flutter's scaffold declares INTERNET only in the debug
+         and profile manifests, for hot reload — which means a *release* build
+         has no network access at all, while every debug build works fine.
+
+         That is exactly how it shipped and how it was found: `dev/verify.sh`
+         and CI both build a debug APK, so no gate here could ever have caught
+         it. `test/android_config_test.dart` asserts it now. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Android 16 previewed Local Network Protection and later releases
+         enforce it: reaching a private-range address needs this permission on
+         top of INTERNET, and without it a connection to a LAN server fails with
+         no prompt and no explanation. Garfin's entire purpose is talking to a
+         Jellyfin on the user's own network, so it is not optional.
+
+         Declared unconditionally. Older Android ignores a permission it does
+         not know, and hardened distributions (GrapheneOS) surface it in the
+         app's permission screen so it can be granted by hand. -->
+    <!-- Declared, but NOT verified to be load-bearing. Sign-in works on
+         GrapheneOS / Android 17 with it present; no control build was run
+         without it, so whether that release enforces Local Network Protection
+         is unknown. Kept because it is a request for access rather than a
+         relaxation of one — harmless if the platform ignores it, and required
+         the moment enforcement lands. Drop it if it is ever shown to be
+         unnecessary and stays that way. -->
+    <uses-permission android:name="android.permission.LOCAL_NETWORK_ACCESS" />
+
+    <!-- USE_BIOMETRIC and USE_FINGERPRINT are deliberately not declared here.
+         local_auth_android's own manifest declares them and the merger brings
+         them in; verified in
+         build/app/intermediates/merged_manifests/debug/.../AndroidManifest.xml.
+         Repeating them would be a second place to keep in step with the plugin
+         for no gain. -->
+    <!-- Nothing Garfin stores syncs to a cloud account. Issue #35, and
+         docs/DECISIONS.md § Nothing syncs to a cloud account.
+
+         Both attributes are needed, and `allowBackup="false"` alone is the
+         trap: per Android's documentation, for apps targeting API 31+ it
+         disables cloud backup on some manufacturers' devices "but doesn't
+         disable device-to-device transfers for the app". Garfin targets well
+         past 31. The rules file is what closes D2D, and it must carry real
+         excludes — an empty <device-transfer> section means fully enabled.
+         The reasoning and the format's other trap are documented there.
+
+         allowBackup stays too: it covers the pre-31 path and states the
+         intent where anyone looks first. -->
+    <!-- android:label is "Garfin", capitalised: the launcher is where this name
+         is read most often, and BRANDING.md and every doc capitalise it. The
+         icon is the adaptive one in mipmap-anydpi-v26/, generated from
+         brand/svg/ by brand/make-android-icons.sh. -->
+    <application
+        android:label="Garfin"
+        android:name="${applicationName}"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- The About screen's four links (#66). From API 30 an app cannot see
+             which activities handle a VIEW intent unless it declares that it
+             wants to: without this, url_launcher's canLaunchUrl answers false
+             on a phone that has three browsers installed, and the failure is
+             silent — a tap that does nothing at all. Garfin does not call
+             canLaunchUrl, so the practical effect here is smaller than the
+             plugin's README implies; it is declared anyway because the next
+             person to reach for that method should not have to find this out
+             from a bug report. Assertion in test/android_config_test.dart. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+    </queries>
+</manifest>

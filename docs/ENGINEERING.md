@@ -1,0 +1,273 @@
+<!--
+SPDX-FileCopyrightText: 2026 missing-foss
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+# Engineering notes
+
+How Garfin is built: the stack, the conventions, and the rules that exist because
+something went wrong once. Garfin itself is an Android app for managing Jellyfin
+parental controls through tags — see the [README](../README.md) for what it does.
+
+**Not affiliated with the Jellyfin project.** Jellyfin is a trademark of Jellyfin, Inc.
+
+## Where the rest of the detail lives
+
+- [`DECISIONS.md`](DECISIONS.md) — every design decision and why. Most obvious alternatives
+  were already considered and rejected for a reason worth knowing before proposing one.
+- [`UI-SPEC.md`](UI-SPEC.md) — screen-by-screen behaviour.
+- [`JELLYFIN-API.md`](JELLYFIN-API.md) — endpoints, quirks, and the things that will bite.
+- [`ui-mockup.jsx`](ui-mockup.jsx) — a clickable React mockup of the whole app. It is a
+  **reference, not source**: it shows layout, flow and copy, and nothing in it should be
+  ported, imported, or treated as the app's architecture.
+- [`../BRANDING.md`](../BRANDING.md) — logo, colours, type, and their licences.
+
+## Stack
+
+- **Flutter**, Material 3, dark-first, `ColorScheme.fromSeed(seedColor: Color(0xFF7C5CD6))`
+  with `DynamicColorBuilder` for Material You on Android 12+.
+- **Fonts**: Fredoka SemiBold (headings, titles, numbers, buttons), Nunito (body),
+  Roboto Mono (tags and code). Declared in `pubspec.yaml`, files in `assets/fonts/`.
+- **HTTP**: `dio` or `http` — no generated Jellyfin SDK, the surface we need is small.
+- **State**: Riverpod. Keep the Jellyfin client in a repository layer; widgets never call HTTP.
+- **Storage**: `shared_preferences` for settings. **Never** the access token — that goes in
+  `flutter_secure_storage`.
+- **Minimum SDK**: 26. Target the current stable.
+
+## Licence
+
+GPL-3.0-or-later. **Every dependency must be GPLv3-compatible.** Anything GPLv3-incompatible
+or proprietary needs to be raised in an issue before it lands, not discovered in review.
+
+**GPLv2 compatibility is deliberately not maintained.** Apache-2.0 is GPLv3-compatible but not
+GPLv2-compatible, and the app already ships Apache-2.0 material: `dynamic_color` is compiled in,
+and its Apache-2.0 grant is verifiable in the app's own `assets/flutter_assets/NOTICES.Z`. That
+door is closed, and it was closed by a deliberate dependency choice, not by accident. Independently, a downward relicence would need every contributor's consent, which
+`CONTRIBUTING.md` does not collect — it takes contributions under GPL-3.0-or-later and grants
+no relicensing right. So don't reject a dependency for being GPLv2-incompatible; reject it for
+being GPLv3-incompatible.
+
+Checked and fine, as of 2026-08-03:
+
+Read from each package's own shipped `LICENSE` file, not from its pub.dev page —
+the pub.dev metadata is not always right. Full detail in `THIRD_PARTY_NOTICES.md`.
+
+| Dependency | Licence |
+|---|---|
+| Flutter/Material | BSD-3-Clause |
+| dio, flutter_riverpod, cached_network_image, mocktail | MIT |
+| shared_preferences, flutter_secure_storage, logging, intl, flutter_lints | BSD-3-Clause |
+| **local_auth** (with `_android`, `_platform_interface`, and the unshipped `_darwin` / `_windows`) | BSD-3-Clause |
+| **url_launcher** (with `_android`, `_platform_interface`, and the unshipped `_ios` / `_linux` / `_macos` / `_web` / `_windows`) | BSD-3-Clause |
+| dynamic_color | Apache-2.0 |
+| Fredoka, Nunito, **Roboto Mono** | SIL OFL 1.1 |
+
+Roboto Mono was relicensed from Apache 2.0 to OFL 1.1 upstream, so the **entire bundled font
+stack is now OFL** — the JetBrains Mono swap that BRANDING.md used to suggest is no longer
+needed. That means the fonts impose no licence constraint of their own; it does not mean a
+GPLv2 relicence is available, which the paragraph above explains it is not.
+
+## Ground rules
+
+1. **Never write to Jellyfin without a preview.** Every tag change shows the exact
+   additions and removals before it is applied. No write on toggle. The preview also carries
+   the child's **current** server-computed count, and hard-warns when the removal would strip
+   the child's tag from the **last item still carrying it** — their `AllowedTags` would then
+   match nothing and they would see *nothing*, not everything, and a bare `− tag` line does not
+   convey that. Note this is a **count of tagged items**, not a policy field and not a
+   visibility computation: rule 8 means Garfin cannot alter `AllowedTags` itself, so the
+   policy entry survives and simply stops matching. Rule 4 is untouched — no rating cap is
+   involved. After applying, re-fetch and report the **verified** new count; that is what
+   explains a share the rating cap swallowed. **Verified does not mean blocking**: that count
+   costs what the child's visible library is large — measured 19 ms to 538 ms — so it arrives
+   *into* the confirmation rather than gating it. Never predicted, never skipped, never
+   waited for with a spinner over a write that already finished.
+2. **`POST /Items/{id}` replaces the whole item.** Always `GET` the full metadata object first,
+   mutate only `Tags`, and post the complete object back. Dropping fields corrupts the library.
+   "The full object" is not one thing — the DTO varies by endpoint and by `Fields`. The exact
+   endpoint and field list are **derived empirically, not assumed**; see `docs/JELLYFIN-API.md`.
+   Every PR touching the write path must show a before/after round-trip diff against a real
+   server.
+3. **Allow-list and block-list are opposite verbs.** Detect the mode per user and invert every
+   action. Never mix `AllowedTags` and `BlockedTags` on one account.
+4. **Never compute visibility client-side.** Fetch counts twice — once as the admin, once as
+   the child — and let the server apply the policy. The rating cap silently overrides tags, and
+   guessing gets it wrong. This is why rule 1 previews the *current* count rather than a
+   predicted one: a predicted count would mean simulating the server's policy evaluation here,
+   which is exactly what this rule forbids.
+5. **Collection writes pre-flight, then fix forward. They do not roll back.** `GET` every
+   member before writing anything and abort if any read fails — reads are free and catch most
+   failures before a single write. The pre-flight keeps **no bodies**: every write starts with its
+   own fresh `GET`, and what it checks is not "the read succeeded" but "the item that came back is
+   the item asked for" (`docs/JELLYFIN-API.md`: the all-zero GUID answers 200 with the root
+   folder). A collection write covers the **container as well as every member** — measured, members
+   alone leave the set unreachable and the container alone leaves it empty — with the container
+   written **last** on an addition and **first** on a removal, so its label only ever means "the
+   whole set is here". If a write still fails mid-batch, retry *that item*; never
+   undo the ones that succeeded. Tag writes are idempotent, so retrying is safe and repeatable
+   while undoing is neither, and every undo is another full-object replace under rule 2 on an
+   item that was fine. Surface the exact state — "7 of 12 tagged" — and let the user choose to
+   finish or remove all. Both choices are idempotent and user-initiated.
+
+   **The user-facing Undo is a new forward write, never a restore**, and is not an exception to
+   this rule — it is the same thing. Fresh `GET`, remove the specific tag Garfin added, post the
+   full object back. It reverses the *effect*, not the object. **Garfin never re-posts a
+   previously captured item body.** A button labelled Undo alongside a rule saying "never undo"
+   looks contradictory until you see that both are idempotent forward writes; that is exactly
+   what makes them safe. What this rule forbids is *silent, automatic* rollback of a batch, not
+   an explicit user-initiated reversal.
+6. **Ask before destructive or cascading changes.** Adding a film in a collection prompts once.
+   Removing never cascades.
+7. Admin account required. Refuse non-admin logins with a clear message rather than failing later.
+8. **Garfin is read-only on user policy.** Never `POST /Users/{id}/Policy`. It is a full-object
+   replace over the child's entire permission set — `EnabledFolders`, `IsAdministrator`, and
+   `MaxParentalRating`, which is the actual safety control. **An omitted key is silently reset to
+   its default and the server answers 204**: measured one key at a time on 10.11.11, that is the
+   rating cap gone, the access schedule emptied, both tag lists cleared and three restrictions
+   *lifted*, with every screen reporting success (`JELLYFIN-API.md`). Read policy; write
+   only items.
+
+   **The ban stands, and its reason is narrower than it used to read.** What is catastrophic is
+   building the body from a *typed model*, which omits whatever it does not model. A raw round-trip
+   — `GET`, mutate one key on the `Map<String, dynamic>` **as received**, `POST` the whole map — is
+   measured lossless, and carries keys a future Jellyfin adds through untouched, which a DTO cannot.
+   So the old phrasing had it backwards in one specific: the danger is not the read-modify-write
+   shape, it is deserializing. **Today's apparent protection is a coincidence** — a DTO write fails
+   with 400 only because `UserPolicy` happens not to model `AuthenticationProviderId` and
+   `PasswordResetProviderId`. Add both for an unrelated reason and the same write returns 204 and
+   **silently resets every field the model does not carry**: measured, four restrictions lifted
+   (live TV access, live TV management, downloading, remote access), the lockout limit and the
+   session limit removed, SyncPlay granted. The cap, the schedule and both tag lists survive —
+   because `UserPolicy` models them. **A typed model protects exactly what it models and resets
+   everything else**, which is worse than it sounds: the fields that survive are the ones somebody
+   thought about.
+
+   The rule is kept anyway, as a product decision rather than a technical one: what it costs is a
+   one-time setup that happens in Jellyfin, and what it buys is that the endpoint which can silently
+   remove a child's restrictions is not in the app at all. **If it is ever revisited**, the
+   discipline is not optional — raw map only, never a typed model; a test asserting the object
+   posted is the object received plus one key; read-back verification per write; and a standing
+   round-trip diff asserting **every key that came back goes back** — not "all 43 keys", because a
+   child with no cap has 42: `MaxParentalRating` is *absent* until it is set, and a count would fail
+   on the ordinary starting state. The diff must compare schedule *content*, since a row's `Id`
+   churns on every write.
+
+   The consequence, deliberate: Garfin cannot give a child their *first* label, so that one-time
+   setup happens in Jellyfin. See `docs/DECISIONS.md` and the Kids screen in `docs/UI-SPEC.md`.
+9. **The app itself is gated behind device auth.** Garfin holds an admin token on a phone that
+   gets handed to children by design — that is the product's normal interaction, and it is
+   precisely the case device lock does not cover. Biometric/PIN on cold start and on resume
+   after an idle timeout, which is a Settings option. **The gate starts where the token does** —
+   inside the signed-in branch, never over sign-in, where there is no token, no server address and
+   no children to protect. The one-time "ask every time / not now" choice is offered only
+   after an *interactive* sign-in; a restored session is gated without being asked, because
+   offering "not now" to whoever picked the phone up is offering to skip the gate to the person it
+   exists for.
+
+## Conventions
+
+- `lib/models/`, `lib/repositories/`, `lib/providers/`, `lib/screens/`, `lib/widgets/`
+- Prefer composition over deep widget trees; extract anything over ~80 lines.
+- No `print` — use a logger, and never log tokens, passwords, or Quick Connect secrets.
+- Copy style: plain and warm, never cute about permissions. See `docs/DECISIONS.md` § Voice.
+- Write tests for the tag-diff logic and the allow/block inversion. Those are where bugs hide.
+- **Run the grep your sentence implies.** Prose in `SECURITY.md`, `THIRD_PARTY_NOTICES.md` and
+  doc comments makes checkable claims — "written at seven call sites", "the only URL literals",
+  "does not survive an uninstall" — and every one of those has been wrong at least once while
+  the code beside it was correct. A claim scoped to what you searched rather than to what exists
+  reads exactly like a verified one. Tests here get mutation-tested as a matter of course; give
+  sentences the same treatment, which costs one command.
+
+  **And prove the search can find something before believing it found nothing.** A grep that
+  returns zero is evidence about your pattern before it is evidence about the tree. Three times in
+  one afternoon a malformed or guessed pattern produced a **false negative that read as a defect**:
+  a filename guessed as `fr-fr-json.*` when the chunk is `fr-json.*` (so "these terms are absent
+  from Jellyfin's UI"), a phrase that wraps across a line, and a blockquote marker sitting inside
+  the joined string (both: "the correction never landed in this file"). A positive control — one
+  pattern you know is present, run first — costs nothing and catches all three. This is check 4 of
+  `docs/JELLYFIN-API.md` § *Measuring this without measuring your own harness*, which is written
+  for API sweeps and applies to prose exactly as well.
+- **A gate you have not tried to break is not a gate.** Mutation-test anything you add or rewrite
+  that is supposed to catch something — delete the thing it guards and watch it fail. Two gates
+  in this repo were vacuous when written.
+- **Measure the server, not your own harness.** Every wrong measurement in this project so far was
+  right about the status code and wrong about the question — a container that never bound and left
+  the health check answering from the live server, a spent single-use code, a shared `DeviceId`, a
+  query that fetched nothing, a state the harness had written itself. None of them errored. `docs/JELLYFIN-API.md` § *Measuring this without measuring your own harness* lists them
+  and the six checks that catch them; read it before writing a sweep.
+- **A test that asserts on state can pass over a feature that does nothing.** The title search
+  set `libraryFiltersProvider` correctly and never issued a request: `LibraryFilters.==`
+  omitted `searchTerm`, so Riverpod compared old state to new, found them equal, and notified
+  nobody. Six tests asserted on the filter's own fields and all six were green. **Assert on the
+  artifact the feature exists to produce** — the request that went out, the widget that appeared,
+  the row that changed — not on the state it passed through on the way. Same rule as the one
+  above, one layer up: `FakeJellyfinServer.requests` is the equivalent of watching the wire.
+- **A field left out of `==` is a field that cannot change anything — and pin every one of them.**
+  Riverpod compares old state with new to decide whether to notify, so an omitted field silently
+  disables whatever depends on it. Worse for a **family key** (`AssignRequest`,
+  `CollectionRequest`): two different arguments then collide on one cached provider and serve each
+  other's data, with no missing-refresh symptom to notice. Equality tests here list **one line per
+  field**, distinguishing values rather than presence — the `searchTerm` omission survived a test
+  that pinned one field of five, and the next omission will look identical.
+
+## Definition of done for a feature
+
+Builds, passes `flutter analyze` with no warnings, works offline-degraded (shows cached data
+and a clear error rather than a blank screen), and has no hardcoded strings outside a
+localisation file if l10n has been set up.
+
+## Toolchain
+
+Not part of the repo — install these wherever you keep SDKs and put them on `PATH`.
+The versions are what the project is built and tested against; `.tool-versions` is the
+source of truth and `dev/verify.sh` checks CI has not drifted from it.
+
+- Flutter 3.44.8 stable · Dart 3.12.2
+- Android SDK platform 36, build-tools 36.0.0, platform-tools (`ANDROID_HOME`)
+- JDK 17 · `minSdk 26`, `compileSdk`/`targetSdk` follow Flutter's default
+- An emulator image is optional. Without one, `flutter devices` shows desktop only; plug in a
+  physical device over `adb`, or `sdkmanager "system-images;android-36;google_apis;x86_64"`.
+
+Worth turning off if you would rather not send analytics upstream:
+`flutter --disable-analytics`, `FLUTTER_SUPPRESS_ANALYTICS=true`.
+
+    flutter analyze          # must be clean — it is part of the definition of done
+    flutter test
+    flutter build apk --debug
+
+## Status
+
+Sign-in works; the app behind it is gated. `lib/main.dart` resolves `SharedPreferences` and the
+device identity, then hands off to `lib/screens/app_root.dart`, which shows the sign-in screen, the
+one-time unlock question, or `UnlockGate` around the home screen depending on whether a session
+restores and how it was reached.
+`lib/repositories/` holds the Jellyfin client, the auth repository, the Quick Connect pairing and
+the device-unlock wrapper; `lib/providers/` wires them into Riverpod. The numbered list below
+is the build order; each step becomes its own piece of work when it comes up.
+
+The write path is `lib/repositories/assign_repository.dart` — one item through `apply`, a whole
+collection through `applyToCollection`, and neither accepts an item object. `dev/live_collection_roundtrip.dart`
+runs the collection write against a real server and prints the before/after diff, which is the
+standing gate in `docs/JELLYFIN-API.md`; it sits in `dev/` rather than `test/` so it can never
+become a skipped check that still reports green.
+
+- [x] **Round-trip experiment** — done. The write path's read strategy is measured, not assumed:
+      `GET /Users/{uid}/Items/{id}`, no `Fields` needed. See `docs/JELLYFIN-API.md`
+1. [x] Jellyfin client + auth (Quick Connect and password), admin check
+2. [x] Device unlock gate (`local_auth`) — rule 9. Early, because every later screen sits behind it
+3. [x] User list with policy parsing → Kids screen
+4. [x] Library grid with the child selector — filter bar and infinite scroll still open
+5. [x] Assign sheet with tag diff, counts, and the write path
+6. [x] Collections, pre-flight and fix-forward
+7. [x] Settings — minus three switches that turn out to control nothing; see `docs/UI-SPEC.md`
+8. [x] Activity log — Garfin's own record; the server keeps none
+
+`local_auth` landed with step 2. Its licence was read from the package's own shipped `LICENSE`
+file rather than from pub.dev, per the § Licence note above: **BSD-3-Clause**, Copyright 2013 The
+Flutter Authors, identical text across `local_auth`, `local_auth_android` and
+`local_auth_platform_interface`.
+
+`MainActivity` extends `FlutterFragmentActivity`, not `FlutterActivity` — `local_auth` shows an
+androidx `BiometricPrompt`, which is a Fragment. Getting that wrong does not crash: the plugin
+answers `NOT_FRAGMENT_ACTIVITY` and the gate silently never appears.

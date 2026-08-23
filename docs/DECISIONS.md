@@ -1,0 +1,924 @@
+<!--
+SPDX-FileCopyrightText: 2026 missing-foss
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+# Decisions
+
+Why things are the way they are. If you want to change one of these, that's fine — but read the
+rationale first, because the obvious alternative is usually what was rejected.
+
+---
+
+## Naming
+
+**The app is called Garfin.** Chosen after checking eleven candidates against GitHub, app stores,
+and trademark registers.
+
+Rejected, with reasons worth remembering:
+
+| Candidate | Why not |
+|---|---|
+| Guppy | Legally clear, but the namespace is saturated — Oxford Nanopore's basecaller, Quantinuum's quantum language, J&J's Android loggers, a Spanish EV rental app |
+| Tidepool | Registered trademark of the Tidepool Project, a diabetes-software nonprofit shipping open-source mobile apps. Real conflict |
+| Kidfin | Clear, but reads as a children's *banking* app to everyone outside the selfhosted world |
+| Dalfin | Dalfin AI ships a no-code builder on Play and the App Store |
+| Gardafin / Gardfin | `-fin` is the standard suffix for an Italian *finanziaria*; four Gardafin holding companies exist. `gardfin` is also listed as a typo of `gardin` |
+| Espiafin | Namespace free, but *espiar* = "to spy". Searches return nothing but stalkerware. Wrong category entirely |
+| Serafin | Serafin Asset Management ships a funds app in Germany and Switzerland |
+| Baratze (Basque) | No software conflict, but Euskaltzaindia's corpus notes an ancient sense of "burial place" |
+| Opari (Basque) | Every Opari sells gifts — brands in France, Switzerland, Spain, Kuwait |
+| Kimu (Basque) | An active OSS front-end framework and an AI video-editing desktop app |
+| Wardfin | Genuinely empty namespace, but rejected on feel |
+
+**Standing lesson:** short, pretty, two-syllable names in any language are taken. `-fin` reads as
+*finance* in most European markets. If a rename is ever needed, check the string against app
+stores and company registers before falling in love with it.
+
+**Jellyfin's trademark policy** permits the name as an affix showing compatibility — "X for
+Jellyfin" is fine. It does not permit implying endorsement, and forks must use a different name
+and logo. Hence the standing "not affiliated" line and the deliberate absence of any fin
+silhouette in the mark.
+
+---
+
+## Product shape
+
+**Library is the landing screen, not the user list.** The task that opens the app is "find
+something for a kid", so the app opens on the thing you act on. The Kids screen is a settings
+and overview surface, second in the nav.
+
+**A child selector sits at the top of the Library.** Selecting a child does four things at once:
+filters the grid to what that child can't see yet, exposes their rating cap as a one-tap chip,
+badges already-shared titles, and sorts them to the top of the assign sheet. "Everyone" clears it.
+
+**Avatars come from Jellyfin**, so the faces match what the children see on their own login
+screen. This is worth the extra request.
+
+**Already-shared titles are hidden by default.** Turns the grid into a to-do list rather than an
+inventory. Cost: unsharing needs one extra tap to find the item. Accepted; the toggle is one tap
+and the default is in Settings.
+
+**Filters are one row of dropdown chips.** Each chip shows its filter name when unset and the
+chosen value when set, so state is readable without opening anything. Stacked chip rows were tried
+and ate ~120dp of poster space. The rating filter stays a plain toggle — it's binary, and burying
+a safety control inside a menu would be wrong.
+
+**The age filter is a filter, not a recommendation engine.** It hides anything above the child's
+cap. No scoring, no suggestions. Keeps it honest about why a title appears.
+
+---
+
+## Tagging model
+
+**Allow-list and block-list are opposite verbs.** `AllowedTags` set means the child sees *only*
+tagged items, so sharing = adding a tag. `BlockedTags` set means they see everything *except*
+tagged items, so sharing = removing one. The app detects the mode per user and inverts every
+action. The two are never mixed on one account — that's the fastest route to an incomprehensible
+library.
+
+**Visible counts are fetched, never computed.** Two `/Items` calls with `Limit=0`, one as the
+admin and one as the child. The server applies the policy, including the rating cap, which
+silently overrides tags. A PG-capped child will not see a PG-13 title even when correctly tagged
+— so the app flags that case rather than pretending tagging solved it.
+
+**The tag prefix is optional and off-able.** Some servers already use bare account names as tags;
+forcing `kids-` would orphan every label they have. The setting rewrites what the assign sheet
+previews, so what you see is what gets written. Changing the prefix does not retag the library —
+offer a one-off migration instead of silently rewriting thousands of items.
+
+> **Superseded 2026-08-05.** The *concern* was right and is now met by construction: Garfin
+> never invents a label, so it cannot force `kids-` on anybody. It reads the child's existing label
+> out of `Policy.AllowedTags` and writes that string back, casing included. Which means the
+> **setting itself cannot exist** — there is nothing to prefix, and no migration to offer, because
+> Garfin does not own the naming. That follows from ground rule 8 (a first label is a policy write)
+> exactly as "a child's first label is set up in Jellyfin" does. Removed from `UI-SPEC.md`
+> § Settings, where the reasoning is repeated for anyone reading the spec rather than this file.
+
+**The filter bar filters the administrator's view, and says so.** Type, Genre and Decade are
+server-side parameters, and so is the rating chip — it goes out as `maxOfficialRating`, so nothing
+compares a rating on the phone. But it is *not* a prediction of what the child sees: measured, an
+unrated title passes every cap in that filter while a child whose policy sets `BlockUnratedItems`
+cannot see it. Two mechanisms, one of them invisible from here. Hence "within Emma's limit" rather
+than "what Emma can see" — the same distinction the result line already draws between *hasn't got
+yet* and *can't see*.
+
+**Two independent cascades.** "Cascade to episodes" walks down a series; "cascade to collection
+members" walks across a set. Separate switches, separate concerns.
+
+> **Corrected 2026-08-06. There is only one cascade, and this was right about which.** The
+> collection one is real and is built. The episode one is not needed at all: measured on
+> 10.11.11, a label on a series **is inherited by its seasons and episodes** — they report it,
+> `tags=` matches them, and the child sees every one of them, including a direct fetch of a single
+> episode, with an untagged second show as the control answering 404. What this project had
+> recorded — that the tag "does not propagate" — was wrong in both halves.
+>
+> "Separate switches, separate concerns" still holds as reasoning — a set and a series are different
+> shapes, which is exactly why one needs a cascade and the other does not: a series **is** an
+> ancestor of its episodes, and a BoxSet is not an ancestor of anything. See `JELLYFIN-API.md`
+> § Series, seasons and episodes.
+
+---
+
+## Collections
+
+**Tagging a collection always writes to its members.** A Jellyfin BoxSet is a container; the
+policy filters the films inside. Tagging the container alone appears to work and does nothing.
+
+> **Amended 2026-08-05, from measurement.** The first sentence stands and is still the
+> load-bearing half. The second understates it, and the amendment is that **the write covers the
+> container too**. Measured on 10.11.11 for an allow-list child: tagging only the container is not
+> inert — the child gets the collection on their screen and it is **empty**; tagging only the
+> members hands over the films while the set itself is absent from their library and browsing it
+> answers **401**. To hand over a collection *as a collection*, both.
+>
+> That gives the container's label a job: written **last** on an addition and **first** on a
+> removal, it is an accurate marker of "the whole set landed". A fix-forward partial therefore
+> leaves it off and the half-tagged set stays in the to-do list below — which that decision asks
+> for, and now costs the grid no extra query. Full matrix in `JELLYFIN-API.md` § Collections.
+
+> **Settled 2026-08-11, from measurement. Not yet implemented; the code still does what the
+> paragraph above describes.**
+>
+> Give three films out of eight with *just this one* each time and the container is never labelled.
+> The issue calls that "the set is unreachable — browsing it answers 401", and **the second half of
+> that is about the API rather than about the child**: measured, a set the child has no label for is
+> not merely refused, it is invisible and unaddressable. Their copy of a film they *do* have mentions
+> no BoxSet at all, its ancestors are the library folder chain, and asking for the set by explicit id
+> returns nothing — with the positive control that labelling the container makes the same query
+> return it. There is no link, so there is no tap that fails.
+>
+> **What is actually wrong, then, is smaller and still worth fixing**: the films arrive **loose**
+> rather than as the set the parent was looking at, and neither the parent nor the child can see that
+> state. Full matrix in `JELLYFIN-API.md` § *A partly-labelled set is a coherent set*.
+>
+> **The container's label means "the child can open this set."** With the container labelled and
+> three of eight members labelled the child sees the set and, inside it, exactly those three — the
+> other five do not leak — and their own client reports a `ChildCount` of 3, so it reads as a smaller
+> set rather than one with holes in it. That is the outcome a parent means by *give them this one*.
+>
+> **The ordering does not invert, and an earlier draft of this entry said it did.** That draft argued
+> the container had to be written *first* because the alternative failure state was a dead link. It
+> is not a dead link; it is loose films, which is benign and is already what a fix-forward partial
+> reports. So the existing ordering stands — container **last** on an addition, **first** on a
+> removal — and only its *condition* changes: from "every member of the set carries the label" to
+> "everything this write was asked to do landed". For a whole-set write those are the same sentence.
+> On a removal the container comes off only when no labelled member is left, which is a sibling check
+> the cached index answers and a fresh read confirms.
+>
+> **Scope is the set in front of the parent, never every set the film belongs to.** A film can be in
+> several, and the invariant is per set — but repairing all of them would hand the child K
+> collections nobody offered them, and nothing requires it now that an unlabelled set is invisible
+> rather than broken. Raised in review, and this is the answer measurement gives it.
+>
+> **`CollectionPrompt.never` therefore keeps its meaning exactly** — *treat a film in a set as a
+> film*, no container written, the child gets a loose film. Also raised in review, on the reasonable
+> assumption that such a user would be stuck with a dead link for ever. They are not.
+>
+> **"The whole set landed" moves out of the tag and becomes a displayed fact**, which costs nothing:
+> `collectionMembers` already asks for `Fields=Tags` and the index caches every set's members, so the
+> app can count labelled members per child with no extra request. Three states, and a set says which
+> — **none given**, **3 of 8 given**, **all 8 given** — on the grid tile, in the set's header and in
+> the write preview. This is the substantive half of the fix, because it is the half neither party
+> can see today.
+>
+> **The count is of labels, not of visibility.** "3 of 8 given", never "sees 3 of 8" — a rating cap
+> can hide a labelled film, and computing what a child can see is what ground rule 4 forbids.
+>
+> Left for the implementation: the "counts as shared only when every member is" line below stays true
+> of the **display** and stops being true of the tag; and installs already holding loose films are
+> **offered** a repair — one tap, user-initiated, idempotent — rather than silently rewritten.
+
+**Collections are browsable in their own right** — stacked cover, count badge, and the strictest
+rating found among members.
+
+**A collection counts as shared only when every member is** — and, per the amendment above, only
+when the container carries the label too, because without it the child cannot reach the set at all.
+Half-shared sets stay in the to-do list rather than looking finished.
+
+**Tagging one film in a set asks once**, listing the other members and their ratings, then either
+keeps the set together or writes just the one. Default is *ask each time*, because "Jurassic Park"
+and "Jurassic Park III" are not the same decision.
+
+**The question only fires on additions.** Removing a label from one film never strips the rest —
+silent cascading unshares would make the behaviour unpredictable.
+
+**A film can belong to more than one BoxSet.** Handle multiple parents.
+
+---
+
+## Access schedules
+
+**Shown on the Kids card, never written.** `AccessSchedules` lives inside `Policy`, so writing one
+is the full-object replace ground rule 8 forbids — the same reason the rating cap is displayed and
+not set. Scheduling stays in Jellyfin; summarising it honestly is Garfin's job.
+
+**The hours are labelled as the server's, because they cannot be converted.** Measured: the API
+gives the server's UTC instant and nothing about its offset, and a container running UTC+10 was
+indistinguishable from one running UTC in every response Garfin makes. Rendering "8pm" as though it
+were the reader's 8pm would be exactly the quiet wrongness this project keeps catching.
+
+**No live "outside their hours right now".** It would be the most useful line on the card — it is
+the answer to "why won't it let me in" — and Garfin cannot compute it without the offset above. A
+status that is wrong for half the world is worse than no status.
+
+**An absent schedule is stated rather than left blank.** No schedule means unrestricted hours; a
+blank line where other children show times reads as the opposite.
+
+---
+
+## Signing a child in, on their behalf
+
+**A child never learns their own password.** The parent creates the account, and onboards each of
+the child's devices by approving the Quick Connect code that device shows. The child cannot sign in
+anywhere without the parent, and every new device becomes an explicit parental decision.
+
+**This is a supported use, not a trick.** Quick Connect exists so *you* can sign yourself in on a
+television without typing a password on a remote — but `POST /QuickConnect/Authorize` takes an
+optional, admin-only `userId`, first-class in the server's own OpenAPI, and a non-admin pointing it
+at an administrator is refused with 403. The privilege boundary is enforced by the server, which is
+why Garfin does not re-implement it.
+
+**An id Garfin did not mean to send is refused before the request.** `Authorize` answers 200 to an
+empty, absent or all-zero `userId` and signs the device in as the **approving administrator** — on a
+child's device, the inversion of the product's purpose, with no error on either side. The server's
+own privilege check (the 403) stays the server's; this is a different thing, and the distinction is
+worth keeping: Garfin does not second-guess what the server permits, it declines to ask questions it
+does not mean.
+
+**Garfin cannot show what is being approved, and this is accepted rather than pending.** No endpoint
+turns a code into device details — only the requesting device holds the secret that would. So the
+confirmation names the child, reads the code back, and says plainly that the device was not checked.
+The same is true of approving in Jellyfin's own web UI. Anything warmer would be implying a
+verification that did not happen.
+
+**The child is chosen by construction, not from a list.** The action lives on that child's own card,
+so the silent failure — approving for the wrong child, which no screen would report — has no list to
+happen in.
+
+---
+
+## Visual identity
+
+**Material 3, dark-first,** generated from one seed (`#7C5CD6`) so Material You dynamic colour
+drops in without redesign. Per-child colours are generated from a hue, same reason.
+
+**Fredoka + Nunito, both SIL OFL 1.1** — free and GPL-compatible per the FSF. Roboto was avoided
+on purpose: Apache 2.0 is fine with GPLv3 but incompatible with GPLv2, which would close off
+relicensing later.
+
+> **Update, 2026-08-03.** The font choice stands, but that last clause no longer holds and
+> should not be cited. GPLv2 compatibility is not maintained: `dynamic_color` is Apache-2.0 and
+> already ships, and a downward relicence would need every contributor's consent, which
+> `CONTRIBUTING.md` does not collect. Avoiding Roboto keeps the *font stack* unconstraining — a
+> smaller and true claim. See `docs/ENGINEERING.md` § Licence.
+>
+> **Amended 2026-08-04.** This originally cited `material_symbols_icons` alongside
+> `dynamic_color`. That package has been removed — nothing imported it and it was adding 33 MB of
+> icon fonts to every APK. The conclusion is unchanged, and deliberately never rested on it:
+> `dynamic_color` carries the Apache-2.0 exposure on its own, and the contributor-consent point
+> is independent of the dependency tree entirely.
+
+**The mark is a cartoon gar,** drawn as inline vector paths so it carries the project's licence
+and no third-party asset terms. No fin silhouette anywhere near Jellyfin's trademarked one.
+
+**Wordmark is the "eye-dot" construction** — the tittle on the *i* is the fish's eye. Chosen over
+four alternatives because it's the only one that keeps character at 16px. The mono version knocks
+the eye out as a ring; a solid dot just looks like a normal tittle.
+
+**Brand assets are CC BY-SA 4.0, not GPL.** Copyleft on a logo means anyone can ship a modified
+app under your mark. Forks are welcome; they should rename.
+
+---
+
+## Voice
+
+Plain, warm, never cute about permissions.
+
+- Say what happens: "Paddington is on Emma's shelf"
+- Use the children's names — the app knows them
+- Concrete verbs: pick, hand, share, take back
+- **Never** "safe", "protected", or "secure" — it's a shortlist, not a guarantee
+- **Never** surveillance words: monitor, track, watch over, control
+- No jokes in errors, warnings, or anything about ratings
+- The licence and non-affiliation lines stay plain
+
+---
+
+## Safety model (settled 2026-08-03)
+
+**The app gates itself behind device auth.** Garfin holds a Jellyfin *admin* token, and the phone
+running it is the phone handed to a child — that is the product's normal interaction. Device lock
+protects a phone left on a table; it does nothing about one deliberately passed to the person the
+app restricts. Biometric/PIN on cold start and on resume after an idle timeout. Rejected: gating
+every write, which would cost the one-tap promise the product is built on while still leaving
+every child's policy readable.
+
+> **Amendment, 2026-08-05 .** The gate sat *above* the whole app, so it also guarded
+> sign-in — where Garfin holds no token, no server address and no children. It demanded biometrics
+> from someone who had not yet typed a server address, to protect an empty app. The premise of the
+> rule is "Garfin holds an admin token", and that becomes true the instant a session exists, which
+> is now where the gate starts: inside the signed-in branch of `AppRoot`, never over sign-in.
+>
+> The same change puts the choice to a new parent once, on first sign-in: keep asking, or not now.
+> **It is only ever offered to someone who has just signed in interactively.** A *restored* session
+> is gated with no question asked — whoever picked the phone up has proved nothing, and offering
+> them "not now" would be offering to skip the gate to exactly the person it exists for. That
+> asymmetry is the whole point of the screen and is the case `test/unlock_start_test.dart` guards
+> hardest.
+>
+> Answering "keep asking" leaves the app **locked**, not open behind the answered question: the
+> gate has not run this session, so it stands exactly as a cold start would leave it.
+>
+> **And the offer expires with the moment it belonged to.** Provenance was the only thing gating
+> the question, and provenance does not expire on its own: signing in, leaving it unanswered and
+> putting the phone down left that screen up — with "Not now" on it — for whoever picked the phone
+> up next, which is the person the gate exists for. Backgrounding now drops `justSignedIn`, so the
+> next frame routes through the gated branch and the lock screen stands in front of the app.
+> Nothing is recorded by that: an interruption is not an answer, and the next interactive sign-in
+> asks properly.
+>
+> Rejected: wrapping the question in `UnlockGate` instead, which looks cheaper. The gate's
+> controller starts locked whenever unlock is required, and it is required by default — so a
+> parent who had just typed their Jellyfin password would be asked for a fingerprint *before*
+> being asked whether they wanted one. The question must be reachable at the moment it is asked;
+> what it must not do is outlive that moment.
+>
+> Found in review rather than by a test, and the reason is worth keeping: the suite covered
+> provenance exhaustively — restored versus just-signed-in, answered versus not, both answers, a
+> live gate — and never once sent the app to the background. A mutation table only catches what
+> the harness can express.
+
+**Previews show the current count, never a predicted one.** A `− Frozen` line does not tell a
+parent that the library is about to go dark. But predicting the resulting count means simulating
+the server's policy evaluation locally, which is the one thing "never compute visibility
+client-side" exists to forbid — the rating cap overrides tags silently, and a wrong prediction is
+worse than none. So: current server-computed count in the preview, a hard warning when the removal
+would take the label off the **last item carrying it**, and the real count re-fetched afterwards.
+The after-count is also what explains a share the rating cap swallowed, which is otherwise
+indistinguishable from the app being broken.
+
+> **Correction, 2026-08-03.** This originally said the warning fires when the diff would "empty
+> `AllowedTags`", justified as following from the policy's shape. Both halves were wrong, and
+> review caught it: `AllowedTags` lives on the user policy, which ground rule 8 forbids Garfin
+> from writing, so no diff the app can produce could empty it — the rule warned about an event
+> another rule made impossible. The reachable case is the tag ceasing to match any item, which is
+> a *count of tagged items*, not the policy's shape. Still a library query rather than a
+> visibility computation, so rule 4 remains untouched — but the stated reason was wrong for the
+> case that can actually happen.
+
+**Collection writes fix forward. They do not roll back.** This reverses the earlier intent, and
+the reason is arithmetic: undoing 7 successful writes of 12 means 7 more full-object replaces —
+seven fresh chances to trigger the metadata wipe — on items that were fine. Tag writes are
+idempotent, so retrying a failure is safe and repeatable while undoing a success is neither.
+"A half-tagged set is worse than no change" is true about the product and false about the data.
+Pre-flighting every member with a `GET` first costs nothing and catches most failures before any
+write exists to regret.
+
+**Garfin never writes a user policy.** The tempting fix for tag-casing mismatches is to normalise
+the policy too, but `POST /Users/{id}/Policy` replaces the child's whole permission set including
+`MaxParentalRating`. A dropped field there does not corrupt metadata, it removes a child's
+restrictions. Instead the policy is the source of truth for casing — read `Kids-Emma`, write
+`Kids-Emma` — which avoids the endpoint entirely.
+
+**A child's first label is set up in Jellyfin, not Garfin — and that is a consequence, not an
+oversight.** A child is only under shortlist control because `Policy.AllowedTags` already contains
+a label; adding the first one is a policy write, so the rule above rules it out. Garfin manages an
+existing shortlist, it does not create one.
+
+This is a deliberate split rather than a gap: setting a child up is a **one-time** action, while
+tagging hundreds of titles is the repeated one Garfin exists to replace. Sending the one-time
+action to the web admin costs a parent very little, and it keeps the dangerous endpoint out of the
+app entirely. The Kids screen says so in one plain line rather than listing those users with
+nothing attached — see `docs/UI-SPEC.md`.
+
+**The narrow exception is rejected, and will be proposed again.** Someone will suggest reading the
+policy, changing only `AllowedTags`, and writing it back.
+
+> **Amended 2026-08-07, from measurement, and the correction matters.** The paragraph that
+> stood here said the read-modify-write *shape* was the problem — that it "does not make it safe, it
+> makes it look safe". Measured on 10.11.11 across ~170 policy writes, that is wrong in one specific
+> and right in another.
+>
+> Wrong: a raw round-trip is **lossless**. `GET /Users/{id}`, mutate one key on the
+> `Map<String, dynamic>` as received, `POST` the whole map back — 43 keys in, 43 keys out, content
+> identical, only a schedule row's `Id` churning because schedules are deleted and re-inserted on
+> every write. And the specific fear stated here — a field *added by a later Jellyfin version*
+> vanishing — is backwards for a raw map, which carries unknown keys through untouched. A typed
+> model is the thing that cannot.
+>
+> Right, and sharper than it was written: **an omitted key is reset to its default, silently, with a
+> 204.** Not corruption — a clean success while `MaxParentalRating` becomes `None`, `AccessSchedules`
+> becomes `[]`, both tag lists empty, and `EnableLiveTvAccess`, `EnableContentDownloading` and
+> `EnableLiveTvManagement` flip from restricted to permitted. The 31 fields that appeared to survive
+> were not protected; they already held their defaults, which a control confirmed by setting three of
+> them otherwise and watching those reset too.
+>
+> **And the protection Garfin has today is an accident.** Writing the eight fields `UserPolicy`
+> models — exactly what a DTO-based write produces — returns 400 and changes nothing, but only
+> because it happens to omit `AuthenticationProviderId` and `PasswordResetProviderId`.
+>
+> **Corrected in review, and the correction inverts the mechanism.** The first version of this
+> paragraph said adding those two would make the write "strip the cap, the schedule and both tag
+> lists". Re-measured twice, independently: the write returns 204 and those four **survive** — they
+> are precisely what `UserPolicy` models. What resets is everything it does not:
+> `EnableLiveTvAccess`, `EnableLiveTvManagement`, `EnableContentDownloading` and
+> `EnableRemoteAccess` all flip False→True, `LoginAttemptsBeforeLockout` 5→−1, `MaxActiveSessions`
+> 3→0, `SyncPlayAccess` None→CreateAndJoinGroups.
+>
+> So the generalisable rule is the opposite of the one first written here: **a typed model protects
+> exactly what it models and silently resets everything else.** That is not a milder finding than
+> the one it replaces — the fields that survive are the ones somebody thought about, and the ones
+> that quietly revert are the ones nobody did. Four restrictions lifted is still four restrictions
+> lifted, and nothing on any screen would say so.
+>
+> **The ban is kept, as a product decision rather than a technical one.** A safe mechanism exists;
+> what it would buy is convenience on a one-time action, and what it would cost is putting the one
+> endpoint that can silently remove a child's restrictions inside the app. The reason to write this
+> down rather than close the issue is that the old reasoning would have rejected the safe mechanism
+> and accepted the unsafe one, since the unsafe one is the one that *looks* like a small diff.
+>
+> If it is ever revisited: raw map only, never a typed model; a test asserting the object posted is
+> the object received plus one key; read-back verification per write; and a standing round-trip diff
+> asserting **every key that came back goes back**, as rule 2 has — *not* "all 43 keys", because a
+> child with no cap has 42: `MaxParentalRating` is absent until it is set, and a count would fail on
+> the ordinary starting state. Compare schedule *content* too; a row's `Id` churns on every write. Measurements in `docs/JELLYFIN-API.md` § *Writing user policy*.
+
+The rest of the original reasoning stands: `MaxParentalRating` disappearing removes a child's rating
+cap while every screen still reports success. Treat the ban as settled.
+
+**The Quick Connect secret is never persisted.** It lives for one exchange and is inert once
+traded for the access token. Writing it to secure storage would only add a
+stale-credential-after-crash case. Accepted cost: a process kill mid-pairing means a fresh code.
+
+**No `SCORECARD_TOKEN`.** Adding a classic PAT with `repo` scope to a public repo's secrets, to
+raise a security score, is a net loss. See `SECURITY.md`.
+
+## The age hint advises; it never enforces (settled 2026-08-05)
+
+**Jellyfin enforces the rating cap. Garfin suggests.** `MaxParentalRating` is applied server-side
+and silently overrides tags — measured — but only if the parent set one, and on a self-hosted
+server most accounts have no cap at all. The hint exists for that case: nothing is enforcing, the
+parent is choosing, and a rating on the item plus a birth year they typed is enough to flag the
+obvious mismatches.
+
+It compares the item's `OfficialRating`, resolved through the server's own ladder, to the child's
+age. It never filters, and `test/library_tile_test.dart` asserts the tile survives every value of
+the enum.
+
+**Ground rule 4 is untouched, and the distinction is worth keeping straight.** Rule 4 forbids
+computing what a child can *see*, because that is the server's answer — tags and cap together. The
+hint predicts nothing about the server; it compares two numbers and offers a sentence. It is the
+same distinction rule 1 draws for the tagged-item count. The child's `MaxParentalRating` is
+deliberately **not** an input, so the hint cannot drift into being a visibility prediction.
+
+**"Not known" is a first-class answer, and it carries the weight.** Four situations produce it: the
+item has no `OfficialRating`; its rating is not on the ladder (`Rated PG`, or a French certificate
+on a US server); no birth year is set; or the ladder value is a sentinel rather than an age. Each
+must read as *don't know* and look different from *suitable* — a helper that quietly reported
+absence as suitability would be wrong exactly where a parent is trusting it, and unrated files are
+arguably the majority case in a self-hosted library.
+
+Rejected — treating an unrated item as suitable, on the grounds that most unrated files in a
+family library are innocuous. Probably true and entirely beside the point: the cost of being
+wrong is asymmetric, and the parent can see the answer is missing and decide for themselves.
+
+**The age it compares against is the one the child is *guaranteed* to have reached.** Only a year
+is stored, so a child is either `today.year - birthYear` or one less depending on whether their
+birthday has passed. The hint takes the lower.
+
+Taking the higher — the obvious arithmetic, and what this first shipped as — biases every hint
+toward *suitable* for roughly half of children at any moment: born 2013, on 2026-08-05 the sum
+says 13 while a November birthday means 12, and a 13-rated title reads as suiting them. Systematic,
+invisible, and pointed the wrong way. Erring low means the hint appears slightly too often and a
+parent who knows the birthday dismisses it, which is the failure worth having. Same asymmetry as
+the unrated case above, and it gives the same answer.
+
+This is deliberately **different from the age on the Kids card**, which is a best estimate that
+nothing branches on. A number that decides something and a number that is merely displayed can
+honestly differ by a year for part of the year.
+
+**The ladder's values are an ordering, not ages.** They align with ages in the low range on the
+measured US ladder — 7, 10, 13, 14, 17, 18, 21 — and then jump to 1000 (`XXX`) and 1001
+(`Banned`), which are sentinels. Values outside 0–21 answer *not known*. The mapping is read from
+the ladder rather than hardcoded, because the ladder is locale-dependent, and `PG = 10` never
+meant "suitable at ten" in the first place.
+
+## The Library grid's two filters (settled 2026-08-05)
+
+**Hide-shared filters client-side, over an enlarged fetch window.** `/Items` takes 86 parameters
+and **none of them excludes by tag** — measured on 10.11.11. So "what this child hasn't got yet"
+has no direct server query, and the grid asks for more than a screenful while hiding is on, then
+keeps fetching until the visible rows fill.
+
+Rejected — `excludeItemIds`, the obvious server-side answer. It is a comma-delimited query string,
+so the URL grows with the *shared* set, and the shared set is precisely what grows as the app is
+used. Around 240 ids is roughly 8 KB, the default request-line limit in Kestrel, which Jellyfin
+runs behind. A parent who has shared 300 titles with a child would get a 414 — and 300 shared
+titles is ordinary use, not an edge case. The client-side cost is a variable number of requests
+once nearly everything is shared, which lands exactly when the grid is nearly empty and resolves
+quickly.
+
+Rejected — dropping hide-by-default. § Product shape already settled that hiding turns the grid
+into a to-do list rather than an inventory, and the paging mechanics do not bear on that.
+
+**The visibility diff decorates; it never filters.** An item the server does not show to the
+selected child stays on the grid, marked. Two reasons, the second stronger than the first: it
+leaves exactly one filtering axis, so ragged-page handling stays in one place; and hiding a
+given-but-invisible film would hide the one case the feature exists to explain. A parent tags
+something, the count does not move, and the tile is what tells them why — remove the tile and the
+confusion comes back.
+
+So the rule is: **hide-shared may remove tiles. The cap diff may only change how they look.**
+
+**Visibility is asked, never computed.** The state comes from `GET /Items?userId={child}&ids=…`
+against the ids on screen — the server applying tags and cap together — and not from comparing the
+item's `OfficialRating` to the child's `MaxParentalRating`. That comparison is ground rule 4
+verbatim and fails silently on unrated items, on a non-US ladder, and on anything hidden for a
+reason that is not the cap at all. A folder permission is indistinguishable from a rating cap from
+here, which is also why the screen *offers* a reason rather than asserting one.
+
+## Nothing syncs to a cloud account (settled 2026-08-05)
+
+**Garfin is a tool for self-hosters, and nothing it stores leaves the device for anyone's cloud.**
+This is a standing principle, not a manifest attribute. It is the same instinct as the app having
+no backend, no account system and no telemetry: someone who runs their own media server did that
+on purpose, and an app for them should not quietly post their household's shape to Google.
+
+Implemented as `android:allowBackup="false"` **plus** a `dataExtractionRules` file excluding
+everything from both `<cloud-backup>` and `<device-transfer>`. Both are required —
+`allowBackup="false"` alone leaves device-to-device transfer enabled on some manufacturers'
+devices for apps targeting API 31+, per Android's own documentation, which is a gap that would
+hold on whichever handset it was tested on and not on someone else's.
+
+Rejected — **excluding selectively**, keeping the server URL and unlock settings while dropping
+`device_id` and the account fields. It is the most precise option and the least durable: at
+`minSdk 26` it needs two files saying the same thing, and worse, it creates a **standing
+obligation that fails silently**. Every key added later becomes "did anyone remember to exclude
+it?", and the first one due is the child's birth year in step 3. Blanket exclusion is correct by
+default for keys nobody has written yet.
+
+Rejected — **leaving it on**, on the grounds that it is the user's own account and Android
+encrypts the backup with a key derived from their device credential. Both true, and the reason
+this needed deciding rather than assuming. What decided it: the restore is *already* incomplete,
+because `flutter_secure_storage`'s master key lives in the Keystore and is not backed up, so the
+token cannot come back and the user signs in again regardless. Backup was therefore buying a
+pre-filled hostname and two settings — and restoring `device_id` alongside them, which is
+actively wrong, since Jellyfin keys a session on it and a restored phone would present the same
+`DeviceId` as the old one.
+
+Accepted cost, and it is real: a reinstall or a new phone loses the server address and the unlock
+preferences. For an app whose job is being convenient about a fiddly task that is not nothing —
+but it lands on a path that already requires signing in again.
+
+One consequence worth keeping: an undecryptable secure-storage blob makes `TokenStore.read()`
+throw rather than return null. `allowBackup="false"` removes the restore path that would cause
+it, but not the others — changing the device credential or re-enrolling biometrics can invalidate
+the Keystore key the same way. `app_root.dart` renders that `AsyncError` as the sign-in screen,
+deliberately, and `test/widget_test.dart` now pins it.
+
+**`FLAG_SECURE` is set, blanket, on the one window (settled 2026-08-05).** The
+issue deliberately refused to pick an option until the exposure had been *measured*, because
+`FLAG_SECURE` costs a legitimate user something real and the case for it had been argued from
+documented Android behaviour rather than observed. Measured 2026-08-05; numbers in `SECURITY.md`.
+
+What the measurement changed: the exposure is not a live thumbnail, it is a **file on disk** at
+`/data/system_ce/0/snapshots/<taskId>.jpg` that outlives the idle timeout byte-identical. So
+resuming demands authentication while the switcher still shows what was on screen before the app
+relocked. The gate locks on resume and the snapshot is taken on the way out, which means no
+amount of work on the gate can reach it.
+
+Rejected — **cover on `paused`**: it avoids the screenshot cost, but its correctness depends on a
+lock scrim rasterising before WindowManager takes the snapshot, and nothing in the app controls
+that ordering. `FLAG_SECURE` is refused by the system rather than beaten by timing; there is no
+race to lose. Rejected — **toggle the flag around the lifecycle**: narrower in principle, but it
+reintroduces the same race plus window-flag churn as a fresh bug source. Rejected — **accept and
+document it**: defensible while the only gated screen was a placeholder, but step 3 puts the Kids
+screen behind the gate, so accepting would mean reopening this immediately.
+
+Accepted cost, and it is a real one: the parent cannot screenshot Garfin or mirror it to another
+screen. Garfin is not a media player, so casting it was never the point; screenshots for a bug
+report are the genuine loss. Weighed against an admin token on a phone handed to children by
+design — ground rule 9's whole premise — the trade is worth making.
+
+Implemented natively in `MainActivity.onCreate`, not via a plugin. The usual plugin suggestion,
+`flutter_windowmanager`, is not an option here at all: latest is 0.2.0, published 2021-08-26, and
+its constraint is `sdk: >=2.12.0 <3.0.0` — it excludes Dart 3, and this project is on 3.12.2
+(checked 2026-08-05 against pub.dev's API). Even were it current, it would be a dependency and a
+licence review bought for a one-line platform call.
+
+---
+
+## The About screen, and two reversals it forced (settled 2026-08-06)
+
+Garfin had no About screen — it had four tiles at the bottom of Settings. The screen is now
+the trobar-android shape: the mark, the wordmark in Fredoka, the version, a manual update
+check, four links, and the licences. Two things that had been settled the other way had to
+change for it, and both are recorded here rather than left in a diff.
+
+**Links open now, and that reverses a deliberate decision.** The old code *showed* the source
+address, with a comment saying why: launching a browser meant another dependency and another
+licence review for one address. That reasoning was sound and it aged badly — a URL you cannot
+tap on a phone is close to no link at all, and there are four of them now rather than one.
+`url_launcher` **6.3.2** is taken; read from the package's own shipped `LICENSE`, as § Licence
+in `docs/ENGINEERING.md` requires, it is **BSD-3-Clause, Copyright 2013 The Flutter Authors** — the same
+text `local_auth` ships, byte-identical in the `url_launcher_android` case. `externalApplication`
+mode, deliberately: an in-app web view would put a browser inside an app holding an admin token,
+which is more surface than four static links are worth.
+
+**The update check contacts a host that is not the user's server**, which SECURITY.md's "exactly
+one host" sentence had to be rewritten for. The shape is what makes it acceptable: one request,
+on a button press, never automatic; anonymous, with no token and no cookie; and on a *separate*
+`Dio` with no interceptors, because Garfin's Jellyfin client attaches an admin token to
+everything it sends and reusing it here would post that token to GitHub. GitHub learns the IP
+address of whoever presses the button. That is the entire cost, it is not recoverable by design,
+and it is why this is a button and not a poll.
+
+**`/releases`, not `/releases/latest` — measured, not assumed.** The obvious endpoint answers
+**404** for this repository: it excludes pre-releases, and every Garfin release so far is one. A
+check built on it would have told every beta user "no releases published yet", forever, while
+looking like a working feature. `/releases?per_page=1` sees them, newest first.
+
+**The version comparison is three integers and nothing else.** Pre-release suffixes are ignored,
+so `v0.2.0-beta.1` and `v0.2.0` compare equal. The asymmetry is deliberate: it can say "up to
+date" a day early, and it cannot invent an update that does not exist. The tag is read with a
+regex rather than by stripping a leading `v`, because the sibling project tags releases
+a prefixed tag, and a parser that only survives its own repository's convention fails silently
+— by reporting that everything is fine.
+
+**Kept:** Flutter's built-in `showLicensePage`, rather than rendering a bundled
+`THIRD_PARTY_NOTICES.md` the way trobar does. The built-in already knows every package compiled
+in and cannot go stale; shipping a second list means shipping a list that can disagree with the
+first.
+
+**Deferred:** the tap-the-mark Easter egg. trobar's five-tap tic-tac-toe transfers as a
+mechanism, but Garfin's mark is a fish and the game should not be a copy. It is a follow-up
+rather than a stub, because a tap counter that opens nothing is dead code no test can cover.
+
+---
+
+## The verified count arrives after the sheet closes (settled 2026-08-06)
+
+Ground rule 1 says report the **verified** count — the server's, re-read after the write, never
+predicted. That is unchanged and not negotiable: it is what explains a share the rating cap
+swallowed, where the tag landed and the number did not move.
+
+What changed is who waits for it. The write is two round trips and costs ~18 ms, flat. The
+verification is one query whose cost tracks **what the child can already see**, and worse than
+linearly: 19 ms at one title, 214 ms at a thousand, 538 ms at two thousand — and 8.7 seconds at
+six thousand, on a settled library with a 0.7 ms control alongside. So the sheet was holding a spinner
+over work that had already finished, for a duration that grows the more successfully the app is
+used.
+
+The sheet now closes when the write succeeds. The toast appears immediately saying what is true —
+*Shared with Emma*, or *Taken back from Emma*, direction-aware because both reach it — and the
+sentence is replaced by the counted one when the server answers. Rule 1 holds: the number is still
+the server's, still after the write, still never guessed.
+
+**The pending sentence is not a placeholder.** If the count fails, or is slower than the eight
+seconds the toast lives for, it simply stays — it was a complete true statement on its own,
+and the Kids screen carries the verified count regardless. A design where the first sentence is a
+lie without the second would not be acceptable here.
+
+Two related things fell out of the same measurement:
+
+- **Undo asked for counts nobody read.** It routed through `apply`, which verifies; the sheet's
+ Undo takes a `Future<void>` and the toast after it names no number. On a large library that was
+  half a second of the server's time requested and discarded after every Undo. It no longer asks.
+- **Two serial loops of that query became bounded-parallel** — the per-child counts after a write,
+ and the Kids screen's own load. Both were `for` loops with an `await` inside, and `mapBounded`
+  (limit 4) was already the house pattern a few dozen lines away in one of the same files.
+
+Rejected: `/Items/Counts`, which does answer the same question — verified in four cases that could
+have told them apart — but is roughly flat where `/Items` scales, so it would make the common case
+four times slower to make the extreme case twice as fast.
+
+---
+
+## A face on a poster means *given* (settled 2026-08-07)
+
+`UI-SPEC` has asked since the beginning for "avatars of the children who have it" on every library
+tile. Only the check badge was ever built, and the badge answers about the **selected** child —
+so the grid said nothing at all to a parent who had not picked anyone, which is the state the app
+opens in.
+
+**Avatars mean the label is on the item. They do not mean the child can watch it.** That is ground
+rule 4 in one design decision: what a child can actually see is the server's answer, tags and the
+rating cap together, and the app never predicts it. The distinction already exists as
+`givenButHidden` — but only for the selected child, because knowing it for everyone would cost a
+per-child visibility query *per title*, on the screen that scrolls. So the faces say given, and the
+held-back nuance stays with the selected child's badge, one corner of the same tile away.
+
+**Block-list children are left out rather than marked.** For a block-list child a matching tag
+means the title is *withheld*, so their face in a row that means "has it" would say the exact
+opposite — and nobody scanning a grid stops to work out which verb a particular child is under.
+Marking them distinctly was the alternative and is worse: it puts two meanings in one row, and the
+one that reads wrong at a glance is the one about a child being kept from something. Conflicting
+accounts are out for the reason ground rule 3 gives — no verb, no answer.
+
+**It is a join, not a query.** Everything needed is already in memory: the grid asks for
+`Fields=Tags` on every item, and the Kids overview already carries each child's labels and picture
+(`avatarUrlFor`). So this costs no request, which is also why it is computed where the age
+hint is computed — in the screen, per tile — rather than inside `LibraryRepository.fetch`. Putting
+it in the fetch would tie the grid's *data* to the Kids overview, and re-fetch a library page,
+measured at up to half a second, every time a write invalidated it.
+
+**Opposite corners do not work, and only a render said so.** The first build put the faces
+top-right and left the state badge top-left, which is what the issue suggested. Rendered at 110dp —
+and a tile is ~118dp at three columns, ~83dp at four — "Held back" and three faces want the same
+middle, and the row simply paints over the badge. Nothing errors, no test fails, and the geometry
+assertions all passed because each marker was inside the tile. So the two now sit in one row and the
+row measures: the badge takes its width, the faces take the remainder, and the count degrades three
+faces and a `+N` → two → one → nothing. The badge wins because it is the answer about the child the
+parent picked; the faces are in the spoken label whatever the width.
+
+**A `+N` is never drawn alone.** Beside faces it means "N more than these"; with nothing to be more
+than it would mean "N in total" — one glyph, two meanings, and the tile where the second one
+appears is the smallest, which is the worst place to change what a symbol means. So the last rung
+before nothing is one face and a count, and below that the row is silent. Nothing is lost: the
+spoken label carries every name at every width.
+
+**The spoken label names who *else* has it.** The selected child is dropped from that sentence
+because the badge has just spoken about them — otherwise a screen reader hears "Given. Given to
+Emma", and the held-back tile hears "the server isn't showing it to them … Given to Emma", which
+reads as a contradiction to anyone who has not internalised the given-versus-visible split. Their
+face stays in the row: the row says who has it, the sentence adds who else.
+
+**The French says "Titre donné à …", naming the noun.** A bare "Donné à" agrees with the item, and
+the grid carries *films*, *séries* and *collections* — masculine singular is right for one of the
+three. Naming `titre` fixes the agreement to a word that is always there and always masculine, which
+is cheaper than three strings and safer than a participle that has to guess.
+
+Every circle is the same size and overlaps by the same amount so the fit is arithmetic rather than
+an estimate — including the `+N`, which is a circle rather than a text chip for exactly that reason.
+The tests assert *no overlap at four widths* rather than a count at one, because how many fit
+depends on how wide the badge's text measures, and the font in a widget test is not the font on the
+phone.
+
+**The bottom edge had the identical defect and was fixed the same way** (filed off this PR's
+render and fixed after it). The age hint and the collection count were pinned to opposite corners,
+and on a collection tile with a child selected — the only case where both appear — the count painted
+over the hint at 118dp and spilled past the poster at 83dp. Same silence: inside the tile, nothing
+errors, no assertion fires.
+
+They now share one row. The difference from the top edge is worth stating, because it decides the
+behaviour: **the top shrinks and the bottom wraps.** A face can be dropped because a `+N` stands for
+it; "No age rating" and "7 titles" are words, and nothing stands for a word — so when they do not
+fit side by side the count takes the line below and both survive, at the cost of a little poster.
+
+Rejected — naming the children on the tile instead of showing faces. A poster is ~110dp wide on
+the 3-column grid (2 under 400dp); three names do not fit, and the faces are the same ones from the
+picker row directly above, which is what makes them readable at that size. The names are all in the
+tile's semantic label, in full, including the ones the `+N` chip stands for.
+
+---
+
+## The result line is a subtraction (settled 2026-08-07)
+
+"N things Emma hasn't got yet" was `feed.entries.length` — the page buffer. It counted what the
+infinite scroll had loaded, so it climbed as the parent scrolled; and because the grid only drops
+shared titles when hide-shared is **on**, with Show shared active — the default — it counted titles
+the child already had. A number that reads as a total, changes as you scroll, and counts the wrong
+population.
+
+**It is now `total − tagged`, and both come from the server.** `/Items` has no `excludeTags` — 86
+parameters and not one of them, which is why hide-shared filters client-side in the first place — so
+"not handed over yet" cannot be asked for directly and has to be derived. The grid's own
+`TotalRecordCount` is one half and is already in hand; `taggedItemCount` is the other, one `Limit=0`
+query.
+
+**Both halves must carry the same filters**, and that is the actual work: a genre chip on one side
+and not the other subtracts one population from a different one and returns something that looks
+entirely reasonable. Measured rather than assumed — `JELLYFIN-API.md` § *`tags=` ANDs with every
+other filter* checks each filter against `tags=` directly, in both directions, with a control that
+still answers 0.
+
+**The verb follows the child's mode**, per ground rule 3. An allow-list child gets what has not been
+handed over; a block-list child gets the tagged count itself, because for them the label is what
+*takes a title away* — `total − tagged` would be the number they can reach, which is a different
+statement and a visibility claim besides. A conflicting account gets the library's own count and no
+claim about them at all.
+
+**It stays "not handed over", never "cannot see".** Ground rule 4: the rating cap silently overrides
+tags, so the number of titles not given is not the number invisible to the child. The subtraction is
+over *labels*, which is exactly what the tiles say.
+
+Rejected — showing `entries.length` honestly as "showing N", the cheap alternative the issue offers.
+It is true, and it answers a question nobody has: the parent wants to know how much is left to do,
+not how much has been fetched.
+
+The count arrives asynchronously and the line does not wait for it: until then it says what the
+library holds, which is true, and swaps to the per-child sentence when the server answers. Same
+same shape — state what you know, replace it when the number arrives, never hold the screen.
+
+**The grid and the count refresh as one unit** (found in review of the above and fixed after
+it shipped). The first version left the count invalidated *nowhere*: six call sites named the grid
+and none named the count, so giving a child a title made the tile vanish while the number beside it
+stood still — and since a `FutureProvider` is not auto-disposed, it stayed wrong until the app
+restarted, with no gesture in the app able to correct it. Allow mode read too high, block mode too
+low, by exactly the number of writes since the screen loaded.
+
+The fix is one signal both halves watch — `libraryRevisionProvider`, bumped by `refreshLibrary` —
+rather than an extra `invalidate` beside each existing one. Two reasons, and the second is the one
+that made it worth more than six lines:
+
+- **A call site cannot refresh half a sentence.** Nothing names either provider any more, so the
+ seventh refresh site is correct by construction. `test/library_refresh_test.dart` reads `lib/`
+  and fails if one starts naming them again — a convention is what failed here, and this is the
+  same shape as the equality guard added one PR earlier.
+- **Both numbers now describe the same moment.** They were independently timed, so even with
+  correct invalidation the line could subtract a count taken at one instant from a total taken at
+  another. The docstring above is careful that both counts carry the same filters; the same
+  argument applies to the moment they were taken.
+
+Rejected — having the count `await` the grid's own future to inherit its refreshes. It would make
+the two automatically consistent and it serialises them, which is exactly what that change removed: the
+count would then wait on a library page before it could start.
+
+The gate is a test that **writes and then reads the line**, which is what the original PR lacked:
+seventeen tests, none of them exercising a write, over a defect that only a write produces.
+
+**A feed is meaningful for exactly one child, and now says which** (the consequence of keeping
+the tiles). Not blanking the grid means the previous child's tiles stay on screen while a new
+selection's query is in flight, and every marker `_classify` computed is about the child who was
+selected when it ran. Measured one frame after switching from Emma to Léo:
+
+    before:  Paddington. Leo has this, but the server isn't showing it to them.
+    after:   Paddington. Given to Emma
+
+The first sentence names a child who had never been given the title — the exact shape of claim
+ground rule 4 exists to prevent, and the copy everywhere else is written carefully to avoid.
+`LibraryFeed` now carries `classifiedFor`, and the screen shows no per-child marker until it matches
+the current selection.
+
+**Only what the feed decided waits**, which is the distinction worth keeping: the state badge and
+the held-back sentence come from `_classify` and are stale; the age hint is computed on the screen
+from the *current* child's age against the item's own rating, and the avatar row says who has the
+title rather than anything about the selection. Suppressing those two as well would remove true
+statements and make the hint flicker on every switch.
+
+The invariant was always true and was never written down. Nothing enforced it because the spinner
+hid it: there was no stale feed on screen to misread until there was.
+
+---
+
+## The tablet layout (settled 2026-08-11)
+
+The app has never been run on a tablet, and there was nothing to remove — no orientation lock, no
+`resizeableActivity="false"`, nothing to un-pick for Android 16/17. What there was instead was a
+layout with no upper bound: `columnsFor` used the same three columns at 412dp and at 1280dp, and
+every other screen was a single full-bleed column. An earlier change fixed the grid; this settles the rest.
+
+**A width cap, not a wider layout.** Every screen except the poster grid is a column of text and
+controls, and those get worse with room, not better — a line of prose past ~70 characters is harder
+to read, and a `SwitchListTile` at 1280dp puts the switch a hand's width from its label. So the
+answer for six screens, three forms and two sheets is one number, 640dp, and only the grid is
+allowed to use the whole window. **Rejected:** a two-column settings layout (there are not enough
+settings for it to be anything but sparse) and per-screen caps (they drift, and a reader cannot
+tell a chosen 720 from a forgotten one).
+
+**The cap is padding on the scrollable, not a box around it.** Considered and rejected because the
+two are visually identical and behaviourally different: a `ConstrainedBox` narrows the scroll target
+itself, so a drag in the margin of a tablet does nothing and the scrollbar moves inward. Pinned by
+a test that measures the scrollable rather than the rows.
+
+**The rail replaces the bottom bar rather than joining it**, from Material's own 600dp. A bottom bar
+on a wide screen is the furthest the geometry can put the navigation from the content. Having both
+would be two ways to do one thing, which is the shape this repo has rejected before (the app bar
+carrying a second route to Settings).
+
+**The assign panel is the interesting half, and the write path is why it needed care.** On a phone a
+modal sheet is right: the screen has room for one thing. On a tablet the sheet covers the grid, and
+the grid is what a parent is comparing against — "pick a child, pick a film" is a comparison. So
+from 840dp the preview is a panel beside the tiles, and the same view renders in both, with the
+surface handing in what *close* means. Three decisions inside that one:
+
+- **The panel is always present**, not summoned by a tap. Summoning it re-flows the grid, which
+  moves the poster that was just tapped out from under the finger that tapped it.
+- **It is keyed by the item.** The panel's state is the pending toggles, and Riverpod-free widget
+  state survives a rebuild that only changes the item. Unkeyed, a parent could flick *give to Emma*
+  on one film, change their mind, tap another and press Apply — writing the second film from a
+  switch set for the first, with everything on screen agreeing. This is the only defect in the
+  feature that reaches the server, and it is mutation-tested.
+- **The two surfaces are never both live.** A sheet over a panel is two previews of one write.
+
+**The panel's breakpoint is measured beside the rail, and deliberately not converted to a window
+figure.** Raised in review, which had the direction right and the number wrong — the rail is not
+Flutter's 72–80dp default here but 116dp in English and 153.5dp in French, because `labelType: all`
+sizes it to its widest label. So a window figure would be a different number per locale and per text
+scale, and quoting one would be the kind of stated-not-measured claim this repo keeps catching.
+`docs/UI-SPEC.md` states the frame of reference per row instead, and the composed case is pinned as a
+relationship in both locales.
+
+**A two-pane library was not extended to the Kids screen.** A kid card opens nothing modal, so
+there is no second pane to hold; the width cap is the whole answer there.
+
+---
+
+## Open questions
+
+- Whether to offer a migration when the tag prefix changes, or just document it
+- Whether the Activity log persists across sessions or is session-only
+- Music: albums and artists are taggable but the value is unclear — currently in scope, untested
+- Whether to support multiple servers, or one at a time
