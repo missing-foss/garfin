@@ -18,6 +18,7 @@ import '../providers/library_providers.dart';
 import '../providers/settings_providers.dart';
 import '../repositories/app_settings_store.dart';
 import '../repositories/library_repository.dart';
+import 'collection_given_line.dart';
 import 'library_tile.dart';
 
 /// A grid of posters, and everything a tile needs to mean something.
@@ -41,6 +42,7 @@ class LibraryGrid extends ConsumerWidget {
     required this.entries,
     required this.child,
     required this.onTap,
+    this.notes = const {},
     this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 24),
   });
 
@@ -57,6 +59,10 @@ class LibraryGrid extends ConsumerWidget {
   /// opens the set. Passing the item rather than the entry, because every
   /// caller so far wants the thing, not its per-child state.
   final void Function(LibraryItem item) onTap;
+
+  /// A line to draw under a tile's title, by item id (#147): the collections a
+  /// search found through one of their members say so.
+  final Map<String, String> notes;
 
   final EdgeInsets padding;
 
@@ -99,10 +105,31 @@ class LibraryGrid extends ConsumerWidget {
           onTap: () => onTap(entry.item),
           child: LibraryTile(
             entry: entry,
+            note: notes[entry.item.id],
             serverUrl: session.serverUrl,
             childName: child?.name,
             childId: child?.id,
-            holders: holdersOf(item: entry.item, children: kids),
+            holders: holdersOf(
+              item: entry.item,
+              children: kids,
+              selectedChildId: child?.id,
+            ),
+            // Only a collection has members to count, and only with a child
+            // picked is there a verb to say it with.
+            //
+            // The set's plain size travels with it as the silent form. The
+            // share widget cannot know until its own build whether it has
+            // anything to say, and it stands in the corner the count used to
+            // hold, so the fallback has to be inside it rather than beside it.
+            givenBadge: entry.item.isCollection && child != null
+                ? CollectionGivenLine(
+                    session: session,
+                    collection: entry.item,
+                    child: child,
+                    whenSilent:
+                        LibraryTile.collectionCountBadge(context, entry.item),
+                  )
+                : null,
             suitability: suitabilityFor(
               item: entry.item,
               ladder: ladder,
@@ -117,9 +144,14 @@ class LibraryGrid extends ConsumerWidget {
 
 /// The selected child's age, for the hint (#43).
 ///
-/// Null when no child is selected or no year has been set — both of which make
-/// every hint "not known" rather than suppressing the hint entirely, because a
-/// missing year is a thing the parent can fix and should be able to see.
+/// Null when no child is selected or no year has been set. Both then make every
+/// title "not known", and the tile now says nothing at all for that — so this
+/// is no longer where a missing birth year becomes visible.
+///
+/// It is still visible, and in a better place: the child's own card offers *Add
+/// a birth year* in the age slot, in the primary colour, which is both where a
+/// parent would look for it and where they can fix it. Saying it once there
+/// beats repeating it on every tile in the grid.
 int? _ageOf(WidgetRef ref, JellyfinUser? child) {
   if (child == null) return null;
   final year = ref.watch(birthYearStoreProvider).read(child.id);

@@ -17,30 +17,36 @@ class GarfinSettings {
   const GarfinSettings({
     required this.collectionPrompt,
     required this.refreshAfterWrite,
-    required this.startingChildId,
     required this.hideShared,
+    required this.allowScreenshots,
     required this.themeMode,
     required this.dynamicColour,
     required this.posterSize,
+    required this.librarySort,
+    required this.librarySortDescending,
   });
 
   factory GarfinSettings.from(AppSettingsStore store) => GarfinSettings(
         collectionPrompt: store.collectionPrompt,
         refreshAfterWrite: store.refreshAfterWrite,
-        startingChildId: store.startingChildId,
         hideShared: store.hideShared,
+        allowScreenshots: store.allowScreenshots,
         themeMode: store.themeMode,
         dynamicColour: store.dynamicColour,
         posterSize: store.posterSize,
+        librarySort: store.librarySort,
+        librarySortDescending: store.librarySortDescending,
       );
 
   final CollectionPrompt collectionPrompt;
   final bool refreshAfterWrite;
-  final String? startingChildId;
   final bool hideShared;
+  final bool allowScreenshots;
   final ThemeMode themeMode;
   final bool dynamicColour;
   final PosterSize posterSize;
+  final LibrarySort librarySort;
+  final bool librarySortDescending;
 }
 
 final appSettingsStoreProvider = Provider<AppSettingsStore>(
@@ -68,8 +74,19 @@ class SettingsController extends Notifier<GarfinSettings> {
     state = GarfinSettings.from(_store);
   }
 
-  Future<void> setStartingChildId(String? value) async {
-    await _store.setStartingChildId(value);
+  /// Pushes to the window **first**, and stores the answer only if it applied.
+  ///
+  /// That order is the whole of the invariant: the preference follows the
+  /// window rather than leading it, so the store can never claim a state the
+  /// window is not in. A push that fails leaves the switch where it was, which
+  /// a parent can see, rather than leaving them believing protection is back
+  /// when it is not.
+  Future<void> setAllowScreenshots(bool value) async {
+    final applied = await ref
+        .read(windowSecurityProvider)
+        .setScreenshotsAllowed(allowed: value);
+    if (!applied) return;
+    await _store.setAllowScreenshots(value);
     state = GarfinSettings.from(_store);
   }
 
@@ -90,6 +107,16 @@ class SettingsController extends Notifier<GarfinSettings> {
 
   Future<void> setPosterSize(PosterSize value) async {
     await _store.setPosterSize(value);
+    state = GarfinSettings.from(_store);
+  }
+
+  Future<void> setLibrarySort(LibrarySort value) async {
+    await _store.setLibrarySort(value);
+    state = GarfinSettings.from(_store);
+  }
+
+  Future<void> setLibrarySortDescending({required bool value}) async {
+    await _store.setLibrarySortDescending(value: value);
     state = GarfinSettings.from(_store);
   }
 }

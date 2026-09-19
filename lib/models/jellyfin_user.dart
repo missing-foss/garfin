@@ -41,6 +41,7 @@ class UserPolicy {
     this.allowedTags = const [],
     this.blockedTags = const [],
     this.maxParentalRating,
+    this.maxParentalSubRating,
     this.accessSchedules = const [],
     this.enableAllFolders = false,
     this.enabledFolders = const [],
@@ -84,6 +85,26 @@ class UserPolicy {
   /// correctly tagged title stays invisible to a child whose cap excludes it.
   /// That is why ground rule 4 forbids computing visibility here.
   final int? maxParentalRating;
+
+  /// The second half of the cap, and **its null means the opposite of the one
+  /// above.**
+  ///
+  /// Measured on 10.11.11, 2026-08-26, by sweeping a child's policy against
+  /// fixtures at the same score and different sub-scores:
+  ///
+  ///     cap 10, sub 0      TV-PG visible, TV-PG-D hidden
+  ///     cap 10, sub 1      both visible
+  ///     cap 10, sub null   TV-PG visible, TV-PG-D hidden   <- same as sub 0
+  ///
+  /// So an absent sub-rating behaves as **0**, the strictest sub-level — while
+  /// an absent [maxParentalRating] means *no cap at all*, the most permissive
+  /// reading, for the reasons `readInt`'s own doc comment sets out.
+  ///
+  /// Two adjacent fields, opposite defaults. This is left nullable rather than
+  /// defaulted to 0 so the distinction between "the server said 0" and "the
+  /// server said nothing" survives into the model; every consumer must apply
+  /// the restrictive reading itself, and [ParentalRatingLadder.nameFor] does.
+  final int? maxParentalSubRating;
 
   final bool enableAllFolders;
 
@@ -132,6 +153,7 @@ class UserPolicy {
         allowedTags: readStringList(json, 'AllowedTags'),
         blockedTags: readStringList(json, 'BlockedTags'),
         maxParentalRating: readInt(json, 'MaxParentalRating'),
+        maxParentalSubRating: readInt(json, 'MaxParentalSubRating'),
         accessSchedules: AccessSchedule.listFrom(json),
         enableAllFolders: readBool(json, 'EnableAllFolders'),
         enabledFolders: readStringList(json, 'EnabledFolders'),

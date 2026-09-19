@@ -415,9 +415,71 @@ Limits worth stating plainly:
  before. `screencap` of the foregrounded app comes back 99.8% pure black. Anyone re-checking this
   should test *what is in the file*, because "a snapshot exists" stays true either way.
 
-  **The cost is real and accepted:** the parent cannot screenshot Garfin or mirror it to another
-  screen. Weighed against an admin token on a phone handed to children by design, which is what
-  ground rule 9 exists for, that trade is deliberate.
+  **The cost was real and is now a choice (2026-09-07).** Blocking screenshots and mirroring was
+  the accepted cost of covering the snapshot; a parent asked to stop paying it, and the two turn
+  out to be separable on a modern Android.
+
+  **`setRecentsScreenshotEnabled(false)` covers the thumbnail without the flag.** Measured
+  `since = 33` in the SDK's own `data/api-versions.xml`, against this app's `minSdk` of 26 — so:
+
+  | | recents thumbnail | screenshots, recording, mirroring |
+  |---|---|---|
+  | **Android 13+**, switch off | covered twice | blocked |
+  | **Android 13+**, switch on | still covered | allowed |
+  | **Android 12 and below**, switch off | covered | blocked |
+  | **Android 12 and below**, switch on | **exposed** | allowed |
+
+  The switch is **Settings → Unlock → Allow screenshots**, off by default, so a parent who never
+  opens it keeps exactly the behaviour measured above. The bottom row is the honest cost and is
+  not hidden behind a version check that pretends otherwise: below 13 there is no API that covers
+  the snapshot on its own, and allowing capture gives it back.
+
+  `MainActivity` sets the flag at creation and the Dart side relaxes it once the preference has
+  been read, so the protected state is the one that holds while the answer is still unknown.
+
+  **The switch says what it costs, where it costs it.** Below 13 the subtitle carries a second
+  line naming the thumbnail, driven by asking the platform rather than by a version constant in
+  the copy — and a device that cannot answer is treated as uncovered, because a warning shown
+  where it was not needed is the cheaper mistake.
+
+  **The preference follows the window, not the other way round.** The flag is pushed first and
+  stored only if it applied. Storing first would matter in one direction: a *revoke* that failed
+  would leave the window capturable while the store said otherwise, which is a parent looking at
+  protection they believe they turned back on. A failed push leaves the switch where it was.
+
+  **Measured on a device (2026-09-07), emulator, API 34.** That
+  `setRecentsScreenshotEnabled(false)` covers the thumbnail was the API's contract until it was
+  put on a bench. Snapshots read from the system's own store after backgrounding, with a
+  foreground `screencap` in each run to establish what the window flag was actually doing:
+
+      run                                    colours   edge pixels   reading
+      default, capture blocked                     3        0.000%   flat fill
+      capture allowed, this app                    3        0.000%   still flat
+      capture allowed, the call removed         3336        0.719%   the screen
+      stock Settings, no protection              5055        2.685%   instrument control
+
+  The two middle rows are the same window state to within noise on the foreground capture, so
+  they differ only by that one call. **The 13-and-up rows of the table above are therefore
+  measured. The 12-and-below rows are not** — no device under 33 was available — and rest on
+  there being no such API, which the SDK metadata shows.
+
+  **Nothing re-checks any of this.** The table is a point-in-time local measurement. CI's `app`
+  job runs `flutter analyze`, `flutter test` and the debug and release APK builds, and no
+  instrumentation step of any kind — so a green tick says the app compiles and its unit tests
+  pass, and says nothing about the window flag, the thumbnail, or the row where the call is
+  removed. Anyone changing `MainActivity` should expect to measure it again by hand.
+
+  **A blank snapshot is uniform, not black.** The fill is the task's background colour, which on
+  this app is nearly white: 97.4% of a *protected* snapshot's pixels are non-black. An instrument
+  asking "how dark is it" reports the protected default as exposed. Structure is what separates a
+  blank from a screen — distinct colours, and the share of pixels differing from their neighbour.
+  This is the same trap as § *Measuring this without measuring your own harness*, in a new place:
+  the check ran, answered confidently, and would have been backwards.
+
+  **What allowing capture does *not* change:** the token stays in `flutter_secure_storage`, backup
+  and device-to-device transfer stay off, and the gate still covers the session. It makes the
+  window capturable while it is on screen, by an app the parent has installed and by the parent
+  themselves.
 
 **Verified (2026-08-03), in tests:** cold start locks; a wrong attempt keeps the gate up and does
 not retry on its own; resume after longer than the timeout relocks and resume inside it does not;
@@ -456,8 +518,9 @@ modelling the threat here should assume admin access defeats it.
 **There is deliberately no `SCORECARD_TOKEN`.** The documented setup asks for a classic PAT with
 `repo` scope — read *and write* over every repository its owner can reach — stored in a public
 repo's secrets, in order to raise a security score. That trade is not worth making: if it leaked,
-the blast radius is the whole organisation, and what it buys is a number. Scorecard runs and
-publishes results without it; the Branch-Protection check scores low or unscored as a result.
+the blast radius is the whole organisation, and what it buys is a number. Scorecard is configured
+on the published mirror rather than on the development forge, and without the token the
+Branch-Protection check cannot be scored.
 The SAST check is capped regardless, because CodeQL does not support Dart — which is why
 `flutter analyze` is treated as load-bearing static analysis here rather than a formality.
 
@@ -465,27 +528,77 @@ This is a considered decision, not an oversight.
 
 ## Release signing
 
-Release builds are signed locally with Garfin's own canonical key; no keystore
-exists in CI. `android/app/build.gradle.kts` pins the expected SHA-256
-certificate fingerprint and refuses to build if the keystore doesn't match, so a
-wrong or rotated key fails loudly instead of shipping an APK that can never be
-updated.
+Release builds are signed locally with this app's own key; no keystore exists
+in CI. `android/app/build.gradle.kts` pins the expected SHA-256 certificate
+fingerprint and refuses to build if the keystore doesn't match, so a wrong or
+rotated key fails loudly instead of shipping an APK that can never be updated.
 
-The fingerprint is not a secret and will be published here once the first signed
-release is cut, so anyone can verify a downloaded APK against it.
+The fingerprint is not a secret. It is:
 
-**Until a sanctioned build path exists, a successful `flutter build apk --release` does not mean
-"ready to publish."** Two things are not yet true of it:
+```
+0b58bc2f1872c39df047ece3c3e0eda39d3f4f77107972f64c4ce8971be97155
+```
 
-- **The canonical key does not exist.** With no keystore the build now succeeds
- and produces an *unsigned* APK — deliberately, so CI and contributors
-  can build release at all, which is what release signing needs. An unsigned APK cannot be
-  installed as an update and must not be distributed.
-- **The fingerprint guard is inert.** `expected` in `build.gradle.kts` is still
- `""`, so a wrong or rotated key only logs a warning rather than failing the
-  build. The safeguard is wired up and untriggered, not enforcing.
+RSA 4096, `CN=missing-foss, O=missing-foss, C=CH`. Check a downloaded APK
+against it yourself:
 
-Release builds became newly *easy* to produce, which is why this is
-written down: the thing that used to stop an unpublishable artifact existing was
-that the build refused to run at all. A misconfigured keystore — a password set
-with no keystore behind it — does still fail loudly, by design.
+```sh
+apksigner verify --print-certs garfin-<version>.apk
+```
+
+The `Signer #1 certificate SHA-256 digest` it prints must equal the value above.
+That value is also what `expected` pins in `android/app/build.gradle.kts`, so a
+build that does not match it does not happen.
+
+### The v0.1.0 artifact was signed with a different key
+
+The published **v0.1.0** APK carries:
+
+```
+435a96631d400c88ecaf635aeadd1f5bf71f6260d29a614947362d27edf3f52e
+```
+
+That key was shared with the other application in this organisation. Sharing a
+signing key means whoever holds it can publish updates to both, and it was not
+a deliberate decision — it entered through a namespace-unification change
+without sign-off. It was corrected by generating a fresh key for this app alone,
+while the install base was still effectively zero.
+
+The old fingerprint is recorded here so the published v0.1.0 remains verifiable.
+**Every release after v0.1.0 carries the new fingerprint above.** Anyone holding
+v0.1.0 reinstalls once; an update cannot cross a key change.
+
+### A release build still needs its keystore
+
+With no keystore the build succeeds and produces an *unsigned* APK —
+deliberately, so that CI and contributors can build release without holding
+signing material. An unsigned APK cannot be installed as an update and must not
+be distributed, so `flutter build apk --release` succeeding is not on its own
+evidence of a publishable artifact.
+
+A misconfigured keystore — a password set with no keystore behind it — does
+fail loudly, by design.
+
+**The remaining hole is the empty case, and it is reported rather than fatal.**
+With *neither* a keystore nor a password the build cannot tell a deliberate
+unsigned build from a maintainer whose signing environment was never sourced,
+so it builds. Two things now make that visible instead of silent:
+
+- the build states at configuration time that release builds will be unsigned
+  and why. It is logged at Gradle's **error** level, not because it is an
+  error but because `flutter build` passes that level through and swallows the
+  quieter ones — a message below it is one nobody reads;
+- `dev/verify.sh` reports the produced APK's **real** signing state, read back
+  with `apksigner` — `SIGNING: signed, sha256 …` or `SIGNING: UNSIGNED` —
+  rather than inferring it from a zero exit code.
+
+Neither is a failure, because neither state is wrong on its own: CI and
+contributors build unsigned on purpose. Export **`GARFIN_REQUIRE_SIGNED=1`** to
+make an unsigned APK fail that gate outright, which is the flag to set when
+preparing something intended to ship.
+
+This exists because the silent version already happened: a release APK was
+built, reported success, carried no `-unsigned` in its name — Flutter copies
+the artifact onward and drops Gradle's suffix — and went out for review before
+`apksigner` was pointed at it. Nothing in the output distinguished it from a
+signed build.

@@ -2,6 +2,13 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+# WHERE THIS RUNS: the published mirror, under GitHub Actions -- not the
+# development forge. The forge reads `.forgejo/workflows/` and, once that
+# directory exists, takes nothing from `.github/`. The published branch
+# carries no `.forgejo/`, so these three files are the only workflows the
+# mirror has. Removing them here removes CI, the release path and Scorecard
+# from the mirror at the next publication.
+
 # Release: fires on a bare vX.Y.Z tag.
 #
 # Tags are bare `vX.Y.Z`.

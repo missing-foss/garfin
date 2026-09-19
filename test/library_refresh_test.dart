@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/models/library_filters.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/models/jellyfin_user.dart';
@@ -127,7 +128,7 @@ void main() {
         kidsOverviewProvider(session).overrideWith(
           (ref) async => KidsOverview(
             shortlisted: [
-              KidSummary(user: emma, visibleCount: 0, libraryTotal: 0),
+              KidSummary(user: emma),
             ],
             withoutShortlist: const [],
           ),
@@ -142,9 +143,8 @@ void main() {
       // refills over an enlarged window and consumes the scripted count reply
       // as a second page — the harness answering a different question, which
       // showed up here as a `total` of 24.
-      if (container.read(hideSharedProvider)) {
-        container.read(hideSharedProvider.notifier).toggle();
-      }
+      // This test is not about which slice is shown; show all of it.
+      container.read(libraryViewProvider.notifier).set(LibraryView.all);
 
       await tester.pumpWidget(
         UncontrolledProviderScope(

@@ -143,7 +143,20 @@ void main() {
       expect(query['maxOfficialRating'], 8);
       expect(query['StartIndex'], 0);
       expect(query['Limit'], 24);
-      expect(query['Fields'], 'Tags,ChildCount');
+      // **The badges are only as real as this line.** `ChildCount` and
+      // `RecursiveItemCount` are each absent from the response unless `Fields`
+      // names them, so a tile guarded on either renders nothing at all when
+      // the request drops one — which is exactly how the collection count
+      // badge was specified, shipped and never once drawn.
+      //
+      // `ProductionLocations` is on the same footing, measured 2026-09-17 on
+      // 12.1.0: absent from a list row until asked for. `RunTimeTicks` is
+      // deliberately **not** here — it arrives unasked whenever the item has
+      // media, so naming it would suggest a dependency that does not exist.
+      expect(
+        query['Fields'],
+        'Tags,ChildCount,RecursiveItemCount,ProductionLocations,Genres,Studios',
+      );
     });
   });
 

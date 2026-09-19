@@ -4,6 +4,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/country_lookup.dart';
 import '../models/auth_session.dart';
 import '../models/jellyfin_user.dart';
 import '../models/library_filters.dart';
@@ -11,6 +12,7 @@ import '../models/library_item.dart';
 import '../models/kid_summary.dart';
 import '../models/parental_rating.dart';
 import '../repositories/jellyfin_api.dart';
+import '../repositories/app_settings_store.dart';
 import '../repositories/library_repository.dart';
 import 'app_providers.dart';
 import 'kids_providers.dart';
@@ -30,12 +32,23 @@ import 'settings_providers.dart';
 /// an error.
 class PickingFor extends Notifier<String?> {
   @override
-  String? build() => ref.watch(settingsProvider).startingChildId;
+  /// **Everyone.** There is no stored starting child any more: arriving at the
+  /// Library from the navigation means "the library", and arriving from a
+  /// child's face sets the selection on the way in. A remembered default would
+  /// answer a question the parent did not ask on every visit but the first.
+  String? build() => null;
 
-  /// The choice for this session. Deliberately **not** written back to
-  /// Settings: `docs/UI-SPEC.md` § Settings calls the stored one the *starting*
-  /// child, and a picker that quietly rewrote the default would make "start on
-  /// Emma" impossible to keep.
+  /// The choice for this session, and only for this session.
+  ///
+  /// Nothing is written back, because there is nowhere to write it: the stored
+  /// *starting child* is gone. This comment used to justify the absence by
+  /// that setting — "a picker that quietly rewrote the default would make
+  /// 'start on Emma' impossible to keep" — which outlived the thing it was
+  /// about by one commit.
+  ///
+  /// The reason now is the one that replaced it: the Library opens on Everyone
+  /// from the navigation and on a child from that child's face, so what the
+  /// parent picked last time is not an input to either.
   void select(String? userId) => state = userId;
 }
 
@@ -59,20 +72,31 @@ final pickedChildProvider =
   return null;
 });
 
-/// Whether already-shared items are hidden.
+/// Which slice of the grid is on screen.
 ///
-/// Starts from Settings, and the Library's own Show/Hide button moves it for
-/// this session only. `docs/DECISIONS.md` § Product shape: hiding turns the
-/// grid into a to-do list rather than an inventory, which is why the stored
-/// default is on.
-class HideShared extends Notifier<bool> {
+/// Starts from Settings — `docs/DECISIONS.md` § Product shape: hiding what a
+/// child already has turns the grid into a to-do list rather than an
+/// inventory, which is why the stored default is on — and the Library's own
+/// button moves it for this session only.
+///
+/// [LibraryView.given] is not reachable from that button. It is where a tap on
+/// a child's face lands, and the button's job there is to get back out to the
+/// grid the giving workflow needs.
+class LibraryViewState extends Notifier<LibraryView> {
   @override
-  bool build() => ref.watch(settingsProvider).hideShared;
+  LibraryView build() => ref.watch(settingsProvider).hideShared
+      ? LibraryView.toGive
+      : LibraryView.all;
 
-  void toggle() => state = !state;
+  void set(LibraryView value) => state = value;
+
+  /// The button's own move: out of whichever narrowing view is on, and back.
+  void toggle() => state =
+      state == LibraryView.all ? LibraryView.toGive : LibraryView.all;
 }
 
-final hideSharedProvider = NotifierProvider<HideShared, bool>(HideShared.new);
+final libraryViewProvider =
+    NotifierProvider<LibraryViewState, LibraryView>(LibraryViewState.new);
 
 /// The title the two-pane library is previewing beside the grid (#95).
 ///
@@ -84,11 +108,16 @@ final hideSharedProvider = NotifierProvider<HideShared, bool>(HideShared.new);
 /// The item rather than its id, because the panel needs the name and the type
 /// to say what a write will touch before any request has been made — and
 /// because a stale id would render an empty preview rather than nothing at all.
-class AssignPanelSelection extends Notifier<LibraryItem?> {
+class AssignPanelSelection extends Notifier<AssignPanelTarget?> {
   @override
-  LibraryItem? build() => null;
+  AssignPanelTarget? build() => null;
 
-  void select(LibraryItem item) => state = item;
+  /// [from] is the set the parent was looking at when they picked [item], and
+  /// null everywhere else. It is not "the sets this film belongs to" — a film
+  /// can be in several and this is the one in front of them, which is the only
+  /// one the write is allowed to touch.
+  void select(LibraryItem item, {LibraryItem? from}) =>
+      state = AssignPanelTarget(item: item, from: from);
 
   /// After a write, when the panel is dismissed, and when a collection is
   /// opened — the pending toggles go with it, which is safe because ground rule
@@ -97,9 +126,19 @@ class AssignPanelSelection extends Notifier<LibraryItem?> {
 }
 
 final assignPanelProvider =
-    NotifierProvider<AssignPanelSelection, LibraryItem?>(
+    NotifierProvider<AssignPanelSelection, AssignPanelTarget?>(
   AssignPanelSelection.new,
 );
+
+/// What the two-pane panel is showing, and where it was opened from.
+class AssignPanelTarget {
+  const AssignPanelTarget({required this.item, this.from});
+
+  final LibraryItem item;
+
+  /// The collection the parent was browsing, or null from the library grid.
+  final LibraryItem? from;
+}
 
 /// The server's rating ladder, for the age hint (#43).
 ///
@@ -116,6 +155,27 @@ final parentalRatingLadderProvider =
     return await api.parentalRatings();
   } on Object {
     return const ParentalRatingLadder.empty();
+  }
+});
+
+/// The server's country list, read once per session.
+///
+/// Two uses on the item sheet: telling a certification prefix on an
+/// `OfficialRating` from an ordinary hyphenated rung — see
+/// `ratingCountryCode` — and turning country names into flags. Empty on
+/// failure, which answers *no country named* for every rating and *no flag*
+/// for every country. That is the honest degradation: the rating shows alone
+/// and each country shows as its name, rather than a guess at either.
+final countriesProvider =
+    FutureProvider.family<CountryLookup, AuthSession>((ref, session) async {
+  final api = ref.watch(jellyfinApiFactoryProvider).create(
+        baseUrl: session.serverUrl,
+        readToken: () => session.accessToken,
+      );
+  try {
+    return await api.countries();
+  } on Object {
+    return const CountryLookup.empty();
   }
 });
 
@@ -206,10 +266,70 @@ final taggedItemCountProvider =
   return ref.watch(libraryApiProvider(session)).taggedItemCount(
         userId: session.userId,
         tags: labels,
-        filters: ref.watch(libraryFiltersProvider),
+        // The same object the grid query uses. This total is subtracted from
+        // that query's, so the two must be asking about one population (#81)
+        // -- including the branch below, which both sites take together.
+        filters: await _filtersForQuery(ref, session),
         maxParentalRating: child!.policy.maxParentalRating,
       );
 });
+
+/// The filters with the exact name `person=` / `studios=` need filled in.
+///
+/// **`libraryFiltersProvider` holds what the parent asked for; this holds what
+/// the server can be asked.** Those differ in two of the three scopes, because
+/// `person=` and `studios=` are exact-match and a parent types a substring.
+/// Splitting them keeps the notifier synchronous and free of the session, and
+/// keeps the resolve in one place rather than at each of the three call sites
+/// that reach the server.
+///
+/// **`resolvedSearchValue` and `LibraryFilters.isImpossible` mean something
+/// only on the object this yields.** On the raw filters the value is always
+/// null, so `isImpossible` there would read true for every unresolved
+/// cast-or-studio search — which is why nothing reads it from the notifier.
+///
+/// A failed resolve yields filters whose search cannot match, and the API layer
+/// answers empty without asking. It does **not** fall back to an unfiltered
+/// query, which would return the whole library for a name nobody is credited
+/// under.
+final resolvedLibraryFiltersProvider =
+    FutureProvider.family<LibraryFilters, AuthSession>((ref, session) async {
+  final filters = ref.watch(libraryFiltersProvider);
+  if (filters.searchScope == SearchScope.title || !filters.hasSearch) {
+    return filters;
+  }
+  try {
+    final name = await ref.watch(libraryApiProvider(session)).resolveSearchName(
+          userId: session.userId,
+          term: filters.searchTerm!,
+          scope: filters.searchScope,
+        );
+    return filters.copyWith(resolvedSearchValue: name);
+  } on Object {
+    // A resolve that failed is not a resolve that found nothing, but the grid
+    // shows the same empty result either way and there is nothing a parent can
+    // do differently. Failing to empty rather than to the whole library is the
+    // safe direction: the other one silently answers a question nobody asked.
+    return filters.copyWith(resolvedSearchValue: null);
+  }
+});
+
+/// The filters to send, resolved only when a resolve is actually needed.
+///
+/// **The branch matters and is here so both query sites take the same one.**
+/// Awaiting the resolver unconditionally adds an async hop to every grid load,
+/// including the overwhelmingly common case of no search at all — which
+/// reorders the screen's requests against each other. That is not theoretical:
+/// doing it unconditionally turned three `library_count_test` cases red,
+/// because the grid and the tagged count swapped places in the sequence.
+///
+/// So a title search, or no search, returns synchronously and the screen
+/// behaves exactly as it did before this feature existed.
+Future<LibraryFilters> _filtersForQuery(Ref ref, AuthSession session) {
+  final filters = ref.watch(libraryFiltersProvider);
+  if (!filters.needsResolve) return Future.value(filters);
+  return ref.watch(resolvedLibraryFiltersProvider(session).future);
+}
 
 /// What the filter bar is asking for. Reset by the bar's own Reset.
 class LibraryFilterState extends Notifier<LibraryFilters> {
@@ -233,6 +353,19 @@ class LibraryFilterState extends Notifier<LibraryFilters> {
     final next = trimmed.isEmpty ? null : trimmed;
     if (next == state.searchTerm) return;
     state = state.copyWith(searchTerm: next);
+  }
+
+  /// Which field the typed term is matched against.
+  ///
+  /// The text is kept. Switching scope with something already typed is the
+  /// whole point of the control — a parent who typed a name into Title and got
+  /// nothing should be one tap from asking the right question, not retyping it.
+  ///
+  /// Idempotent for the same reason [setSearch] is: re-setting identical state
+  /// invalidates the library controller and re-fetches a page for nothing.
+  void setScope(SearchScope value) {
+    if (value == state.searchScope) return;
+    state = state.copyWith(searchScope: value);
   }
 
   void reset() => state = const LibraryFilters();
@@ -342,12 +475,47 @@ class LibraryFeed {
 /// `build` re-runs whenever the child, the hide-shared toggle or a filter
 /// changes, which is what resets paging on a filter change — there is no
 /// separate "clear" to forget to call.
+///
+/// **A refresh is not a filter change, and used to be treated as one.** The
+/// same `build` also re-runs when [libraryRevisionProvider] is bumped, which is
+/// what the assign sheet does after a write. Rebuilding at one page then threw
+/// away every page the parent had scrolled to — not the scroll offset, the
+/// *entries* — so applying a share eight pages down handed back a grid holding
+/// the first page only. Scrolling could not recover it, because there was
+/// nothing there to scroll through until it paged in again.
+///
+/// So the window is remembered and restored, and the condition for restoring is
+/// **that nothing else changed**: a different child, view or filter must still
+/// come back at page one, because that is a different list rather than the same
+/// one seen again.
 class LibraryController extends AsyncNotifier<LibraryFeed> {
   LibraryController(this.session);
 
   /// The family argument, handed in by the provider — Riverpod 3 gives it to
   /// the constructor rather than to `build`.
   final AuthSession session;
+
+  /// What the last build was a list *of*.
+  ///
+  /// A record rather than a hand-rolled class: Dart gives it structural
+  /// equality, and every part already compares by value — `LibraryFilters`
+  /// deliberately so, since Riverpod uses that to decide whether to refetch.
+  ///
+  /// Null before the first build, which is why the first one never restores.
+  ({
+    String? childId,
+    LibraryView view,
+    LibraryFilters filters,
+    (String, String) sort,
+  })? _lastList;
+
+  /// How many entries the feed held when it was last left alone.
+  ///
+  /// Kept on the notifier rather than in the state: the state is what `build`
+  /// replaces, so anything asked *before* rebuilding has to outlive it.
+  /// Riverpod keeps the notifier instance across a dependency-driven rebuild,
+  /// which is what makes this survive exactly as long as the grid is on screen.
+  int _loaded = 0;
 
   @override
   Future<LibraryFeed> build() async {
@@ -359,7 +527,29 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
     // Read here as well as inside `_fetch`, so the feed can record whose
     // classification it carries (#96).
     final child = ref.watch(pickedChildProvider(session));
-    final slice = await _fetch(startIndex: 0);
+
+    // Same list as last time? Then this rebuild is a refresh, and the window
+    // that was open is asked for again. Anything else is a new list and starts
+    // at the top — which is the behaviour the paging reset was there to give,
+    // and it is kept rather than traded away.
+    final list = (
+      childId: child?.id,
+      view: ref.watch(libraryViewProvider),
+      filters: ref.watch(libraryFiltersProvider),
+      // **The sort belongs in this record, not only in the query.** Changing
+      // it makes a different list, so it must start at the top: restoring a
+      // window of N entries under a new order would hand back the first N of
+      // a list the parent has never seen the start of.
+      sort: _sort(),
+    );
+    final same = _lastList == list;
+    _lastList = list;
+
+    final slice = await _fetch(
+      startIndex: 0,
+      want: same ? _loaded : LibraryRepository.pageSize,
+    );
+    _loaded = slice.entries.length;
     return LibraryFeed(
       entries: slice.entries,
       nextStartIndex: slice.nextStartIndex,
@@ -369,12 +559,52 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
     );
   }
 
-  Future<LibrarySlice> _fetch({required int startIndex}) =>
+  /// **Deliberately not `async`.** Marking it so would wrap the body in a
+  /// microtask even when nothing is awaited, delaying the grid's request by a
+  /// hop and reordering it against the other queries this screen issues.
+  /// Measured: it turns three `library_count_test` cases red. A search that
+  /// needs resolving takes the `.then` path and accepts the hop, because there
+  /// it is buying something.
+  Future<LibrarySlice> _fetch({
+    required int startIndex,
+    int want = LibraryRepository.pageSize,
+  }) {
+    final filters = ref.watch(libraryFiltersProvider);
+    if (!filters.needsResolve) return _fetchWith(filters, startIndex, want);
+    return ref
+        .watch(resolvedLibraryFiltersProvider(session).future)
+        .then((resolved) => _fetchWith(resolved, startIndex, want));
+  }
+
+  /// The order the grid is in, as the two strings the query sends.
+  ///
+  /// Read in one place so the record `build` compares and the query it issues
+  /// can never disagree about what is on screen.
+  (String, String) _sort() {
+    final settings = ref.watch(settingsProvider);
+    return (
+      librarySortBy(settings.librarySort),
+      librarySortOrder(descending: settings.librarySortDescending),
+    );
+  }
+
+  Future<LibrarySlice> _fetchWith(
+    LibraryFilters filters,
+    int startIndex,
+    int want,
+  ) =>
       ref.watch(libraryRepositoryProvider(session)).fetch(
+            sortBy: _sort().$1,
+            sortOrder: _sort().$2,
             startIndex: startIndex,
+            // Never below one page: `_loaded` is zero before anything has
+            // been fetched, and a restore of zero would ask for nothing at all.
+            want: want < LibraryRepository.pageSize
+                ? LibraryRepository.pageSize
+                : want,
             child: ref.watch(pickedChildProvider(session)),
-            hideShared: ref.watch(hideSharedProvider),
-            filters: ref.watch(libraryFiltersProvider),
+            view: ref.watch(libraryViewProvider),
+            filters: filters,
           );
 
   /// The next page, appended.
@@ -390,12 +620,17 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
     try {
       final slice = await _fetch(startIndex: feed.nextStartIndex);
       final current = state.asData?.value ?? feed;
+      final grown = _appendNew(current.entries, slice.entries);
+      // The window grew, so the amount a refresh has to restore grew with it.
+      // Recorded here as well as in `build`, because a refresh that followed a
+      // scroll would otherwise restore the window as it was before the scroll.
+      _loaded = grown.length;
       state = AsyncData(
         LibraryFeed(
           // Appended by id: a page fetched while an item was being written to
           // can overlap the previous one, and a duplicate key in a grid is a
           // crash rather than a cosmetic problem.
-          entries: _appendNew(current.entries, slice.entries),
+          entries: grown,
           nextStartIndex: slice.nextStartIndex,
           hasMore: slice.hasMore && slice.entries.isNotEmpty,
           totalRecordCount: current.totalRecordCount,

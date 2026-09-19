@@ -43,6 +43,20 @@ Future<bool?> askKeepSetTogether(
               l10n.assignSetTogetherBody(itemName, set.collection.name),
               style: theme.textTheme.bodyMedium,
             ),
+            const SizedBox(height: 8),
+            // Stated, never asked. Answering *just this one* also labels the
+            // collection itself: a set the child has no label for is invisible
+            // to them, so the film would arrive loose and the set they were
+            // given it from would not exist. Ground rule 6 is about the app not
+            // doing what its own prompt denies -- so the prompt says it, rather
+            // than growing a second permission question the parent did not ask
+            // for and whose only sensible answer is yes.
+            Text(
+              l10n.assignSetTogetherSetAppears(set.collection.name),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(height: 12),
             // Bounded: a set can hold dozens, and a dialog that runs off the
             // screen has no buttons on it.

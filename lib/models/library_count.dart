@@ -66,6 +66,25 @@ class LibraryCount {
 /// requests, so a library edited between them can answer with a larger tagged
 /// count than total. A "-3" on screen is a bug report from a parent; a 0 is a
 /// grid that has nothing left in it, which is also what it will look like.
+/// The grid's total, less the members a collection is standing in for (#144).
+///
+/// **Only when the subtraction is exact.** The index knows *membership*; it
+/// does not know which members match a genre, a decade, a year, a search or a
+/// child's cap. Under any of those, the number of members the server would
+/// have returned is unknown, and subtracting all of them would report a total
+/// lower than the grid — the same wrong-population subtraction this file warns
+/// about for `tagged`.
+///
+/// So the adjustment applies when the filters are empty and no child is
+/// picked; otherwise the server's own count stands, and it may read higher
+/// than the number of tiles. Ruled on #144: *"option 1, narrowed"*.
+int collapsedLibraryTotal({
+  required int total,
+  required int hiddenMembers,
+  required bool exact,
+}) =>
+    exact ? (total - hiddenMembers).clamp(0, total) : total;
+
 LibraryCount libraryCountFor({
   required int total,
   required int tagged,

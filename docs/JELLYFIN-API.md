@@ -226,6 +226,39 @@ permission set. Dropping `MaxParentalRating` on a round-trip does not corrupt me
 silently removes the rating cap, which is the one control that still holds when tagging is wrong.
 Read policy, write items. See ground rule 8.
 
+### There is no permission short of administrator that can do any of this
+
+**Measured 2026-08-06 on 10.11.11**, in a disposable container. A non-administrator was created
+with **every** `Enable*` flag in its policy turned on — every permission Jellyfin offers short of
+`IsAdministrator` — and then used:
+
+    GET  /Users/{child}                200   reads the child's whole policy
+    GET  /Users                        200   lists every user
+    POST /Users/{child}/Policy         403   cannot set the rating cap
+    POST /Items/{id}                   403   cannot write item metadata or tags
+    POST /Items/{id}   as ADMIN        400   control, the same nonexistent id
+
+**The control is what makes the two 403s mean anything.** An administrator hitting the *same
+nonexistent item id* gets 400, so authorisation is refused before the lookup happens — a permission
+failure, not a missing item. Without that line the 403s would be equally consistent with a bad id.
+
+The policy object carries 43 keys and none of them grants user management or metadata editing.
+There is no `EnableUserManagement`, no parental-controls permission, no "manage other accounts"
+tier. `IsAdministrator` is the only switch, and it grants everything else along with it.
+
+Two consequences, and the second is the one that shapes the product:
+
+- **The read path lies about the write path.** A non-administrator authenticates normally and
+  reads every account's policy with a 200. Nothing goes wrong until the first write, which is a
+  403 arriving at the moment a parent believed they were handing over a film. That is why the
+  administrator check happens at sign-in rather than being discovered later — ground rule 7.
+- **There is no partial-privilege version of this app to build.** The tag writes are admin-only,
+  and so is any policy write, so a reduced mode would be able to display things and change
+  nothing.
+
+Not measured: other server versions, or LDAP/SSO providers, which could in principle present a
+different permission model.
+
 ## Counting what a user can see
 
     GET /Items?userId={admin}&Recursive=true&Limit=0   -> TotalRecordCount
@@ -508,13 +541,93 @@ status is worse than none.
         &SortBy=SortName&SortOrder=Ascending
         &StartIndex=0&Limit=100
 
-Paginate. A family library is thousands of items; loading it in one call will stall the UI.
+Paginate the *first* load: a family library is thousands of items and a parent should not wait for
+all of them to see the first page.
 
     GET /Genres?userId={admin}
     GET /Years
     GET /Items/{id}/Images/Primary?maxWidth=300&tag={ImageTag}
 
 Cache images aggressively; include the tag in the cache key so a changed poster invalidates.
+
+**`/Genres` is an `ItemByName` route; whether `/Years` is one is not settled here.** 12.0's notes
+say `ItemByName` responses are restricted, and they name the family rather than the routes in it.
+Checked against 10.11.11's own `/api-docs/openapi.json`, which this file's preamble says to prefer
+over memory: both routes are tagged for themselves — `Genres` and `Years` — and return
+`BaseItemDtoQueryResult`, and the only two occurrences of the family name anywhere in that document
+are the server-configuration fields `EnableNormalizedItemByNameIds` and `ItemsByNamePath`. So the
+spec does not answer it, and this note over-warns deliberately: treat `/Years` as possibly affected
+until someone measures 12.0.
+
+Either way an empty answer here is indistinguishable from a library with no genres. What the filters
+are *offered* is the thing at risk; the filters themselves go out on `/Items` as `genres=` and
+`years=`, so no count depends on these.
+
+### Measured, 2026-09-08 on 10.11.11 — how large a `Limit` costs what
+
+A throwaway **10.11.11**, 1500 films from empty fixtures, no metadata fetchers, the grid's own
+query (`Fields=Tags,ChildCount,RecursiveItemCount`, `SortBy=SortName`). **Medians of seven calls
+after a discarded warm-up**, `/System/Info/Public` timed alongside at every size so none of the
+below is the harness or the machine. Everything in this section is from that one run.
+
+| `Limit` | returned | response | median | control |
+|---|---|---|---|---|
+| 24 | 24 | 11.9 KB | 26 ms | 1.7 ms |
+| 240 | 240 | 118.9 KB | 34 ms | 1.5 ms |
+| 1000 | 1000 | 495.1 KB | 62 ms | 1.5 ms |
+| 1500 | 1500 | 742.6 KB | 77 ms | 1.3 ms |
+| 5000 | **1500** | 742.6 KB | 78 ms | 1.2 ms |
+
+**Whole milliseconds, because that is the precision this has.** Four sweeps of this fixture were
+run while writing this section and the same cell moves by several ms between them — `Limit=1500`
+read 83, 75, 81 and 77 across them, and the seven samples behind a single median span 75 to 86. A
+tenth of a millisecond is not a measurement here, and quoting one invites a reader to compare
+digits that carry no information. What survives every run is the shape: roughly linear in response
+size, and a `Limit` far past the library's size costing no more than one at it.
+
+The control holds between 1.2 and 1.7 ms while the response grows sixtyfold, so the growth is the
+call rather than the bench.
+
+**There is no server-side cap.** `Limit=5000` against a 1500-item library returns all 1500 with a
+200 — it clamps to what exists rather than to a maximum, and does not error. A client cannot learn
+a ceiling by being refused one.
+
+**A deep offset costs a little more, and it is not nothing.** At `Limit=24`, `StartIndex` 0 / 480 /
+960 / 1440 measured 24, 26, 27 and 27 ms — a rise of about 3 ms across 1440 rows, monotonic rather
+than noisy, and **reproduced in two independent sweeps** rather than read off one. Worth stating
+plainly because an earlier sweep here called it flat and inside noise, and it is neither. It
+changes no decision on this page, and a library ten times deeper is not covered by it.
+
+#### One large request against many small ones, with the harness separated out
+
+Fetching the same 1440 rows, wall clock:
+
+| shape | median | what it is |
+|---|---|---|
+| one call, `Limit=1440` | **88 ms** | 85–103 across five runs |
+| 60 calls of 24, one process, connection reused | **1553 ms** | the fair comparison |
+| 60 calls of 24, sixty processes | 1961 ms | process start and a fresh connection each time |
+
+**About seventeen times, and the control says the difference is the server's.** Sixty trivial calls
+(`/System/Info/Public`) cost **23 ms** down one kept-alive connection — so the per-request constant
+inside that 1553 ms is 23 ms, 1.5%, and the rest is work. The kept-alive row divides to 26 ms a
+call, which is the table's own `Limit=24` median, so the two halves of this sweep agree.
+
+Treat the figure as an order of magnitude rather than a digit: across four sweeps it read fifteen,
+seventeen and eighteen. What is stable is that paging a window back in costs well over ten times
+what fetching it at once does, which is what makes restoring a scrolled window in a single request
+affordable.
+
+That first sweep also reported *twenty*, from summing sixty separate `curl` invocations that each
+paid process start and a fresh connection. Neither is a cost the app carries — `dio` keeps the
+connection open — so that number was the harness rather than the server, and is the reason this
+section shows all three shapes instead of the flattering one.
+
+**This is the server's half only.** These are HTTP timings; they say nothing about what parsing
+743 KB of JSON and classifying 1500 entries costs on a phone. The old note here asserted that one
+call "will stall the UI" — untrue of the server at this size, unmeasured on the client, and a claim
+about the wrong half. Paging the initial load is still right, because a parent should not wait for
+the whole library to fill one page.
 
 ## Collections
 
@@ -534,6 +647,29 @@ which reads as "no member is labelled". Member rows carry `Name`, `ProductionYea
 **`ChildCount` is absent unless asked for.** `Fields=Tags` alone returns no `ChildCount` at all;
 `Fields=Tags,ChildCount` returns it. The grid's count badge is guarded on that field being
 non-null, so it never rendered until this was fixed.
+
+**`ChildCount` counts one level down, and that is not what a badge wants for a series.** Measured
+on 10.11.11 against a fixture built so that no two readings share a number — one series, two
+seasons, five episodes (3 + 2), metadata fetchers off:
+
+| item | `ChildCount` | `RecursiveItemCount` |
+|---|---|---|
+| Series | **2** — the seasons | **5** — the episodes |
+| Season 1 / Season 2 | 3 / 2 | 3 / 2 |
+| Movie | **absent** | **absent** |
+
+So a series badged from `ChildCount` reads "2 titles" for a five-episode show — wrong under every
+reading, since two seasons are neither two titles nor two episodes. `RecursiveItemCount` is the
+episodes and is **absent unless named in `Fields`**, on the same terms as `ChildCount`.
+
+A **`Movie` reports neither field even when both are requested.** That is what makes a badge
+guarded on the recursive count safe on a film without a type check — the server's own shape, not
+an app-side rule. It is also the positive control for that negative: the fields were asked for and
+came back absent, rather than never being asked.
+
+Adding the field costs nothing measurable: mean of five runs on the same query, **21.6 ms** with
+`Fields=Tags,ChildCount` and **18.9 ms** with `Fields=Tags,ChildCount,RecursiveItemCount` — a
+difference that is noise, and the wrong sign to be a cost.
 
 ### There is no way to ask which collections contain a film
 
@@ -665,6 +801,346 @@ uses commas correctly, so the conventions really are per parameter.
 It matters because a child may hold **several** shortlist tags and the server matches any of them:
 a member-counting query built with a comma returns 0, and a fully-shared set reads as untouched.
 
+**On 12.0 the mechanism is unchanged and the matching set is wider — measured 2026-08-24 on
+12.0.0.** The comma is still not a separator, but the one tag it forms is now *normalised* before
+matching, so it no longer has to be carried literally. Against a film tagged
+`kids emma family films`:
+
+    tags=kids-emma,family-films   -> 1
+    tags=kids emma family films   -> 1
+    tags=kids-emma family-films   -> 1
+
+So the `-> 0` above is a property of that fixture rather than of commas. Read it as *"the whole
+string is one tag, and on 12.0 that tag folds"* — a comma-joined query matches anything whose tag
+folds to the same string. Garfin joins with `|` and is unaffected either way.
+
+### On 12.0 the count path and the visibility check agree — measured
+
+Everything above reconciles two matching rules that used to differ: the `tags=` query normalised
+(case and diacritics) while the visibility check compared case-insensitively and exactly. 12.0
+rewrites the visibility check to use the query's normaliser, and extends that normaliser to
+collapse punctuation.
+
+**Measured 2026-08-24 on 12.0.0.** Fixture: one film per tag — `kids-emma`, `kids_emma`,
+`Kids Emma`, `kids-chloé`, `family-films`, and untagged controls.
+
+    tags=kids-emma / kids_emma / Kids Emma   -> 3, the same three films, all three queries
+    tags=kids-chloe  (query has no accent)   -> 1, the film tagged kids-chloé
+
+    a child with AllowedTags=[kids-emma],  list filter    -> the same 3
+    a child with AllowedTags=[kids-emma],  item-by-item   -> the same 3, as their own token
+    a child with AllowedTags=[kids-chloe]                 -> the film tagged kids-chloé
+
+    control: a child whose tag matches nothing            -> 0
+    control: the administrator                            -> all 10
+
+So the three paths give one answer, and an accent alone is now enough for two children to share a
+list *in visibility* and not merely in a count.
+
+**One instance, one release candidate.** The behaviour is worth re-confirming at GA before anything
+safety-relevant is built on it.
+
+### Which characters the 12.0 normaliser actually folds — measured, and it is not all of them
+
+Garfin's own folding has to agree with the server's or it reports collisions the server does not
+make. **Measured 2026-08-24 on 12.0.0**, one film per tag:
+
+    a film tagged  kids-sœur     matched by  tags=kids-soeur    -> 1    the ligature folds
+    a film tagged  kids-straße   matched by  tags=kids-strasse  -> 0    sharp s does NOT fold
+                                             tags=kids-strase   -> 0    nor to a single s
+
+So the normaliser folds the `œ` ligature and leaves `ß` alone. That matters because the two are
+often assumed to behave alike: both are letters whose form is not a combining mark, and a
+general-purpose accent-stripper tends to fold both.
+
+**Only `œ` and `ß` were measured.** `æ`, `ø`, `þ`, `ł`, `đ` and the rest of that family are
+untested here and should not be inferred from these two — `œ` folding does not predict that `ø`
+does.
+
+The consequence for anything comparing labels locally: folding *more* than the server produces a
+false collision, folding *less* misses a real one. Between the two, over-folding is the safer
+error, and it is the one to prefer while any character remains unmeasured.
+
+### The cap is two numbers, and the second one is enforced — measured
+
+**Measured 2026-08-26 on 10.11.11.** `UserPolicy` carries `MaxParentalRating`
+**and** `MaxParentalSubRating`, and the ladder's rungs carry
+`RatingScore: {score, subScore}` beside the deprecated top-level `Value`. The
+second number is not decoration. Sweeping a child's policy against fixtures at
+the same score and different sub-scores:
+
+    cap  sub    TV-PG (10/0)   TV-PG-D (10/1)   TV-Y7 (7/0)   TV-Y7-FV (7/1)
+    ------------------------------------------------------------------------
+    none none   visible        visible          visible       visible
+    10   0      visible        HIDDEN           visible       visible
+    10   1      visible        visible          visible       visible
+    10   null   visible        HIDDEN           visible       visible
+    7    0      HIDDEN         HIDDEN           visible       HIDDEN
+    7    1      HIDDEN         HIDDEN           visible       visible
+
+Controls in the same sweep: `G` survived every cap including 0, and `R` was
+hidden at every cap below 17 and visible at 17 — so the instrument both blocks
+and releases.
+
+**An absent `MaxParentalSubRating` behaves as 0**, the strictest sub-level —
+row `10/null` is identical to row `10/0`. That is the **opposite** of its
+neighbour: an absent `MaxParentalRating` means *no cap at all*. Two adjacent
+fields, opposite null semantics, and a parser that treats them alike is wrong
+whichever way it picks.
+
+**So a score alone is not a cap.** On the default US ladder six scores carry
+more than one name, and **four of those six mix sub-levels** — 41 of the 55
+scored rungs can be mislabelled by a score-only lookup. Reporting `R` for a
+child capped at `TV-MA` is the case with teeth, both sitting at 17 and `R`
+being the more permissive-looking of the two.
+
+Names sharing one *pair* really are the same cap and remain interchangeable:
+`PG` and `TV-PG` are both 10/0 and admit the same items.
+
+**The ladder does not differ by version.** 40 rungs carry a non-zero `subScore`
+out of 56 entries on 10.11.11, on `12.0-rc5` and on 12.0.0 GA alike, with equal
+name sets — measured on all three, 2026-09-08. An earlier note here reported 41
+on 12.0.0 and said which rung changed "has not been chased"; nothing changed,
+and the number was wrong.
+
+### What the ladder endpoint does not tell you — measured
+
+`GET /Localization/ParentalRatings` returns one server-wide list and takes no country parameter.
+**It is not the whole of what the server can score.** Measured 2026-08-24 on 12.0.0, by walking a
+child's `MaxParentalRating` and watching where each item flipped:
+
+| `OfficialRating` | on the ladder? | the server's effective score |
+|---|---|---|
+| `12`, `16`, `18`, `6`, `0` | **no** | 12, 16, 18, 6, 0 |
+| `FSK 12` | **no** | 12 |
+| `PG-13` | yes | 13 |
+| `R` | yes | 17 |
+| an unrecognisable string | **no** | **0** |
+
+Two things follow:
+
+- **A rating absent from the ladder can still be enforced.** Resolving a name against the fetched
+  ladder answers *don't know* for every "no" row while the server is applying a real cap. That is
+  the honest answer and the safe direction. How far that path reaches is narrower than this table
+  alone suggests: the rows measured here were read with the server left at `US`, and those bare
+  numerics are themselves rungs on the non-US ladders — see § *The ladder really is per-country*.
+  The *don't know* answers a mismatch between the certificate and the ladder the server is
+  configured for, rather than every non-US certificate.
+- **A string the server cannot score is treated as 0**, the most permissive end, rather than as
+  unrated.
+
+**Also measured, and a null result: the per-library metadata country code did not change a score.**
+The same `OfficialRating` in a library set to `US` and one set to `DE` flipped at the same cap, with
+a control that flipped where the ladder said it should. One pair of libraries, one string — absence
+of evidence, recorded as such.
+
+**Not settled: whether the stored inherited rating and the runtime one can disagree.**
+`InheritedParentalRatingValue` and `InheritedParentalRatingSubValue` are not present in the item
+DTO on this build — absent as keys, not null — so the question needs those fields exposed or direct
+database access. Unexamined rather than answered.
+
+### The ladder really is per-country — measured
+
+`GET /Localization/ParentalRatings` takes no country parameter, and it is still not one fixed
+list: it answers from the server's own `MetadataCountryCode`. **Measured 2026-09-02 on 10.11.11**
+in a disposable container, by setting that code through `POST /System/Configuration` and
+re-reading the ladder. No restart was needed.
+
+| `MetadataCountryCode` | rungs | a rung named `12`? | the first rungs after `Unrated` |
+|---|---|---|---|
+| `US` | 56 | no  | `Approved`, `G`, `TV-G`, `TV-Y`, `TV-Y7` |
+| `GB` | 26 | yes | `0+`, `All`, `E`, `G`, `U` |
+| `DE` | 24 | yes | `0`, `FSK 0`, `FSK-0`, `Educational`, `Infoprogramm` |
+| `FR` | 16 | yes | `0+`, `Public Averti`, `Tous Publics`, `TP`, `U` |
+
+**Control:** the four are distinct from one another, and setting the code back to `US` returns the
+original 56. A ladder that never changed and one that changed once and stuck would otherwise
+look identical from here.
+
+That last column is the first five rungs, not the full set at any score — see below for the counts
+that matter.
+
+### Naming a cap is lossiest on the US ladder, not the others — counted
+
+Same instances, 2026-09-02, counting distinct `(score, subScore)` pairs and how many names share
+one. This is what decides whether `nameFor` can answer exactly or only first-match.
+
+| ladder | distinct pairs | pairs carrying >1 name | worst collapse |
+|---|---|---|---|
+| `US` | 14 | 6 | **15** |
+| `GB` | 15 | 6 | 5 |
+| `DE` | 11 | 5 | 5 |
+| `FR` | 11 | **1** | 5 |
+
+**The sub-score narrows collisions; it does not end them.** On `US`, 15 names share the single
+pair 10/1 (`TV-PG-D` through `TV-PG-DLSV`), 15 more share 14/1, and 9 share 17/1 — so a lookup at
+10/1 is a first match out of fifteen. `PG` and `TV-PG` naming cleanly at 10/0 is the *best* case on
+that ladder rather than a representative one.
+
+The ladders without sub-scores resolve only by first match, which sounds worse and counts better:
+`FR` has **one** colliding pair out of eleven, against six on `US`. So "no sub-scores" and "more
+ambiguous naming" are not the same property, and the second does not follow from the first.
+
+Two things follow for the rest of this section:
+
+- **The bare numeric certificates are rungs on the non-US ladders.** `12` is one on `DE`, `FR` and
+  `GB`. So resolving a name against the fetched ladder answers *don't know* when an item's
+  certificate is foreign to **the ladder the server is configured for** — not whenever the
+  certificate is simply non-US.
+- **`subScore` is null on every rung of `DE` and `FR`, and `GB` is the exception.** Re-measured
+  2026-09-08 on both 10.11.11 and 12.0.0: `GB` carries a non-zero sub-score on **five** rungs —
+  `12`, `12+`, `15`, `18` and `Caution` — while `DE` (23 of 24) and `FR` (15 of 16) are null on
+  every scored rung. An earlier note here said all three were null throughout; that was wrong on
+  the version it was measured on, not a version difference. Matching on the pair still holds either
+  way, since a null sub-score is read as 0 on both sides.
+
+### Re-measured on 12.0.0, 2026-09-08 — the ladder did not move
+
+**12.0 can be bootstrapped over the API, and so can `12.0-rc5`.** An earlier note here said the rc
+could not be: *"`POST /Startup/User` answers 404 on `12.0-rc5` while appearing in that same build's
+`/api-docs/openapi.json`"*. That 404 was a **readiness race**, not a removed route. Polling
+`GET /Startup/User` until it answers 200 — rather than polling `/Startup/Configuration`, which
+answers 200 while the user route is still 404 — makes the whole sequence work on `12.0-rc5` and on
+12.0.0 GA, in the same order 10.11.11 takes: Configuration, User, RemoteAccess, Complete. The same
+race bites 10.11.11 and cost two containers here before it was named.
+
+12.0's release notes list "Startup routes (use configuration endpoints)" among the obsolete, and
+GA's own OpenAPI marks `GET /Startup/User`, `GET /Startup/FirstUser`, `GET`/`POST
+/Startup/Configuration` and `POST /Startup/RemoteAccess` deprecated — but **`POST /Startup/User`
+and `POST /Startup/Complete` are not deprecated**, and every one of the five answers today.
+
+With a token on each, the ladder is **identical across all three builds**:
+
+| build | rungs | non-zero `subScore` | no `RatingScore` |
+|---|---|---|---|
+| 10.11.11 | 56 | 40 | 1 (`Unrated`) |
+| 12.0-rc5 | 56 | 40 | 1 |
+| 12.0.0 GA | 56 | 40 | 1 |
+
+The name sets are equal — no rung is in one and not another. **So the earlier claim that 40 rungs
+carry a non-zero sub-score on 10.11.11 and 41 on 12.0.0 is withdrawn: there is no difference, and
+the note that "which rung changed has not been chased" was recording a difference that was never
+there.** The collisions reproduce too: 15 names at 10/1, 15 at 14/1, 9 at 17/1, 4 at 0/0.
+
+The country table above also reproduces on 12.0.0 — `US` 56, `GB` 26, `DE` 24, `FR` 16, with a rung
+named `12` on every ladder but `US`, and the same first rungs.
+
+**The ladder needs a token**: `/Localization/ParentalRatings` answers 401 unauthenticated on 12.0,
+which is why bootstrapping had to be solved before any of this could be read.
+
+### Re-measured on 12.1.0, 2026-09-15 — scores moved, in both directions
+
+According to 12.1's release notes and the code of the two changes, not measured here: it is a
+bugfix release with no API removals, and two of its fixes change how the server scores an
+`OfficialRating` string. Ratings match their rung case-insensitively, and a rating that itself
+contains a slash (upstream's example is `M/12` on the Portuguese ladder) is matched whole before
+being split. What *was* measured is below: **stored scores are recalculated on upgrade**, so a
+child's library can change with no change to Garfin or to the child's policy.
+
+Measured in three disposable containers built by one script from the same eight fixtures:
+`jellyfin/jellyfin:12.0` (`baba63041991`) upgraded in place to `12.1` (`78d3ea1207d1`), a fresh 12.0
+and a fresh 12.1. Server left at `US`, fetchers off, `OfficialRating` written through
+`POST /Items/{id}`. The score column is the lowest ladder value at which `maxOfficialRating` lets the
+item through, so it has the ladder's granularity rather than the stored integer.
+
+| `OfficialRating` | fresh 12.0 | 12.0 upgraded to 12.1 | fresh 12.1 |
+|---|---|---|---|
+| `r` | **0** | **17** | **17** |
+| `M/12` | **18** | **13** | **13** |
+| `pg-13` | 13 | 13 | 13 |
+| `NR / R` | 17 | 17 | 17 |
+| `PT-M/12` | 13 | 13 | 13 |
+| `G`, none, `R` (controls) | 0, 0, 17 | 0, 0, 17 | 0, 0, 17 |
+
+A child capped at `PG` (10) saw the `r` item on 12.0, still saw it after restarting 12.0, and did
+**not** see it on 12.1; the `maxOfficialRating` filter agreed in every cell. The restart is the
+control: nothing moved without the version change. The upgrade log names the step —
+`MigrateRatingLevels: Recalculating parental rating levels based on rating string` — and the
+upgraded server matched the fresh 12.1 on every item.
+
+What follows:
+
+- **An item can disappear from a capped child's library.** `r` is the § *What the ladder endpoint
+  does not tell you* case: on 12.0 an unrecognised string scores 0, the most permissive end, and a
+  case variant was unrecognised. On 12.1 it scores as the rung it names.
+- **An item can appear.** `M/12` fell from 18 to 13, so a child capped from 13 up to but not
+  including 18 gains it on upgrade.
+- **Not every string the fixes touch moved.** `pg-13` already scored 13 on 12.0, and `NR / R` and
+  `PT-M/12` did not change. Why `pg-13` matched on 12.0 when `r` did not has not been chased.
+- **Resolving a name against the fetched ladder is unchanged.** The ladder fetched here is the
+  `US` one, and on neither version does it have a rung containing `/`, so `M/12`, `NR / R` and `PT-M/12` still resolve to *don't know* while the server
+  enforces 13 or 17, and a case-insensitive name match gives `r` 17 on both. 12.1 now agrees with it
+  on `r`; 12.0 did not.
+- **An unrated item still passes every cap** on 12.1: the control with no `OfficialRating` scored 0.
+
+`/UserViews` on the same instances, one library, administrator against child: the same name and
+id on both builds. `ChildCount` differs: 12.0 answered 9 and 8 for a library of eight items a child
+could see two of, and 12.1 answered 8 and 2. Garfin counts through `parentId` and does not read that
+field. Not tested: several libraries, or a child restricted to some of them.
+
+**For a disposable 12.1 server:** `POST /Library/VirtualFolders?…&refreshLibrary=true` indexed
+nothing on two fresh 12.1 containers — zero of eight items after 300 s on one, after 60 s on the
+other — and an explicit `POST /Library/Refresh` then indexed all eight. The same call indexed
+everything by itself on both 12.0 containers. Wait on the item count, not on the call returning.
+
+Not covered: a server set to a country other than `US`, ratings that arrive by scan rather than by
+API write, children set to block unrated items, and series inheritance.
+
+### Duration and country of origin — measured 2026-09-17 on 12.1.0
+
+Asked for the item detail view. Both are per-item facts the app did not read; they behave differently.
+
+| field | in a list row without `Fields=`? | value |
+|---|---|---|
+| `RunTimeTicks` | **yes, unasked** — when the item has media | 100-nanosecond units; a generated 7 s file answered `70030000` |
+| `ProductionLocations` | **no** — absent until `Fields=ProductionLocations` | a **list** of English country *names*: `["United States"]`, `["Germany", "France"]`, `[]` |
+
+**`RunTimeTicks` absent means "no duration known", not "not supported".** Measured with a control:
+the same query returned it for a file with media streams and omitted the key entirely for an
+empty-file fixture beside it. Writing a value through `POST /Items/{id}` did not stick — the server
+derives it from the media — so an item with no streams has no duration to show at any cost.
+
+**A BoxSet has neither.** `RunTimeTicks` and `ProductionLocations` are both absent on the collection,
+asked for or not. There is nothing to display for a set.
+
+**`ProductionLocations` is free text and plural.** Names, not codes, and in the metadata provider's
+language. Asking for it costs one more name in `Fields=`; the precedent for that cost is
+§ *Measured, 2026-08-06* — adding a field was 21.6 ms against 18.9 ms, which is noise.
+
+### Which certification system a rating names — and the two traps in guessing
+
+An item's `OfficialRating` is a bare string. Nothing on the item says which country's system it
+belongs to, and the ladder is the server's own (§ *The ladder really is per-country*). Some strings
+carry a prefix — `FR-12`, `SE-BTL` — and a rule that reads `XX-` as a country is wrong twice over:
+
+- **48 of the US ladder's 56 rungs are hyphenated**: `TV-G`, `TV-Y7-FV`, `TV-PG-D`, and `PG-13`
+  itself. A prefix rule calls those Tuvalu and Papua New Guinea.
+- **`NR-17` is not a rung either**, and `NR` is Nauru.
+
+What distinguishes them is available from the server, without guessing:
+
+```
+GET /Localization/Countries   140 entries, TwoLetterISORegionName
+  contains FR, SE, PT, US, DE      -> real codes
+  does NOT contain TV, PG, NR      -> the false positives, all three
+```
+
+So: **a rating names a country only when the whole string is not a rung on the server's ladder *and*
+its two-letter prefix is in the server's own country list.** Measured against both:
+
+| `OfficialRating` | a rung on the US ladder? | prefix in `/Localization/Countries`? | country shown |
+|---|---|---|---|
+| `PG-13` | yes | — | none |
+| `TV-PG` | yes | — | none |
+| `R` | yes | — | none |
+| `FR-12` | no | `FR` yes | France |
+| `SE-BTL` | no | `SE` yes | Sweden |
+| `NR-17` | no | `NR` **no** | none |
+| `12` | no | no prefix | none |
+
+The honest default is *nothing*: the server's configured country is a property of the server, not of
+the film, and showing it beside a rating would assert something the data does not say.
+
 ### `tags=` ANDs with every other filter — measured, because it subtracts across them
 
 The Library's result line is `total − tagged` (§ *The result line is a subtraction*, `DECISIONS.md`),
@@ -775,6 +1251,122 @@ explicit write.
 > draft of this section read that harness state as "the tag does not propagate", which was the
 > harness observing a condition it had itself created. Review caught it.
 
+### A user's avatar comes at whatever size it was uploaded — measured
+
+`/Users/{id}/Images/Primary` **accepts the sizing parameters and ignores them.** Measured
+2026-09-05 on 10.11.11, uploading a known source and asking for it at other sizes:
+
+```
+source 64x64    no params                    PNG  64x64    552 bytes
+                maxWidth=32                  PNG  64x64    552 bytes   <- would have to shrink
+                maxWidth=256                 PNG  64x64    552 bytes
+                fillWidth/fillHeight=256     PNG  64x64    552 bytes
+
+source 512x512  no params                    PNG  512x512  14189 bytes
+                maxWidth=64                  PNG  512x512  14189 bytes <- would have to shrink
+                maxWidth=64 & quality=90     PNG  512x512  14189 bytes
+```
+
+**The control is `format`, and it is what makes this a finding rather than a guess.** The same
+endpoint *does* process the request — `format=jpg&maxWidth=64` returned a **JPEG** at
+512x512 and a different byte count, so the pipeline re-encoded the image and simply did not
+resize it. Without that line the result would be equally consistent with "the parameters were
+never read", and this is the API in which `/Sessions` takes `userId` and ignores it, so
+"the parameter was applied" is not an assumption to make for free.
+
+**What follows for Garfin.** There is no way to ask for an avatar at a chosen size, and nothing
+in the user DTO reports the source dimensions — only `PrimaryImageTag`. So whatever a parent
+uploaded is what arrives, and any rendered size above it is upscaling that the app cannot
+detect or negotiate. That is the reason the avatar's ceiling is set conservatively rather than
+sized to fill the space available: a picture that goes soft is the app's fault, and it has no
+way to know in advance that it will.
+
+### Counting per library: `/UserViews` then `parentId` — measured
+
+The welcome screen wants "what can this child see, *in each library*", and nothing in the app
+modelled a library before. Two calls do it.
+
+**`GET /UserViews?userId={id}`** lists the libraries, and answers the same names and **same ids**
+for an administrator and for a child — *for a library both can open*. Measured 2026-09-05 on
+10.11.11, two movie libraries:
+
+    /UserViews?userId=<admin>   Films db4c1708…  Shows a656b907…
+    /UserViews?userId=<child>   Films db4c1708…  Shows a656b907…
+
+> **This paragraph used to end "so the ids can be read once as the administrator and reused for
+> every child", and that conclusion did not follow.** Re-measured the same day with five libraries
+> and a child enabled on one of them:
+>
+>     /UserViews?userId=<admin>   5   Books, Films, Home, Music, Shows
+>     /UserViews?userId=<child>   1   Films
+>
+> The **set** differs. What was measured was that a shared library has the same identity for both,
+> and that still holds exactly; what was written was that the list is interchangeable, which was
+> never tested — the original probe had one library that every user could open, so the two
+> questions had the same answer and only one of them was being asked.
+>
+> Ask as the child. The cost of the extra call is one request per child, and the alternative shows
+> a parent libraries that are not their child's.
+
+**A `parentId` the child cannot open answers 401, not zero.** Measured, with the administrator's
+token and `userId=<child>`, which is how the app asks:
+
+    parentId=<Films>   (child enabled)    200 → 5
+    parentId=<Books>   (child not)        401
+    parentId=<Music>   (child not)        401
+
+Films answering 200 is the control: the 401s are about that child's access to that library rather
+than the token or the shape of the request. A batch that does not catch turns one of these into no
+counts at all.
+
+**`IncludeItemTypes` must be the library's own.** Measured 2026-09-05 on 10.11.11, one library of
+each collection type, against the single `Movie,Series` the app used to send everywhere:
+
+    library  CollectionType   Movie,Series   what is actually in there
+    Films    movies                5         Movie 5
+    Shows    tvshows               1         Series 1, Season 1, Episode 3
+    Music    music                 0         Audio 2, MusicAlbum 1
+    Home     homevideos            0         Video 1
+    Books    books                 0         Book 1
+
+Three of the five answer **0** while holding something, because they were asked for a type they
+cannot contain — and "0 given" is indistinguishable from "nothing here to give". A tvshows library
+counted in `Series` reports shows rather than episodes, which is the number Garfin can act on: a
+tag is written to the series.
+
+**`GET /Items?userId={child}&parentId={library}&recursive=true&limit=0`** then gives
+`TotalRecordCount` for that child in that library, with their policy applied:
+
+    library   admin   child        (child on an allow-list holding one tag,
+    Films         3       1         one tagged title in each library)
+    Shows         2       1
+    ----------------------
+    no parentId   5       2
+
+**The partition is complete**, which is the check worth having: the per-library counts sum to
+the unfiltered total on both rows, so nothing sits outside a library view and a screen adding
+them up will not quietly lose items.
+
+**`parentId` is honoured, not merely accepted.** This is the control, and it is not a
+formality here — `/Sessions` in this same API takes `userId` and *ignores* it, so "the filter
+was applied" is exactly the assumption this file exists to stop anyone making:
+
+    parentId=<a real library>      200, scoped as above
+    parentId=00000000…            **400**
+    parentId=ffffffff… (valid-looking, absent)  **400**
+
+A wrong id fails loudly rather than answering with the whole library, so a bug in how the id is
+chosen cannot present as a plausible number.
+
+**On cost, and what these timings are not.** Five runs after a warm-up, on the probe library:
+10–16 ms each. That library has five items, so the figure says nothing about a real one — the
+count is the same query shape as § *What this costs*, which scales worse than linearly with
+what the child can already see (19 ms at one title, 8.7 s at six thousand). What can be said
+from the shape rather than the stopwatch: each per-library count covers a **subset** of what
+the whole-library count covers, so every individual call is cheaper than the single total,
+and the cost is one call per library rather than one per child. Neither has been measured on a
+library of any size, and it should be before anything fetches these without being asked to.
+
 ### What this costs, and where it would bite: `taggedItemCount`
 
 One write to one series, then `tags=kids-emma`:
@@ -871,6 +1463,50 @@ count, and nothing a parent searched for.
 `searchTerm=%20` both return the whole library, so Garfin omits the parameter
 rather than sending it blank.
 
+### `SortBy` does nothing while `searchTerm` is present — measured
+
+Re-measured 2026-09-19 on stock 10.11.11 and 12.1.0, with the phrase matches
+and single-word decoys still present. The same `searchTerm` gave the same order
+with `SortBy=SortName` ascending, with `SortBy=DateCreated` descending and with
+no `SortBy` at all. The server orders a search by its own relevance: on 12.1.0,
+`searchTerm=future` came back in an order that is not alphabetical. So a sort
+control shown during a search changes nothing, on any server.
+
+### A search plugin replaces all of this
+
+Everything above describes Jellyfin's built-in search. A server-side search
+plugin registers as a search provider and takes over `/Items?searchTerm=` for
+every client. Garfin sends the same query and gets a different contract back.
+
+Measured on a 12.0.0 server running the Meilisearch plugin 1.12.1.4 with the
+app's exact query (`Recursive=true`, `IncludeItemTypes=Movie,Series,BoxSet`),
+with two plugin settings as they were before being corrected:
+
+| | |
+|---|---|
+| `searchTerm=back to the future` | 178 results: the 4 real ones, then films that match on a single word or on their plot summary |
+| the same words shuffled | the same set, so it matches words, not a phrase |
+| `Limit=1 / 20 / 60 / 100` | total **3 / 60 / 178 / 282** |
+
+**The last row is how to recognise a plugin from outside.** The result count
+grows with the page size, which no substring match can do. The plugin's
+`last` matching strategy drops trailing words until the requested page is
+full. Its index also searched overviews, taglines, paths, tags, studios and
+genres.
+
+Setting the matching strategy to `all` and narrowing the searched attributes to
+titles brought `back to the future` down to 4 results. Garfin can see and
+change neither. The matching strategy is in the plugin's own configuration and
+persists. The searched attributes are set on the search index, and the plugin
+version measured here re-pushes its own hard-coded list on every connect: at
+server start, on any plugin configuration save, and on reconnect. So that half
+of the fix reverts, and it is the first thing to check if search goes wrong
+again after a restart.
+
+This matters more in Garfin than in a plain client: a search adds every
+collection holding a film the server returned, ahead of the results. So each loose match brings its whole collection to the top, marked
+*Contains a match*.
+
 ### A caution about `maxOfficialRating` that this exercise nearly got wrong
 
 While checking composition, `searchTerm=bear&maxOfficialRating=0` returned
@@ -907,7 +1543,7 @@ nothing. Each is pinned by a test rather than remembered.
 
 **`/Genres` is an index, not a scan.** After writing genres directly onto items it answered empty;
 `POST /Library/Refresh` populated it within five seconds. An empty answer therefore means "nothing
-indexed", which is not "no genres" — the filter chip hides rather than claiming either.
+indexed", which is not "no genres" — the filter hides rather than claiming either.
 `/Years` needs no such coaxing and lists the distinct production years.
 
 ### `maxOfficialRating` filters the admin's view. It does not predict the child's
@@ -931,7 +1567,7 @@ child whose policy sets `BlockUnratedItems: ['Movie']` — measured both ways on
 
 `MaxParentalRating` and `BlockUnratedItems` are **two independent mechanisms**, and only the server
 knows the second. This is exactly ground rule 4's line: filtering the administrator's view is a
-library query, predicting what a child sees is not. The chip says "within Emma's limit" and never
+library query, predicting what a child sees is not. The control says "within Emma's limit" and never
 "what Emma can see".
 
 ## Writing tags — the dangerous part
@@ -1086,6 +1722,49 @@ Garfin's labels live in the same array. Consequences:
 - **Never set `Tags` wholesale.** Read, add or remove the one label, write the whole array back.
 - The tag diff shown to the user must not present provider keywords as things they chose.
 - "Remove the child's label" is a surgical removal from a shared list, not a clear.
+
+### A tag write reaches the library filesystem when the library saves metadata locally — measured
+
+`POST /Items/{id}` looks like a database write. It is not only that. If the library the item
+belongs to has **`SaveLocalMetadata`** on — *Save artwork and metadata into media folders* in the
+dashboard — the same write also writes an **`.nfo` beside the media file**.
+
+**Measured 2026-09-04 on 10.11.11**, in a disposable container with the media directory
+bind-mounted so the filesystem could be watched from outside. Two libraries, differing in that one
+option and nothing else, one fixture each, internet providers off and metadata fetchers empty so
+nothing renamed a fixture out from under the test:
+
+```
+library   SaveLocalMetadata   after POST /Items/{id} adding a tag
+nonfo     false               Bravo.mkv only — directory unchanged
+savenfo   true                Charlie.mkv unchanged, plus a NEW Charlie.nfo (773 bytes)
+```
+
+The `.nfo` carries the tag the write added:
+
+```xml
+<title>Charlie</title>
+<tag>kids-emma</tag>
+```
+
+**Every write, not just the first.** A second write adding `kids-liam` rewrote the file — mtime
+moved and both tags were in it afterwards. So the filesystem cost is per write, and a cascade
+across a set pays it once per member.
+
+**The media file itself is never touched.** Its mtime did not move in either library, on either
+write. Only a sidecar is created.
+
+**Controls, because a negative here is the whole point:** the two libraries ran in the same
+instance against the same call, so *no `.nfo`* in one is paired with *an `.nfo`* in the other
+rather than standing alone; and both writes were confirmed to have landed by reading the tags back
+through `/Items`, not through the `GET` the write itself had used. A directory that stayed clean
+because the write failed would have been indistinguishable otherwise.
+
+**What follows for Garfin.** Nothing to fix here and nothing Garfin can control: `SaveLocalMetadata`
+is a per-library server setting the app cannot see. But it means the cost of a tag write is not
+uniform across servers — on a library with local metadata saving on, giving a fifty-film collection
+to a child is fifty sidecar writes into the media directories. Worth knowing before treating the
+write as cheap, and worth asking about when someone reports that writes are slow.
 
 ### Refresh after write: safe only without `replaceAllMetadata`
 
@@ -1276,6 +1955,46 @@ The rule. See `docs/DECISIONS.md` § Tagging model for why the ban is kept as a 
 `NowPlayingItem` with its `RunTimeTicks`. Not playing is the ordinary case and the key is simply
 absent rather than null.
 
+### What `NowPlayingItem` carries for an episode and for a film
+
+**Measured 2026-08-24**, one episode and one film played while reading `/Sessions`. This section
+previously recorded the *absence* of the measurement, because the display was built on field names
+inferred from `BaseItemDto` and nobody had read them off a live response. They have now been read,
+and the inference held exactly.
+
+**Episode** — `NowPlayingItem.Type == "Episode"`:
+
+| field | what it carries |
+|---|---|
+| `SeriesName` | the show's display name |
+| `SeriesId` + `SeriesPrimaryImageTag` | the show's poster, at `/Items/{SeriesId}/Images/Primary?tag={SeriesPrimaryImageTag}` |
+| `ParentBackdropItemId` / `ParentBackdropImageTags` | populated |
+| `ParentLogoItemId` / `ParentLogoImageTag` | populated |
+| `ParentThumbItemId` / `ParentThumbImageTag` | populated |
+| `ImageTags.Primary` | present, and is the **episode still**, not a poster |
+
+**Film** — `Type == "Movie"`:
+
+| field | what it carries |
+|---|---|
+| `ImageTags.Primary` | the poster, at `/Items/{Id}/Images/Primary?tag={ImageTags.Primary}` |
+| `Thumb`, `Logo`, `BackdropImageTags` | present |
+| the `Series*` fields | **absent** |
+
+Two things this settles, both of which the display had already assumed and can now stop assuming:
+
+- **An episode's own primary image is the wrong picture for a poster box.** Measured
+  `PrimaryImageAspectRatio` ≈ **1.78** on the episode against ≈ **0.67** on the film — 16:9 against
+  2:3. Cropping the first into a poster frame was rejected on reasoning; it is now rejected on a
+  number.
+- **Branch on `Type`, do not probe for fields.** The series fields are absent on a film rather than
+  empty, so code that asks "is there a `SeriesId`?" happens to work for the two kinds measured here
+  and is not what was measured. `Type` is the field the server uses to say what the item is.
+
+**One server, one version, one library.** The fields matched the inference exactly, so nothing here
+is a correction — but this is not a survey. Anything that comes to depend on a field this section
+does not list wants measuring again rather than inferring from the ones that are here.
+
 ### `userId` is accepted and ignored
 
     /Sessions                                    -> ['emma', 'admin']
@@ -1339,7 +2058,94 @@ and — per check 3 above — a sibling's session cannot be sitting on that devi
 the child's, because the row is taken over rather than duplicated. Raised in review as an
 unstated assumption; it was, and this is the measurement.
 
+**Sign-out is not revocation, and the read-back cannot tell the difference.**
+
+The 401 above is real: that token stops working. What ending a session does *not* do is withdraw
+access to media already being streamed — and the reason is stronger than "may carry on", which is
+how this paragraph read until it was measured.
+
+### The media path is not gated by the token at all — measured
+
+**Measured 2026-08-27 on 10.11.11**, in a disposable container. A child's in-flight stream survives
+its own token being revoked, and runs to completion:
+
+    bytes delivered before DELETE /Devices     5,218,304
+    DELETE /Devices?id={child device}          204
+    the child's token on /Users/Me             401          <- the revoke is real
+    +8s                                        +2,457,600 bytes still arriving
+    +60s                                       26,677,717 — the whole file, curl exited 0
+
+That is not a connection surviving its own teardown. The endpoint does not check the token:
+
+    GET /Videos/{id}/stream?static=true , bytes in 3s at 200 kB/s
+      no token at all        614,400
+      a garbage token        614,400
+      the revoked token      614,400
+      a valid admin token    614,400
+
+**Controls, because an endpoint that never refuses proves nothing:**
+
+    a bogus item id, no token    -> 400, 25 bytes    <- it can refuse
+    a real item id, no token     -> 200, streaming   <- and chooses not to
+    /Users/Me, no token          -> 401              <- auth IS enforced here
+    /Sessions, no token          -> 401
+
+**Not explained by `EnableLegacyAuthorization`.** Turned off and re-measured: unauthenticated
+streaming is unchanged. (Turning it off does invalidate `X-Emby-Token` tokens, which is worth
+knowing separately.)
+
+So on a default-configured server a media URL works for anyone holding it, signed in or not. That
+is upstream behaviour and not Garfin's to fix. What follows for Garfin is only this: **ending a
+session cannot stop playback, and never could** — the playback was never authorised by the session.
+A client can even begin a *new* stream after the revoke.
+
+**This is why End sends the stop command first.** The stop is the only lever that can end playback
+at all, and it is advisory: a client that does not honour remote commands keeps playing whatever
+Garfin sends. Revoking on its own asks nothing of the client, which is what End used to do.
+
+Garfin cannot observe the aftermath either. An ended session is gone from `/Sessions` by
+definition, so the read-back that catches an ignored **Stop** must run *before* the revoke or not
+at all — which is the second reason for the ordering, and why `sessionsEndExplain` states both
+limits without softening either into "may".
+
+The command is exactly as strong as its name and no stronger. Copy implying that ending a session
+takes back what a child can reach is wrong, and the wording is the only guard against it.
+
 Not a policy write, so ground rule 8 is untouched — same as the Quick Connect approval.
+
+## What the grid can be sorted by — measured 2026-09-17 on 12.1.0
+
+Five films and two shows named the way ripped files are named, some with a year in the name and
+some without, on a server with no metadata provider and a collection made through the API.
+
+| | year in the file name | no year |
+|---|---|---|
+| `ProductionYear` | set, parsed from the name | absent |
+| `PremiereDate` | absent | absent |
+| `DateCreated` | set — and it followed the file's own timestamp, not the scan |
+
+A collection has neither a year nor a premiere date.
+
+**`SortBy=PremiereDate` is nevertheless the right key for "release date".** With every premiere
+date absent the grid still came back in year order; writing a real premiere date onto one film
+then sorted that film by the date while `SortBy=ProductionYear` kept it at its year. So one key is
+exact where a library has dates and falls back to the year everywhere else.
+
+That negative has a positive control: a premiere date written onto an item **does** come back on a
+list row, so "absent" is a reading rather than a field nobody asked for. Without that step the two
+are indistinguishable — and this section would be one more confident sweep of a harness.
+
+**Items with no value under the sort key group at one end**: first ascending, last descending,
+ordered by name ascending within the group in both directions.
+
+**Do not chain keys.** `SortBy=PremiereDate,SortName` is accepted and orders identically ascending,
+but `SortOrder` applies to every key in the chain, so descending reverses the name tiebreak too and
+the undated titles come back Z to A.
+
+**`DateCreated` is stable.** Unchanged by `POST /Library/Refresh` and by a per-item refresh with
+`metadataRefreshMode=FullRefresh&replaceAllMetadata=true`. The comparator was shown a perturbed
+copy first and reported the difference, so "unchanged" is a reading rather than a check that cannot
+fail.
 
 ## The server keeps no history of a metadata write
 

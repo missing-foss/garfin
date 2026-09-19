@@ -180,6 +180,17 @@ class AppLocalizationsFr extends AppLocalizations {
       'Garfin garde une connexion administrateur à votre serveur Jellyfin.';
 
   @override
+  String get settingsAllowScreenshots => 'Autoriser les captures d\'écran';
+
+  @override
+  String get settingsAllowScreenshotsSubtitle =>
+      'Désactivé par défaut : captures d\'écran, enregistrement et recopie de l\'écran sont tous bloqués.';
+
+  @override
+  String get settingsAllowScreenshotsCost =>
+      'Sur cette version d\'Android, l\'activer laisse aussi l\'aperçu des applis récentes conserver une image de l\'écran après le verrouillage de Garfin.';
+
+  @override
   String get settingsUnlockTimeout => 'Redemander après';
 
   @override
@@ -204,25 +215,28 @@ class AppLocalizationsFr extends AppLocalizations {
   String get kidsTitle => 'Enfants';
 
   @override
-  String get kidsNoShortlistHeading => 'Pas encore de sélection';
+  String get kidsWelcomeNoneHeading => 'Personne à accompagner pour l\'instant';
 
   @override
-  String get kidsNoShortlistExplanation =>
-      'Créez d\'abord leur sélection dans Jellyfin, puis revenez ici.';
+  String get kidsWelcomeNoneBody =>
+      'Garfin s\'occupe des enfants qui ont déjà une liste sur votre serveur Jellyfin. Créez-en une pour le compte d\'un enfant, et il apparaîtra ici.';
 
   @override
-  String kidsVisibleOfTotal(int visible, int total) {
-    return '$visible sur $total titres visibles';
+  String get kidsWelcomeNoneLink =>
+      'Le contrôle parental dans la documentation Jellyfin';
+
+  @override
+  String get kidsLabelClashHeading => 'Étiquettes à changer';
+
+  @override
+  String kidsLabelClashSame(String names, String labels) {
+    return '$names ont des étiquettes que Jellyfin peut lire comme une seule : $labels. Tant que c\'est le cas, ce que vous donnez à l\'un parvient aux autres. Des étiquettes qui diffèrent par plus qu\'une ponctuation ou un accent gardent leurs listes distinctes.';
   }
 
   @override
-  String get kidsModeAllowList => 'Liste de sélection';
-
-  @override
-  String get kidsModeBlockList => 'Liste d\'exclusion';
-
-  @override
-  String get kidsModeConflicting => 'Les deux listes sont définies';
+  String kidsLabelClashCrossing(String names, String labels) {
+    return '$names ont des étiquettes que Jellyfin peut lire comme une seule : $labels. Une liste distribue des titres et l\'autre les retient : tant que c\'est le cas, donner un film à l\'un le cache à l\'autre. Des étiquettes qui diffèrent par plus qu\'une ponctuation ou un accent les gardent distinctes.';
+  }
 
   @override
   String get kidsModeConflictingDetail =>
@@ -247,10 +261,30 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String kidsRatingCapPair(int value, int sub) {
+    return 'Limite d\'âge $value/$sub';
+  }
+
+  @override
   String get kidsRatingCapNone => 'Aucune limite d\'âge';
 
   @override
-  String get kidsServerSection => 'Défini dans Jellyfin';
+  String kidsLibrariesSection(String name) {
+    return '$name a accès à';
+  }
+
+  @override
+  String get kidsLabelsAllow =>
+      'Liste de sélection basée sur les étiquettes suivantes :';
+
+  @override
+  String get kidsLabelsBlock =>
+      'Liste d\'exclusion basée sur les étiquettes suivantes :';
+
+  @override
+  String kidsServerSection(String name) {
+    return 'Contrôle parental pour $name';
+  }
 
   @override
   String get kidsServerExplainAction =>
@@ -291,6 +325,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get kidsBirthYearClear => 'Supprimer';
 
   @override
+  String kidsPickThisChild(String name) {
+    return 'Choisir $name et ouvrir la bibliothèque';
+  }
+
+  @override
   String get kidsEmpty => 'Aucun compte sur ce serveur pour le moment.';
 
   @override
@@ -304,6 +343,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get libraryTitle => 'Médiathèque';
+
+  @override
+  String libraryPickingForName(String name) {
+    return 'Sélection pour $name';
+  }
 
   @override
   String get libraryPickingFor => 'Choix pour';
@@ -322,8 +366,21 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String libraryResultByRelevance(String line) {
+    return '$line · triés par pertinence';
+  }
+
+  @override
   String libraryItemCount(int count) {
     return '$count titres';
+  }
+
+  @override
+  String get libraryShowToGive => 'Afficher ce qu\'il reste à donner';
+
+  @override
+  String libraryNothingGiven(String name) {
+    return '$name ne voit encore rien ici.';
   }
 
   @override
@@ -358,6 +415,19 @@ class AppLocalizationsFr extends AppLocalizations {
   String libraryCollectionCount(int count) {
     return '$count titres';
   }
+
+  @override
+  String libraryEpisodeCount(int count) {
+    return '$count épisodes';
+  }
+
+  @override
+  String librarySemanticSeries(int count) {
+    return 'Série, $count épisodes';
+  }
+
+  @override
+  String get librarySemanticSeriesAlone => 'Série';
 
   @override
   String librarySemanticCollection(int count) {
@@ -398,6 +468,48 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get libraryHintUnknownAge => 'Pas de classification';
+
+  @override
+  String get detailCountry => 'Pays';
+
+  @override
+  String get librarySearchInCollection => 'Contient un résultat';
+
+  @override
+  String get detailRating => 'Classification';
+
+  @override
+  String detailRatingWithCountry(String rating, String country) {
+    return '$rating ($country)';
+  }
+
+  @override
+  String get detailAudience => 'Spectateurs';
+
+  @override
+  String get detailCritics => 'Critique';
+
+  @override
+  String detailGenres(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Genres',
+      one: 'Genre',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String detailStudios(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Studios',
+      one: 'Studio',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get assignTitle => 'Pour qui ?';
@@ -467,6 +579,11 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String assignSetTogetherBody(String title, String name) {
     return '$title fait partie de $name. Le reste de l\'ensemble peut suivre en même temps.';
+  }
+
+  @override
+  String assignSetTogetherSetAppears(String name) {
+    return 'Dans les deux cas, $name apparaît dans sa bibliothèque, avec ce que vous en avez donné.';
   }
 
   @override
@@ -557,12 +674,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Plus lent. La modification apparaît tout de suite dans Jellyfin.';
 
   @override
-  String get settingsStartingChild => 'Ouvrir la médiathèque sur';
-
-  @override
-  String get settingsStartingChildEveryone => 'Tout le monde';
-
-  @override
   String get settingsHideShared => 'Masquer ce qu\'un enfant a déjà';
 
   @override
@@ -593,6 +704,25 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsPosterSmall => 'Petites';
 
   @override
+  String get settingsLibrarySort => 'Trier la bibliothèque par';
+
+  @override
+  String get settingsLibrarySortDateAdded => 'Date d\'ajout';
+
+  @override
+  String get settingsLibrarySortReleaseDate => 'Date de sortie';
+
+  @override
+  String get settingsLibrarySortName => 'Nom';
+
+  @override
+  String get settingsLibrarySortAscending => 'Les plus anciens et A en premier';
+
+  @override
+  String get settingsLibrarySortDescending =>
+      'Les plus récents et Z en premier';
+
+  @override
   String settingsVersion(String version) {
     return 'Version $version';
   }
@@ -607,6 +737,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsSource => 'Code source';
+
+  @override
+  String get aboutOurPackages => 'Paquets utilisés par Garfin';
+
+  @override
+  String aboutOurPackagesCount(int count) {
+    return '$count choisis ici — les autres viennent avec Flutter';
+  }
 
   @override
   String get settingsLicences => 'Licences des logiciels libres utilisés';
@@ -868,7 +1006,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get sessionsEndExplain =>
-      'Il faudra que vous approuviez un nouveau code pour qu\'il puisse se reconnecter.';
+      'Garfin demande à l\'appareil d\'arrêter la lecture, puis le déconnecte. Un appareil qui ignore la demande continue de lire, et un appareil qui a gardé ses identifiants peut se reconnecter tout seul.';
+
+  @override
+  String get sessionsEndExplainUncontrollable =>
+      'Cet appareil n\'accepte pas les commandes à distance : le déconnecter n\'arrêtera pas le film. La lecture continue, et un appareil qui a gardé ses identifiants peut se reconnecter tout seul.';
 
   @override
   String sessionsEnded(String device) {
@@ -881,11 +1023,49 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String sessionsEndStoppedAndOut(String device) {
+    return '$device a arrêté la lecture et est déconnecté.';
+  }
+
+  @override
+  String sessionsEndOutStillPlaying(String device) {
+    return '$device est déconnecté, mais la lecture continue.';
+  }
+
+  @override
+  String sessionsEndStoppedThenReturned(String device) {
+    return '$device a arrêté la lecture, puis s\'est immédiatement reconnecté.';
+  }
+
+  @override
+  String sessionsEndReturnedStillPlaying(String device) {
+    return '$device s\'est immédiatement reconnecté, et la lecture continue.';
+  }
+
+  @override
   String get sessionsUncontrollable =>
-      'Cet appareil n\'accepte pas les commandes à distance. Fermer la session fonctionne quand même.';
+      'Cet appareil n\'accepte pas les commandes à distance. Le déconnecter n\'arrêtera pas la lecture en cours.';
 
   @override
   String get librarySearchHint => 'Rechercher un titre';
+
+  @override
+  String get librarySearchScope => 'Que rechercher';
+
+  @override
+  String get librarySearchScopeTitle => 'Titre';
+
+  @override
+  String get librarySearchScopeCastAndCrew => 'Distribution';
+
+  @override
+  String get librarySearchScopeStudio => 'Studio';
+
+  @override
+  String get librarySearchHintCastAndCrew => 'Rechercher une personne';
+
+  @override
+  String get librarySearchHintStudio => 'Rechercher un studio';
 
   @override
   String get librarySearchClear => 'Effacer la recherche';
@@ -975,6 +1155,14 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get assignPanelEmpty =>
       'Choisissez un titre : ce que cela changerait s\'affichera ici.';
+
+  @override
+  String collectionRepairLoose(String name) {
+    return '$name a des titres de cette collection, mais pas la collection elle-même — elle n\'apparaît donc pas dans sa bibliothèque et ces titres arrivent isolés.';
+  }
+
+  @override
+  String get collectionRepairAction => 'Lui montrer la collection';
 
   @override
   String collectionGivenNone(String name) {

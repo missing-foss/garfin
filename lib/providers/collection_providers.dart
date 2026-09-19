@@ -7,10 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/auth_session.dart';
 import '../models/collection_set.dart';
 import '../models/library_item.dart';
+import '../repositories/app_settings_store.dart';
 import '../repositories/collection_repository.dart';
 import '../repositories/library_repository.dart';
 import 'app_providers.dart';
 import 'library_providers.dart';
+import 'settings_providers.dart';
 
 final collectionRepositoryProvider =
     Provider.family<CollectionRepository, AuthSession>((ref, session) {
@@ -38,9 +40,19 @@ final collectionIndexProvider =
 /// Identifies the set directly, so it does not wait on the whole index.
 final collectionSetProvider =
     FutureProvider.family<CollectionSet, CollectionRequest>(
-  (ref, request) => ref
-      .watch(collectionRepositoryProvider(request.session))
-      .setFor(request.collection),
+  (ref, request) {
+    // The members are drawn by the grid's own tiles, so they are ordered by
+    // the grid's own setting: browsing a set is the library narrowed to one
+    // container. Watching the setting here is what re-reads the set when a
+    // parent changes the order while a collection is open.
+    final settings = ref.watch(settingsProvider);
+    return ref.watch(collectionRepositoryProvider(request.session)).setFor(
+          request.collection,
+          sortBy: librarySortBy(settings.librarySort),
+          sortOrder:
+              librarySortOrder(descending: settings.librarySortDescending),
+        );
+  },
 );
 
 /// One collection's members, meaning the same thing they mean on the grid (#83).

@@ -16,6 +16,7 @@ import 'package:garfin/providers/library_providers.dart';
 import 'package:garfin/repositories/device_identity.dart';
 import 'package:garfin/repositories/jellyfin_api.dart';
 import 'package:garfin/screens/collection_screen.dart';
+import 'package:garfin/widgets/picking_for_avatar.dart';
 import 'package:garfin/screens/library_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -49,8 +50,6 @@ void main() {
         blockedTags: [],
       ),
     ),
-    visibleCount: 0,
-    libraryTotal: 0,
   );
 
   late FakeJellyfinServer server;
@@ -62,6 +61,7 @@ void main() {
     String name, {
     String type = 'Movie',
     int? childCount,
+    int? recursiveItemCount,
     List<String> tags = const [],
   }) =>
       <String, dynamic>{
@@ -70,6 +70,7 @@ void main() {
         'Type': type,
         'Tags': tags,
         'ChildCount': ?childCount,
+        'RecursiveItemCount': ?recursiveItemCount,
       };
 
   Future<void> pumpLibrary(WidgetTester tester) async {
@@ -167,14 +168,15 @@ void main() {
     await tester.tap(find.text('The Paddington Collection'));
     await tester.pumpAndSettle();
 
-    // Disabled until a child is picked, because the preview it opens is a
-    // preview *for a child*. Pinning that, then picking one.
+    // Enabled with nobody picked (#154), which is how a parent arrives from
+    // the grid. The sheet builds its rows from the shortlist and never reads
+    // the selection — the same sheet opens from a film on the grid with
+    // Everyone showing — so a gate here only produced a dead control.
     expect(
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-      isNull,
+      isNotNull,
+      reason: 'the question a gate would ask is answered inside the sheet',
     );
-    await tester.tap(find.text('Emma'));
-    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Give the whole set'));
     await tester.pumpAndSettle();
@@ -186,6 +188,26 @@ void main() {
     // it renders its error state. What is being pinned here is which artifact
     // the button produces, and `assign_sheet` has its own tests for what goes
     // in it.
+    expect(find.byType(BottomSheet), findsOneWidget);
+  });
+
+  testWidgets('and with a child picked it still opens', (tester) async {
+    // The selection is not an input to the sheet, but it is carried on this
+    // screen and a parent who picked someone is the commoner path. Both, so
+    // that enabling the button did not quietly break the flow it replaced.
+    await pumpLibrary(tester);
+    await tester.tap(find.text('The Paddington Collection'));
+    await tester.pumpAndSettle();
+
+    // The picker row is gone; the child is chosen by cycling the app bar's
+    // avatar, which on a collection screen is the only way to switch child
+    // without leaving the set.
+    await tester.tap(find.byType(PickingForAvatar));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Give the whole set'));
+    await tester.pumpAndSettle();
+
     expect(find.byType(BottomSheet), findsOneWidget);
   });
 
@@ -204,10 +226,10 @@ void main() {
     // two-film membership pumpLibrary registers — and the test would pass or
     // fail for a reason unrelated to nesting.
     //
-    // `ChildCount` is deliberately absent, which is what the server actually
-    // sends for a member: `Fields: 'Tags'` does not ask for it. So this also
-    // covers the spoken label's degrade path on the one case where it is
-    // load-bearing rather than defensive.
+    // `ChildCount` is deliberately absent here, which is now a *server*
+    // that did not send it rather than a request that did not ask — the
+    // members query asks for it (#119, in review). Still the degrade path
+    // worth covering: absent is not zero, and the label must not invent one.
     server.onQuery(
       '/Items',
       (q) => q['parentId'] == 'coll-1',
@@ -261,5 +283,69 @@ void main() {
     // an ordinary title here — its tap does what the grid's tap does.
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.byType(CollectionScreen), findsOneWidget);
+  });
+
+  group('a member tile says what the same tile says on the grid (#119)', () {
+    /// **The gap this closes was invisible from either side alone.** The
+    /// collection screen renders members through `LibraryGrid` — the same
+    /// widget, the same tiles — but `collectionMembers()` asked only for
+    /// `Fields: 'Tags'`. A count field is absent unless named, so a series
+    /// inside a set drew no episode badge and a set inside a set drew no
+    /// count, on tiles that carry both one tap away on the main grid.
+    ///
+    /// Found in review of the change that put the episode badge on the grid.
+    testWidgets('the members query asks for the counts the tiles draw',
+        (tester) async {
+      await pumpLibrary(tester);
+      await tester.tap(find.text('The Paddington Collection'));
+      await tester.pumpAndSettle();
+
+      final members = server.requests
+          .where((r) => r.queryParameters['parentId'] == 'coll-1')
+          .toList();
+      expect(members, isNotEmpty,
+          reason: 'the control: the members query was made at all');
+      expect(members.first.queryParameters['Fields'],
+          'Tags,ChildCount,RecursiveItemCount,ProductionLocations,Genres,Studios',
+          reason: 'the same fields the grid asks for, because these are the '
+              'same tiles');
+    });
+
+    // **This one cannot stand in for the query assertion above, and does not
+    // try to.** `FakeJellyfinServer` answers with whatever the fixture holds
+    // regardless of the `Fields` sent, so this stays green against a client
+    // that never asks for the counts — measured, by reverting the query and
+    // watching only the assertion above fail. The pair is the coverage: this
+    // proves the tile draws the number, that one proves the number is asked
+    // for. Either alone is the shape that let a badge ship undrawn.
+    testWidgets('so a show inside a set counts its episodes', (tester) async {
+      await pumpLibrary(tester);
+
+      // Registered after `pumpLibrary`: matchers are checked newest first.
+      server.onQuery(
+        '/Items',
+        (q) => q['parentId'] == 'coll-1',
+        json: <String, dynamic>{
+          'TotalRecordCount': 1,
+          // Both counts, deliberately different, so a tile reading the wrong
+          // field is visible rather than merely unproven — `ChildCount` on a
+          // series is its seasons.
+          'Items': [
+            item('show-1', 'Alpha Show',
+                type: 'Series', childCount: 2, recursiveItemCount: 5),
+          ],
+        },
+      );
+
+      await tester.tap(find.text('The Paddington Collection'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alpha Show'), findsOneWidget);
+      await tester.ensureVisible(find.text('Alpha Show'));
+      await tester.pumpAndSettle();
+      expect(find.text('5 episodes'), findsOneWidget);
+      expect(find.text('2 episodes'), findsNothing,
+          reason: 'two is the seasons, here as much as on the grid');
+    });
   });
 }

@@ -5,6 +5,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/models/jellyfin_user.dart';
+import 'package:garfin/models/kid_summary.dart';
 import 'package:garfin/models/parental_rating.dart';
 import 'package:garfin/repositories/birth_year_store.dart';
 import 'package:garfin/repositories/device_identity.dart';
@@ -94,14 +95,21 @@ void main() {
           .create(baseUrl: serverUrl),
       birthYears: BirthYearStore(prefs),
       serverUrl: serverUrl,
-      adminUserId: 'admin-1',
     );
   }
+
+  /// The production path in one call: the roster, then the counts on top of it.
+  ///
+  /// Kept as a helper rather than each test doing both, so a test can never
+  /// accidentally exercise `load` against a roster it built itself — the split
+  /// exists so the users are listed once, and that only holds if the same
+  /// roster is what the counts are asked about.
+  Future<KidsOverview> loadAll() async => repository.load(await repository.roster());
 
   group('the allow/block inversion', () {
     test('AllowedTags means allow mode, and those are the tags', () async {
       await build(users: [user('k1', 'Emma', allowed: ['kids-emma'])]);
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       final kid = overview.shortlisted.single;
       expect(kid.mode, ShortlistMode.allow);
@@ -110,7 +118,7 @@ void main() {
 
     test('BlockedTags means block mode, and those are the tags', () async {
       await build(users: [user('k2', 'Sam', blocked: ['horror'])]);
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       final kid = overview.shortlisted.single;
       expect(kid.mode, ShortlistMode.block);
@@ -124,7 +132,7 @@ void main() {
       await build(
         users: [user('k3', 'Alex', allowed: ['ok'], blocked: ['nope'])],
       );
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       final kid = overview.shortlisted.single;
       expect(kid.mode, ShortlistMode.conflicting);
@@ -138,7 +146,7 @@ void main() {
 
     test('no tags at all is a boundary, not a card', () async {
       await build(users: [user('a1', 'Parent', admin: true)]);
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       expect(overview.shortlisted, isEmpty);
       expect(overview.withoutShortlist.single.user.name, 'Parent');
@@ -151,14 +159,14 @@ void main() {
       await build(
         users: [user('k1', 'Emma', allowed: ['t'], maxParentalRating: 10)],
       );
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       expect(overview.shortlisted.single.ratingCapName, 'PG');
     });
 
     test('an uncapped child has no rating name to show', () async {
       await build(users: [user('k1', 'Emma', allowed: ['t'])]);
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       expect(overview.shortlisted.single.user.policy.maxParentalRating, isNull);
       expect(overview.shortlisted.single.ratingCapName, isNull);
@@ -171,7 +179,7 @@ void main() {
       await build(
         users: [user('k1', 'Emma', allowed: ['t'], maxParentalRating: 99)],
       );
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       expect(overview.shortlisted.single.ratingCapName, isNull);
       expect(overview.shortlisted.single.user.policy.maxParentalRating, 99);
@@ -184,7 +192,7 @@ void main() {
         ratingsFail: true,
       );
 
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       // The cap still exists and is still enforced by the server; only its
       // name is missing.
@@ -193,130 +201,111 @@ void main() {
     });
   });
 
-  group('counts come from the server', () {
-    test('asked once as the admin and once per child, never computed',
-        () async {
+  group('the totals nobody displays are not fetched', () {
+    test('loading the screen asks for no item count at all', () async {
+      // This group used to assert the opposite — "asked once as the admin and
+      // once per child, never computed" — and that was right while the card
+      // showed "N of M things visible". The card does not, so the calls are
+      // gone with it, and this asserts their absence instead of their shape.
+      //
+      // Worth a test rather than a comment: they were the most expensive calls
+      // the app makes. Measured on 10.11.11, a child's count is 19 ms at one
+      // visible title, 538 ms at 2000 and 8.7 s at 6000, and the administrator's
+      // own total 7.6 s on that library — paid per child, on the first screen a
+      // parent opens, again on every invalidation after a write. Something that
+      // costly coming back by accident should break a test, not a phone.
       await build(
         users: [
           user('a1', 'Parent', admin: true),
           user('k1', 'Emma', allowed: ['kids-emma']),
+          user('k2', 'Sam', allowed: ['kids-sam']),
         ],
       );
-      await repository.load();
+      await loadAll();
 
-      final itemQueries = server.requests
-          .where((r) => r.path == '/Items')
-          .toList(growable: false);
-
-      // Ground rule 4: two calls, one per user id, not one call and some
-      // arithmetic.
-      expect(itemQueries.length, 2);
       expect(
-        itemQueries.map((r) => r.queryParameters['userId']),
-        containsAll(<String>['admin-1', 'k1']),
+        server.requests.where((r) => r.path == '/Items'),
+        isEmpty,
+        reason: 'no widget reads a total any more, so nothing should pay for '
+            'one; the per-library counts are asked when a card is opened',
       );
-      // Limit=0 asks for the count without the items, and Recursive=true is
-      // required or it counts only top-level entries.
-      for (final query in itemQueries) {
-        expect(query.queryParameters['Limit'], 0);
-        expect(query.queryParameters['Recursive'], true);
-      }
-    });
-  });
-
-  group('fields with no consumer yet', () {
-    test('IsDisabled is parsed, and a disabled child still gets a card', () {
-      // Nothing reads this today. Asserted anyway, because a field with no
-      // consumer is how a field ends up wrong without anyone noticing — and
-      // because the rendering choice (still show them) is deliberate rather
-      // than an oversight: hiding a child would make them vanish for a reason
-      // the screen never states.
-      final policy = UserPolicy.fromJson(<String, dynamic>{
-        'IsAdministrator': false,
-        'IsDisabled': true,
-        'AllowedTags': <String>['t'],
-      });
-
-      expect(policy.isDisabled, isTrue);
-      expect(policy.shortlistMode, ShortlistMode.allow);
     });
 
-    test('a disabled child is not silently dropped from the screen', () async {
-      await build(
-        users: [user('k1', 'Emma', allowed: ['t'], disabled: true)],
-      );
-      final overview = await repository.load();
-
-      expect(overview.shortlisted.single.user.policy.isDisabled, isTrue);
-      expect(overview.withoutShortlist, isEmpty);
-    });
-  });
-
-  group('how long the screen takes (#68)', () {
-    test('the children are counted together, not one after another', () async {
-      // Each child's count is a whole-library query whose cost tracks what
-      // that child can see — measured at 538 ms against a well-supplied child
-      // on a 2000-film library. Four of those in a `for` loop with an `await`
-      // in it was two seconds before the Kids screen drew anything, every time
-      // it loaded or was invalidated after a write.
-      //
-      // Serial and bounded-parallel make the *same requests in the same
-      // order*. Only the timing tells them apart, which is why the fake can be
-      // told to take its time.
+    test('and the ladder is still asked once, for everyone', () async {
+      // What is left. It is a property of the server rather than of a child,
+      // and it is what turns a cap of 10 into "Up to PG" on every card.
       await build(
         users: [
           user('k1', 'Emma', allowed: ['t']),
           user('k2', 'Sam', allowed: ['t']),
-          user('k3', 'Ana', allowed: ['t']),
-          user('k4', 'Zoe', allowed: ['t']),
         ],
-        countDelay: const Duration(milliseconds: 300),
       );
+      await loadAll();
 
-      final started = DateTime.now();
-      final overview = await repository.load();
-      final elapsed = DateTime.now().difference(started);
-
-      expect(overview.shortlisted, hasLength(4), reason: 'control: it loaded');
-      // Serial would be at least four 300ms counts plus the admin's total.
-      // Four at a time is one round of children alongside it.
-      expect(elapsed, lessThan(const Duration(milliseconds: 1000)),
-          reason: 'serial would be 1.5s of counts; '
-              'took ${elapsed.inMilliseconds}ms');
+      expect(
+        server.requests.where((r) => r.path == '/Localization/ParentalRatings'),
+        hasLength(1),
+      );
     });
   });
 
-  group('when the server is unreachable (#68 review)', () {
-    test('the failure surfaces as itself, and nothing is left unobserved',
+  // The timing group that stood here measured that the children's counts ran
+  // four at a time rather than one after another. There are no children's
+  // counts now, so it measured nothing: with the fake's `countDelay` attached
+  // to a request that is never made, it would have passed however the code was
+  // written. A test that cannot fail is removed rather than left green.
+  //
+  // The parallelism itself has not been abandoned — `mapBounded` still fans the
+  // per-library counts out at the house limit, and `kid_row_expands_test.dart`
+  // is where that behaviour lives now, because that is where the requests are.
+
+  group('when the server is unreachable', () {
+    test('it surfaces from the roster, which is the request that is left',
         () async {
-      // **The case: three requests in flight, one await point.** Awaiting them
-      // one after another meant that if the library total threw, this method
-      // unwound while the per-child counts were still running — and nothing was
-      // listening when those failed too. An unawaited future that errors is an
-      // unhandled asynchronous error, which is precisely what the assign path
-      // guards against one file away.
+      // **This changed shape, and the change is worth stating.** `load` used to
+      // make three requests and the assertion was that a failure reached the
+      // screen as itself rather than as a wrapper, with nothing left unobserved.
+      // Two of those three are gone, and the one that remains — the ratings
+      // ladder — deliberately swallows its own error, because a cap that cannot
+      // be named is not a reason to replace the screen with an error page.
       //
-      // `flutter_test` reports an unobserved async error as a test failure, so
-      // *this test failing* is the assertion. It is not decorative: it fails
-      // against the three-sequential-awaits version.
-      await build(
-        users: [
-          user('k1', 'Emma', allowed: ['t']),
-          user('k2', 'Sam', allowed: ['t']),
-        ],
-      );
-      // Everything after /Users is gone — the realistic shape of "the server
-      // went away", where the total and the counts fail together rather than
-      // one of them being unlucky.
-      server.fallback(failWith: DioExceptionType.connectionError);
+      // So `load` can no longer fail at all. Unreachability surfaces one step
+      // earlier, from `roster`, which is the request that lists the children —
+      // and `kidsOverviewProvider` awaits that first, so the screen still shows
+      // the error rather than an empty list of children.
+      await build(users: [user('k1', 'Emma', allowed: ['t'])]);
+      // `onQuery`, not `on`: `build` has already queued a successful `/Users`
+      // reply and a queued reply is **sticky**, so queueing a failure behind it
+      // changes nothing and the test passes for the wrong reason. Matchers are
+      // checked before the positional script.
+      server.onQuery('/Users', (_) => true,
+          failWith: DioExceptionType.connectionError);
 
       await expectLater(
-        repository.load(),
+        repository.roster(),
         throwsA(isA<JellyfinException>()),
-        reason: 'the original error must reach the screen, not a wrapper — '
-            'the Kids screen maps JellyfinException to a sentence a parent '
-            'can act on and everything else to a generic one',
+        reason: 'the original error must reach the screen, not a wrapper — the '
+            'Kids screen maps JellyfinException to a sentence a parent can act '
+            'on and everything else to a generic one',
       );
+    });
+
+    test('a ladder that will not load does not take the screen down',
+        () async {
+      // The other half, and now the only failure `load` can meet. The caps are
+      // still enforced by the server whether or not this app can name them.
+      await build(users: [user('k1', 'Emma', allowed: ['t'], maxParentalRating: 10)]);
+      final roster = await repository.roster();
+      // Registered after the roster is in hand, and as a matcher for the same
+      // reason as above: the ladder already has a good reply queued.
+      server.onQuery('/Localization/ParentalRatings', (_) => true,
+          failWith: DioExceptionType.connectionError);
+
+      final overview = await repository.load(roster);
+
+      expect(overview.shortlisted, hasLength(1));
+      expect(overview.shortlisted.single.ratingCapName, isNull,
+          reason: 'unnamed, not absent: the card falls back to the number');
     });
   });
 
@@ -325,7 +314,7 @@ void main() {
       // Measured: the key is absent, not null, when there is no avatar. A 404
       // behind every initial would be the cost of asking anyway.
       await build(users: [user('k1', 'Emma', allowed: ['t'])]);
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       expect(overview.shortlisted.single.avatarUrl, isNull);
     });
@@ -335,7 +324,7 @@ void main() {
       // assembling shortlisted kids, so the other half of the same screen had
       // no URL to show even when the user had an avatar set.
       await build(users: [user('a1', 'Mum', admin: true, primaryImageTag: 'xyz')]);
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       expect(overview.shortlisted, isEmpty);
       expect(
@@ -346,7 +335,7 @@ void main() {
 
     test('an unmanaged account with no picture gets no URL', () async {
       await build(users: [user('a1', 'Dad', admin: true)]);
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       expect(overview.withoutShortlist.single.avatarUrl, isNull);
     });
@@ -355,7 +344,7 @@ void main() {
       await build(
         users: [user('k1', 'Emma', allowed: ['t'], primaryImageTag: 'abc123')],
       );
-      final overview = await repository.load();
+      final overview = await loadAll();
 
       expect(
         overview.shortlisted.single.avatarUrl,

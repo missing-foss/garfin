@@ -27,9 +27,16 @@ class LibraryTile extends StatelessWidget {
     this.childId,
     this.holders = const [],
     this.suitability = AgeSuitability.unknown,
+    this.givenBadge,
+    this.note,
   });
 
   final LibraryEntry entry;
+
+  /// One line under the title, for a tile that needs to explain why it is here.
+  /// Used by the search results for a collection found through a member (#147).
+  final String? note;
+
   final String serverUrl;
 
   /// The selected child, for the sentence explaining a held-back item.
@@ -57,6 +64,14 @@ class LibraryTile extends StatelessWidget {
   /// precisely because it is not a pass.
   final AgeSuitability suitability;
 
+  /// How much of a set is theirs, for a collection tile.
+  ///
+  /// Supplied by the grid rather than fetched here: the count needs this set's
+  /// membership, which is a request, and a tile that fetches is a tile that
+  /// fetches once per rebuild. Null for a film, and for a collection when
+  /// nobody is picked — there is no verb without a child.
+  final Widget? givenBadge;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -72,10 +87,54 @@ class LibraryTile extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: _Poster(item: item, serverUrl: serverUrl),
-                ),
+                // **A collection is outlined**, and that is the whole of how
+                // it is told apart from a film.
+                //
+                // Two earlier answers did not survive a phone. A rounder
+                // poster separates nothing — every poster already clips at 8,
+                // so collections would need a *different* radius, and a few
+                // pixels of curvature is a difference a parent has to look
+                // for. A stack of two dimmer sheets behind the top-right
+                // corner replaced it and reads clearly on a bench; reported
+                // from a phone, it does not. Both failed the same way: a
+                // difference in an unsaturated grey, in one corner, on a tile
+                // that is ~83dp wide at four columns.
+                //
+                // The line is the whole silhouette rather than a corner, so
+                // there is no size at which it is only in the part of the tile
+                // the eye is not on, and it competes for no space — nothing
+                // else here draws an outline, so it means one thing. Colour
+                // does most of the work: the theme's tertiary tone is
+                // already this screen's "worth a second look" colour, the one
+                // the above-their-age hint uses. Gold was the other suggestion
+                // and was set aside — the palette has none, and a colour
+                // outside it for one marker is the kind of thing that spreads.
+                //
+                // **Foreground, not background.** The artwork fills the whole
+                // rect, so a border painted behind it is a border nobody can
+                // see — and it would look exactly like a colour that was too
+                // faint.
+                //
+                // It does not replace the "{count} titles" badge: the line
+                // says *a set*, the badge says *how big*. It says nothing a
+                // screen reader is not already told either — `_collectionKind`
+                // puts "Collection, 7 titles" second in the label — so this
+                // adds no semantic node of its own.
+                if (item.isCollection)
+                  DecoratedBox(
+                    key: const ValueKey('collection-outline'),
+                    position: DecorationPosition.foreground,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: theme.colorScheme.tertiary,
+                        width: _collectionOutline,
+                      ),
+                    ),
+                    child: _clippedPoster(item),
+                  )
+                else
+                  _clippedPoster(item),
                 // The state badge and the faces share the top edge, laid out
                 // against each other rather than pinned to opposite corners.
                 //
@@ -87,6 +146,10 @@ class LibraryTile extends StatelessWidget {
                 // about the selected child, and the row shrinks to whatever is
                 // left, down to nothing.
                 Positioned(
+                  // Pinned to the tile again. These carried an offset while a
+                  // collection's poster was inset for the sheets behind it;
+                  // with the line drawn *on* the poster there is no inset, and
+                  // the corners are the tile's own at every width.
                   top: 4,
                   left: 4,
                   right: 4,
@@ -161,11 +224,45 @@ class LibraryTile extends StatelessWidget {
                               ? theme.colorScheme.tertiaryContainer
                               : theme.colorScheme.surfaceContainerHighest,
                         ),
-                      if (item.isCollection && item.childCount != null)
-                        _Badge(
-                          label: l10n.libraryCollectionCount(item.childCount!),
-                          tone: theme.colorScheme.surfaceContainerHighest,
-                        ),
+                      // **The set's badge, and the child's share inside it.**
+                      // With a child picked this reads "3/6" beside a ring;
+                      // without one it reads "6 titles" as before.
+                      //
+                      // One badge rather than two because all four corners of
+                      // this poster are already spoken for — state top-left,
+                      // faces top-right, age hint bottom-left, this one
+                      // bottom-right — and the share is the same subject as
+                      // the count. It replaced a 14dp ring under the title,
+                      // which was sized to *fit* at 83dp and was reported
+                      // unnoticeable on a phone: fitting was the wrong target.
+                      //
+                      // **`??` is not enough to fall back on, and the count's
+                      // guard is not this one's.** [givenBadge] is a widget
+                      // that decides at build time whether it has anything to
+                      // say, so it is non-null on paths where it draws
+                      // nothing; and the share needs a child, not a
+                      // `ChildCount`. Both mistakes were made here at once —
+                      // see [collectionCountBadge] for where the fallback
+                      // actually lives now.
+                      if (item.isCollection)
+                        ?(givenBadge ?? collectionCountBadge(context, item)),
+                      // **A series says how many episodes it holds**, in the
+                      // same corner and for the same reason a collection says
+                      // how many titles — asked for directly, on the strength
+                      // of the collection badge.
+                      //
+                      // A separate branch rather than a shared one, because
+                      // the number is a different field and the noun is not
+                      // interchangeable. `ChildCount` on a series is the
+                      // **seasons** — measured, a two-season five-episode show
+                      // reports 2 — so reusing the collection badge would put
+                      // "2 titles" on a show that holds five of neither.
+                      //
+                      // No share badge here. A series is one item to give and
+                      // its label reaches every episode inside, so there is no
+                      // partial state for a ring to describe; the collection's
+                      // `3/6` exists because a set can be half given.
+                      ?(item.isSeries ? episodeCountBadge(context, item) : null),
                     ],
                   ),
                 ),
@@ -179,30 +276,118 @@ class LibraryTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall,
           ),
+          // **Why a row a parent did not search for is on the grid** (#147).
+          // A set whose *member* matched is added to the results, and without
+          // this line it reads as the app answering a different question.
+          if (note != null)
+            Text(
+              note!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
         ],
       ),
     );
   }
 
+  /// The plain size of a set — "6 titles" — for the corner the child's share
+  /// otherwise owns.
+  ///
+  /// **Static because the fallback has to be handed to the widget that knows
+  /// whether it drew.** The share is a `ConsumerWidget` watching one
+  /// membership request, so "has it anything to say" is not answerable until
+  /// its own build: `givenBadge ?? count` asks whether the *widget* is null,
+  /// which it is not, and the corner came out blank for every collection tile
+  /// between first paint and its membership arriving — permanently, if that
+  /// request failed. The grid passes this in as the share's silent form, and
+  /// the same widget then owns the corner in every state.
+  ///
+  /// Null when the server sent no `ChildCount`. That is not zero — it means
+  /// the field was not asked for — and those collections stay on the grid
+  /// (#110), so the caller decides what an unknown size looks like rather than
+  /// this inventing a number. It must not gate the *share*, which needs a
+  /// child and no count at all.
+  static Widget? collectionCountBadge(BuildContext context, LibraryItem item) {
+    final count = item.childCount;
+    if (count == null) return null;
+    return _Badge(
+      label: AppLocalizations.of(context).libraryCollectionCount(count),
+      tone: Theme.of(context).colorScheme.surfaceContainerHighest,
+    );
+  }
+
+  /// How many episodes a show holds — "5 episodes".
+  ///
+  /// **[LibraryItem.recursiveItemCount], not [LibraryItem.childCount].** The
+  /// second counts one level down, which for a series is its seasons; the badge
+  /// wants what is inside, which is what a label on the series reaches.
+  ///
+  /// Null when the server sent no recursive count, on the same reasoning as
+  /// [collectionCountBadge]: absent means it was not asked for, and a corner
+  /// left empty is better than a number invented for it. Measured on 10.11.11,
+  /// a `Movie` reports the field absent even when it is requested, so this can
+  /// never put an episode count on a film.
+  static Widget? episodeCountBadge(BuildContext context, LibraryItem item) {
+    final count = item.recursiveItemCount;
+    if (count == null) return null;
+    return _Badge(
+      label: AppLocalizations.of(context).libraryEpisodeCount(count),
+      tone: Theme.of(context).colorScheme.surfaceContainerHighest,
+    );
+  }
+
+  /// The artwork, clipped. Identical for a film and for a collection — the
+  /// line is drawn over it, not around a smaller poster.
+  Widget _clippedPoster(LibraryItem item) => ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: _Poster(item: item, serverUrl: serverUrl),
+      );
+
   /// The age hint, or null when there is nothing useful to say.
   ///
-  /// Silent with no child selected — there is no age to compare against — and
-  /// silent when the title suits, because that is most of the grid.
+  /// **The hint speaks only when a title is above the selected child's age.**
+  /// Silent with no child selected — there is no age to compare against —
+  /// silent when the title suits, and silent when nothing can be said.
   String? _ageHint(AppLocalizations l10n) {
     if (childName == null) return null;
     return switch (suitability) {
       AgeSuitability.aboveAge => l10n.libraryHintAboveAge(childName!),
-      AgeSuitability.unknown => l10n.libraryHintUnknownAge,
+      // **Nothing for unknown**, on the same argument that already silences
+      // `suitsAge`: the hint is for the titles worth a second look, and a
+      // badge on most of the grid is something the eye has to skip past to
+      // find the ones that mean anything. Asked for directly — "if there are
+      // no classifications then it shouldn't show anything, we are only
+      // interested by classifications".
+      //
+      // This is the grid badge only. The same string is a *value* in a list on
+      // the collection prompt and the assign sheet — "this member's rating:
+      // none" — where blanking it would leave an empty cell rather than remove
+      // noise, so those keep it.
+      AgeSuitability.unknown => null,
       AgeSuitability.suitsAge => null,
     };
   }
 
   String? _badge(AppLocalizations l10n) => switch (entry.state) {
-        LibraryItemState.given => l10n.libraryBadgeGiven,
+        // **Nothing for a plain share: the child's own face says it.** They
+        // are a holder of this item, so their picture is already on the poster
+        // — first in the row — and a badge beside it was the same fact twice.
+        //
+        // The two that stay are the two a face cannot express.
+        // `givenButHidden` is the opposite of what a face implies: the label
+        // is there and the server is still not showing the title, which is
+        // the one state on this screen a parent most needs told. `blocked` is
+        // a block-list child, and `holdersOf` only ever collects allow-list
+        // children — they have no face here at any width, so the badge is the
+        // only thing that could say it.
+        LibraryItemState.given => null,
         LibraryItemState.givenButHidden => l10n.libraryBadgeHeldBack,
         LibraryItemState.blocked => l10n.libraryBadgeBlocked,
         // Not-given is the default state of the grid, and badging it would
-        // put a marker on almost every tile — noise rather than signal.
+        // put a marker on almost every tile — noise rather than signal. The
+        // same argument now covers `given`, one state along.
         LibraryItemState.notGiven ||
         LibraryItemState.available ||
         LibraryItemState.unknown =>
@@ -262,6 +447,14 @@ class LibraryTile extends StatelessWidget {
   /// suppressed in that state too, so "0 titles" would be this label inventing
   /// a number nobody sent.
   String? _collectionKind(AppLocalizations l10n) {
+    if (entry.item.isSeries) {
+      // The same shape one step along: a show is as much "not a film" as a set
+      // is, and the badge that says so visually is not spoken.
+      final episodes = entry.item.recursiveItemCount;
+      return episodes == null
+          ? l10n.librarySemanticSeriesAlone
+          : l10n.librarySemanticSeries(episodes);
+    }
     if (!entry.item.isCollection) return null;
     final count = entry.item.childCount;
     return count == null
@@ -288,11 +481,31 @@ class LibraryTile extends StatelessWidget {
   /// [holdersOf] — whether the title reaches the child is the server's answer,
   /// and ground rule 4 keeps this app out of it.
   String? _holderSentence(AppLocalizations l10n) {
-    final others = holders.where((h) => h.userId != childId).toList();
-    if (others.isEmpty) return null;
-    return l10n.libraryHolders(others.map((h) => h.name).join(', '));
+    // **The selected child is dropped only when the badge speaks about them.**
+    // That was always the rule — `DECISIONS.md` states it — and it used to be
+    // unconditional because the badge always did. It no longer does: a plain
+    // share says so with a face, and a face is not spoken.
+    //
+    // Left unconditional, a tile with Emma selected and Léo also holding it
+    // said "Given to Léo" and nothing about Emma, which reads as *not given to
+    // Emma* — a confident wrong statement about a named child, which is the
+    // shape ground rule 4 exists to prevent.
+    final spokenFor = _badge(l10n) != null;
+    final named = spokenFor
+        ? holders.where((h) => h.userId != childId)
+        : holders;
+    if (named.isEmpty) return null;
+    return l10n.libraryHolders(named.map((h) => h.name).join(', '));
   }
 }
+
+/// How thick the line around a collection's poster is.
+///
+/// 2 rather than 1: this is the third attempt at telling a set from a film and
+/// the first two were each lost to a phone screen, so the number is chosen to
+/// be seen at 83dp — a hairline is what "too subtle" already looked like.
+/// Thicker starts eating the artwork it is framing.
+const double _collectionOutline = 2;
 
 /// The faces along the top edge of a poster.
 ///
@@ -300,6 +513,12 @@ class LibraryTile extends StatelessWidget {
 /// circle for the rest. The tile's job is the title; this is a glance-level
 /// answer to "who already has this", which is the question a parent has
 /// *before* picking a child
+///
+/// **The count adapts to width; above 200dp the size does too.** Tile width is
+/// the grid's `maxCrossAxisExtent`, so it is capped by the poster-size setting
+/// at 112, 175 or 360 -- small and regular never cross 200 at any window size,
+/// and only "large" scales, on a phone as much as on a tablet. Holding 22dp
+/// there left the faces at a sixteenth of the poster they annotate.
 ///
 /// **How many it draws is measured, not assumed.** A tile is ~118dp wide at
 /// three columns and ~83dp at four, and the state badge beside it is between
@@ -324,10 +543,30 @@ class _HolderRow extends StatelessWidget {
   /// glance in a way a spaced row does not, and it is what makes three fit.
   static const _overlap = 6.0;
 
+  /// Below this the row is exactly the size it has always been.
+  ///
+  /// The trigger is the poster-size setting, not the device: tile width is
+  /// `maxCrossAxisExtent`, so it is capped at the target the setting picks --
+  /// 112, 175 or 360. Small and regular never reach 200 and are untouched at
+  /// any window size. Only "large" posters scale, and they do so on a phone
+  /// too, which is where a 22dp face in a 360dp poster looks least considered.
+  static const _scaleFrom = 200.0;
+
+  /// 1.6 lands a large poster's faces at ~35dp. Past that the row starts
+  /// competing with the title rather than annotating it.
+  static const _maxScale = 1.6;
+
+  /// Unbounded width means an unconstrained parent, not a huge tile, so it
+  /// scales by nothing -- the same reading [_slotsIn] gives it.
+  static double _scaleFor(double width) =>
+      width.isFinite ? (width / _scaleFrom).clamp(1.0, _maxScale) : 1.0;
+
   /// The width [count] circles need: each costs the uncovered part, and the
   /// last one shows whole.
-  static double _widthFor(int count) =>
-      count <= 0 ? 0 : (count - 1) * (_diameter - _overlap) + _diameter;
+  static double _widthFor(int count, [double scale = 1.0]) => count <= 0
+      ? 0
+      : (count - 1) * (_diameter * scale - _overlap * scale) +
+            _diameter * scale;
 
   @override
   Widget build(BuildContext context) {
@@ -340,7 +579,8 @@ class _HolderRow extends StatelessWidget {
       builder: (context, constraints) {
         // How many circles fit, one more than the faces because the `+N` is
         // one too.
-        final slots = _slotsIn(constraints.maxWidth);
+        final scale = _scaleFor(constraints.maxWidth);
+        final slots = _slotsIn(constraints.maxWidth, scale);
         final showsEveryone =
             holders.length <= slots && holders.length <= _maxFaces;
 
@@ -358,6 +598,7 @@ class _HolderRow extends StatelessWidget {
           theme,
           l10n,
           faces: showsEveryone ? holders.length : slots - 1,
+          scale: scale,
         );
       },
     );
@@ -367,23 +608,24 @@ class _HolderRow extends StatelessWidget {
     ThemeData theme,
     AppLocalizations l10n, {
     required int faces,
+    required double scale,
   }) {
     final hidden = holders.length - faces;
     final circles = faces + (hidden > 0 ? 1 : 0);
 
     return SizedBox(
-      width: _widthFor(circles),
-      height: _diameter,
+      width: _widthFor(circles, scale),
+      height: _diameter * scale,
       child: Stack(
         children: [
           for (var i = 0; i < circles; i++)
             Positioned(
-              left: i * (_diameter - _overlap),
+              left: i * (_diameter * scale - _overlap * scale),
               child: Container(
                 // A ring in the surface colour, because a dark avatar over a
                 // dark poster is one shape rather than two — and posters are
                 // arbitrary images, so there is no colour to design against.
-                padding: const EdgeInsets.all(_ring),
+                padding: EdgeInsets.all(_ring * scale),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: theme.colorScheme.surface,
@@ -392,14 +634,14 @@ class _HolderRow extends StatelessWidget {
                     ? UserAvatar(
                         name: holders[i].name,
                         avatarUrl: holders[i].avatarUrl,
-                        radius: _radius,
+                        radius: _radius * scale,
                         // `CircleAvatar` sizes its letter for a 40dp avatar
                         // whatever the radius, so the fallback needs telling.
                         textStyle: theme.textTheme.labelSmall,
                       )
                     : _MoreCircle(
                         label: l10n.libraryHoldersMore(hidden),
-                        radius: _radius,
+                        radius: _radius * scale,
                       ),
               ),
             ),
@@ -409,10 +651,10 @@ class _HolderRow extends StatelessWidget {
   }
 
   /// How many circles the width handed down will take.
-  static int _slotsIn(double width) {
+  static int _slotsIn(double width, [double scale = 1.0]) {
     if (!width.isFinite) return _maxFaces + 1;
     var slots = 0;
-    while (slots < _maxFaces + 1 && _widthFor(slots + 1) <= width) {
+    while (slots < _maxFaces + 1 && _widthFor(slots + 1, scale) <= width) {
       slots++;
     }
     return slots;

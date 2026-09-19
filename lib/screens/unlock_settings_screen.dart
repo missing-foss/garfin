@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
+import '../providers/app_providers.dart';
+import '../providers/settings_providers.dart';
 import '../providers/unlock_providers.dart';
 import '../repositories/unlock_settings_store.dart';
 import '../widgets/adaptive_layout.dart';
@@ -44,6 +46,36 @@ class _UnlockSettingsScreenState extends ConsumerState<UnlockSettingsScreen> {
             onChanged: (value) async {
               await _controller.setRequired(value);
               if (mounted) setState(() {});
+            },
+          ),
+          const Divider(),
+          // **Here rather than under Looks**, because it is not an appearance
+          // choice: it moves the window flag that the lock's own recents cover
+          // used to depend on, and a parent deciding about it is deciding
+          // about the same thing the switch above is about.
+          Consumer(
+            builder: (context, ref, _) {
+              // **What it costs, where it costs it.** Below Android 13 the
+              // recents thumbnail is covered by this flag and nothing else, so
+              // allowing capture gives that snapshot back — the half a parent
+              // cannot infer from "screenshots are blocked". Unknown counts as
+              // uncovered: a warning shown where it was not needed is the
+              // cheaper mistake.
+              final covered =
+                  ref.watch(recentsCoveredProvider).asData?.value ?? false;
+              return SwitchListTile(
+                value: ref.watch(settingsProvider).allowScreenshots,
+                isThreeLine: !covered,
+                title: Text(l10n.settingsAllowScreenshots),
+                subtitle: Text(
+                  covered
+                      ? l10n.settingsAllowScreenshotsSubtitle
+                      : '${l10n.settingsAllowScreenshotsSubtitle}\n'
+                          '${l10n.settingsAllowScreenshotsCost}',
+                ),
+                onChanged:
+                    ref.read(settingsProvider.notifier).setAllowScreenshots,
+              );
             },
           ),
           const Divider(),

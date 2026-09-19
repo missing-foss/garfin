@@ -28,4 +28,47 @@ void main() {
       reason: 'bump lib/app_info.dart when you bump pubspec.yaml',
     );
   });
+
+  /// The About screen groups the 201-package licence list into *what Garfin
+  /// chose* and *what Flutter brought*, and the first half is this const.
+  ///
+  /// A hand-kept list of dependencies is exactly the kind that rots: add a
+  /// package, forget the list, and the screen quietly under-reports what the
+  /// app depends on. Deriving it from `pubspec.yaml` here is what stops that,
+  /// the same trick [appVersion] uses.
+  ///
+  /// **SDK packages are excluded on both sides**, because they ship under
+  /// Flutter's own licence entry rather than one of their own — a row for
+  /// `flutter_localizations` would open on nothing.
+  test('directDependencies matches pubspec.yaml', () {
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    final block = RegExp(r'^dependencies:$(.*?)^dev_dependencies:$',
+            multiLine: true, dotAll: true)
+        .firstMatch(pubspec);
+    expect(block, isNotNull, reason: 'no `dependencies:` block in pubspec.yaml');
+
+    final lines = block!.group(1)!.split('\n');
+    final found = <String>[];
+    for (var i = 0; i < lines.length; i++) {
+      final name = RegExp(r'^  ([a-z0-9_]+):').firstMatch(lines[i]);
+      if (name == null) continue;
+      // `foo:\n    sdk: flutter` — the SDK form, which carries no licence of
+      // its own. Looked at rather than assumed: the value may be on the same
+      // line (`intl: any`) or the next.
+      final next = i + 1 < lines.length ? lines[i + 1] : '';
+      if (next.trimLeft().startsWith('sdk:')) continue;
+      if (name.group(1) == 'flutter') continue;
+      found.add(name.group(1)!);
+    }
+    found.sort();
+
+    expect(found, isNotEmpty, reason: 'parsed no dependencies — the regex broke, '
+        'and an empty list would pass a comparison against an empty const');
+    expect(
+      directDependencies,
+      found,
+      reason: 'update directDependencies in lib/app_info.dart when you add or '
+          'remove a dependency',
+    );
+  });
 }

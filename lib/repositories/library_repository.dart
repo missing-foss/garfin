@@ -27,7 +27,7 @@ class LibraryEntry {
       state == LibraryItemState.blocked;
 }
 
-/// A screenful of the grid, plus where to resume.
+/// A page of the grid, plus where to resume.
 class LibrarySlice {
   const LibrarySlice({
     required this.entries,
@@ -71,16 +71,50 @@ class LibraryRepository {
   final JellyfinApi _api;
   final String _adminUserId;
 
+  /// One page of the grid.
+  ///
+  /// **240, not a screenful.** Measured on a 412dp phone at the regular poster
+  /// size: `maxCrossAxisExtent: 175` gives three columns and about three rows
+  /// on screen, so nine tiles are visible and 240 is roughly **27 screens** of
+  /// scrolling between fetches. At 24 it was under three, so the grid asked the
+  /// server for more rows every couple of flicks.
+  ///
+  /// The cost of asking for ten times as many is not ten times: measured on
+  /// 10.11.11 against 1500 films, `Limit=24` answers in 26 ms and `Limit=240`
+  /// in 34 ms, because the per-request constant dominates at 24. See
+  /// `docs/JELLYFIN-API.md` § *how large a `Limit` costs what*.
+  ///
+  /// It also crosses a threshold that has nothing to do with the server: `dio`
+  /// decodes a response body **off the main isolate only above 50 KB**
+  /// (`FusedTransformer(contentLengthIsolateThreshold: 50 * 1024)`). A 24-row
+  /// page is 11.9 KB and is decoded on the UI thread; a 240-row page is 118.9
+  /// KB and is not. So the bigger page moves work off the thread that draws.
+  static const pageSize = 240;
+
   /// How many items to ask for when the answer is going to be filtered.
   ///
-  /// Filtering client-side means a request for one screenful can come back
-  /// almost empty, so ask for more than a screenful when hiding is on. This is
-  /// a window size, not a page size — [fetch] keeps going until it has enough.
-  static const pageSize = 24;
-  static const filteringWindow = 96;
+  /// Filtering client-side means a request can come back with fewer rows than
+  /// it returned, so [fetch] keeps going until it has enough — this is a window
+  /// size, not a page size.
+  ///
+  /// **Equal to [pageSize] now, where it used to be four times it.** That
+  /// multiple bought a single round trip when a quarter of the rows survived,
+  /// and it was the right trade against a 24-row page: one extra request was
+  /// expensive, 96 rows were cheap. At 240 the trade inverts. Most of a
+  /// library is *not* given to any one child, so survival is usually high, and
+  /// asking for 960 to keep 240 would over-fetch by four on the common path to
+  /// save one refill on the rare one. The refill loop already handles the rare
+  /// one, and the budget below is sized so it can.
+  static const filteringWindow = pageSize;
 
   /// How many requests one call may make before giving up and returning a
   /// short screen: one initial page plus five refills.
+  ///
+  /// **This is the budget for one page.** A call asking for a restored
+  /// window gets more, in proportion — see [fetch]'s `want`. Holding it at six
+  /// for a window of ten pages would return a third of it and report success,
+  /// which is the failure mode a partial fix has: it looks like the bug, only
+  /// less often.
   ///
   /// A library where nearly everything is shared would otherwise walk the whole
   /// thing to fill one screen. A short screen with more still to come is a
@@ -92,7 +126,7 @@ class LibraryRepository {
   /// counting fetches is what made the old `<=` guard read as an off-by-one.
   static const maxFetches = 6;
 
-  /// At least one screenful, for [child] or for everyone when null.
+  /// At least one page, for [child] or for everyone when null.
   ///
   /// May return more than [pageSize] and deliberately does not trim: a window
   /// that survived filtering is already fetched and already classified, so
@@ -102,14 +136,35 @@ class LibraryRepository {
   /// selecting a child changes what tiles *mean*, never which exist. That is
   /// what makes "not given yet" answerable: an item the child cannot see is
   /// still on the grid to be given.
+  ///
+  /// **[view] narrows what is kept, and never what is asked for.** All three
+  /// views run the same query as the administrator and differ only in which
+  /// classified entries survive — so [LibraryView.given] is a lens on that one
+  /// view rather than a second one, and switching back costs nothing and loses
+  /// nothing. Re-querying as the child would have produced the same list while
+  /// quietly deleting the administrator's, which is what every "not given yet"
+  /// number is computed against.
+  /// [want] is how many entries to come back with, and defaults to one
+  /// page. The grid asks for more only to **restore a window it already
+  /// had** — a refresh after a write rebuilds this provider, and rebuilding it
+  /// at one page throws away every page the parent scrolled to.
   Future<LibrarySlice> fetch({
     required int startIndex,
+    int want = pageSize,
     JellyfinUser? child,
-    bool hideShared = false,
+    // Defaulted to [LibraryView.all] because that is what `hideShared: false`
+    // meant, and a default that narrows is a default that hides items from
+    // every caller who did not think about it.
+    LibraryView view = LibraryView.all,
     LibraryFilters filters = const LibraryFilters(),
+    String sortBy = 'SortName',
+    String sortOrder = 'Ascending',
   }) async {
     final labels = _labelsFor(child);
-    final filtering = hideShared && labels.isNotEmpty;
+    // Both narrowing views need a label to narrow by; with none, every item
+    // classifies the same way and the window would page through the whole
+    // library to collect either everything or nothing.
+    final filtering = view != LibraryView.all && labels.isNotEmpty;
 
     final collected = <LibraryEntry>[];
     var cursor = startIndex;
@@ -117,11 +172,44 @@ class LibraryRepository {
     var hasMore = true;
     var fetches = 0;
 
-    while (hasMore && collected.length < pageSize && fetches < maxFetches) {
+    // One request's worth, and a budget of one extra request per page of
+    // window asked for. Dividing by [pageSize] rather than by the request size
+    // is deliberate: it bounds the call in pages of *result*, which is what a
+    // caller asked for, and stays right whether or not the server honours a
+    // large limit in one go.
+    final perRequest = filtering ? filteringWindow : want;
+    final budget = maxFetches + (want ~/ pageSize);
+
+    while (hasMore && collected.length < want && fetches < budget) {
       final page = await _api.libraryPage(
         userId: _adminUserId,
         startIndex: cursor,
-        limit: filtering ? filteringWindow : pageSize,
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+        // **A restore is one request when nothing is being filtered out.**
+        //
+        // Measured on 10.11.11 against 1500 films, with a control alongside:
+        // `Limit=1500` answers in about 77 ms and `Limit=5000` returns
+        // everything that exists rather than erroring, so there is no ceiling
+        // to discover by being refused one. The same 1440 rows cost ~88 ms in
+        // one call and ~1553 ms as sixty calls of 24 down a kept-alive
+        // connection — well over ten times, of which 23 ms is per-request
+        // constant, so the gap is the server's work rather than the bench's.
+        //
+        // Whole milliseconds and "well over ten times" on purpose: four sweeps
+        // of the same fixture moved these by several ms and the ratio between
+        // fifteen and eighteen. `docs/JELLYFIN-API.md` § *how large a `Limit`
+        // costs what* carries one run in full, and is the copy to update — a
+        // number kept in two places drifts, which is how this comment spent a
+        // push disagreeing with that section.
+        //
+        // Server-side only. Nothing here measures what parsing 743 KB and
+        // classifying 1500 entries costs on a phone.
+        //
+        // The filtering case keeps its window: entries are dropped after they
+        // arrive, so the refills are what make the count come out right, and
+        // asking for `want` there would still need them.
+        limit: perRequest,
         filters: filters,
         // The cap is the child's own, straight out of their policy. Asking the
         // server to apply it is not a visibility computation — it is a filter
@@ -132,8 +220,42 @@ class LibraryRepository {
       cursor = page.nextStartIndex;
       hasMore = page.hasMore;
 
-      final entries = await _classify(page.items, child: child, labels: labels);
-      collected.addAll(filtering ? entries.where((e) => !e.isShared) : entries);
+      // **A collection with nothing in it is dropped before anything else.**
+      // There is nothing in it to give or withhold, its assign sheet would have
+      // no members to write to, and the share ring is already suppressed for
+      // it — so the tile could only ever be a row a parent cannot act on.
+      //
+      // It also saves a request rather than only a row: the grid asks for one
+      // membership per *visible* collection tile, and an empty set's answer can
+      // only ever be "nothing". A row that is never drawn never asks.
+      //
+      // Measured on 10.11.11: an empty `BoxSet` reports `ChildCount: 0`, the
+      // field present rather than omitted, and `/Items` has no server-side way
+      // to exclude them — 86 query parameters and none about child counts.
+      // `null` therefore means *the server did not say*, which is not the same
+      // as empty and is kept.
+      //
+      // **The window is not widened for this, and the loop above is why.** A
+      // dropped row can leave a page short in any view, including `all`; the
+      // `collected.length < want` condition simply fetches again, and the
+      // retry costs a round trip only when an empty set actually appears,
+      // which is rare.
+      //
+      // This used to add that widening to [filteringWindow] everywhere would
+      // make every parent pay a page four times the size. That price is gone:
+      // the window is now the same number as the page, so widening would cost
+      // nothing. The reason stands on the loop alone.
+      final worthDrawing = page.items
+          .where((item) => !item.isCollection || item.childCount != 0)
+          .toList(growable: false);
+
+      final entries =
+          await _classify(worthDrawing, child: child, labels: labels);
+      collected.addAll(switch (filtering ? view : LibraryView.all) {
+        LibraryView.toGive => entries.where((e) => !e.isShared),
+        LibraryView.given => entries.where((e) => e.isShared),
+        LibraryView.all => entries,
+      });
       fetches++;
 
       // Nothing came back at all — the server has run out, and looping again

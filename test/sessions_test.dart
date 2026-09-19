@@ -240,7 +240,11 @@ void main() {
   });
 
   group('the card, which is where the wrong id would be passed', () {
-    Future<void> pumpCard(WidgetTester tester, ActiveSession active) async {
+    Future<void> pumpCard(
+      WidgetTester tester,
+      ActiveSession active, {
+      Locale? locale,
+    }) async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final prefs = await SharedPreferences.getInstance();
       await tester.pumpWidget(
@@ -259,6 +263,7 @@ void main() {
             ),
           ],
           child: MaterialApp(
+            locale: locale,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
@@ -277,6 +282,19 @@ void main() {
       playing: 'Paddington',
     ))!;
 
+    /// The same session on a device that accepts remote commands.
+    ///
+    /// The default fixture reports `SupportsRemoteControl: false`, which is
+    /// now enough to disable Stop — so every test that drives that button has
+    /// to say it is talking to a device that claims it can be driven.
+    final emmaRemote = ActiveSession.fromJson(sessionJson(
+      user: 'kid-1',
+      userName: 'Emma',
+      device: 'emma-tablet',
+      playing: 'Paddington',
+      remote: true,
+    ))!;
+
     testWidgets('ending a session sends the device id, not the session id',
         (tester) async {
       // The API takes `deviceId:`, and the session carries both — `session-…`
@@ -291,6 +309,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('End session').last);
       await tester.pumpAndSettle();
+      // The revoke waits for the stop to settle first, so it has not happened
+      // yet at this point — see "the stop goes out before the revoke".
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
 
       final deletes = server.requests.where((r) => r.method == 'DELETE');
       expect(deletes, hasLength(1));
@@ -301,6 +323,46 @@ void main() {
       // widget tree unless the test waits for it.
       await tester.pump(const Duration(seconds: 4));
       await tester.pump();
+    });
+
+    testWidgets('the confirmation says what ending a session does not do',
+        (tester) async {
+      // The revoke is real -- the token 401s -- but a film already playing may
+      // carry on, and Garfin cannot observe that: an ended session leaves
+      // /Sessions, so the read-back that catches an ignored Stop is blind here
+      // by construction. The dialog is the only place the limit can be stated,
+      // which is why it is pinned by a test rather than left to the catalogue.
+      await pumpCard(tester, emma);
+
+      await tester.tap(find.text('End session'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('will not stop the film'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('and says it in French too', (tester) async {
+      // The English half of this sentence is pinned above. This is the other
+      // half, and it needs its own assertion for the same reason the sentence
+      // exists at all: an ended session is gone from `/Sessions` by
+      // definition, so there is no read-back that could catch a film that
+      // kept playing. **The wording is the only guard**, and neither l10n
+      // gate can tell whether it still says anything -- `gen-l10n` checks
+      // that the key is present and its placeholders parse, and the copy
+      // rules ban words rather than requiring them. Delete this clause from
+      // the French catalogue and, without this test, the suite stays green
+      // for the parents who would be reading it.
+      //
+      // "peut continuer" rather than a longer fragment: it is the half that
+      // carries the meaning, and it does not move if the rest is reworded.
+      await pumpCard(tester, emma, locale: const Locale('fr'));
+
+      await tester.tap(find.text('Fermer la session'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining("n'arrêtera pas le film"), findsOneWidget);
     });
 
     testWidgets('nothing is ended until the parent confirms', (tester) async {
@@ -317,7 +379,7 @@ void main() {
     });
 
     testWidgets('stopping playback goes to the session id', (tester) async {
-      await pumpCard(tester, emma);
+      await pumpCard(tester, emmaRemote);
 
       await tester.tap(find.text('Stop playback'));
       await tester.pumpAndSettle();
@@ -377,7 +439,7 @@ void main() {
             device: 'emma-tablet',
             playing: 'Paddington'),
       ]);
-      await pumpCard(tester, emma);
+      await pumpCard(tester, emmaRemote);
 
       await confirm(tester, 'Stop playback');
 
@@ -399,7 +461,7 @@ void main() {
             device: 'emma-tablet',
             playing: 'Paddington'),
       ]);
-      await pumpCard(tester, emma);
+      await pumpCard(tester, emmaRemote);
 
       await confirm(tester, 'Stop playback');
       await tester.pump(const Duration(seconds: 4));
@@ -417,7 +479,7 @@ void main() {
       server.on('/Sessions', json: [
         sessionJson(user: 'kid-1', userName: 'Emma', device: 'emma-tablet'),
       ]);
-      await pumpCard(tester, emma);
+      await pumpCard(tester, emmaRemote);
 
       await confirm(tester, 'Stop playback');
       await tester.pump(const Duration(seconds: 4));
@@ -442,27 +504,138 @@ void main() {
       await pumpCard(tester, emma);
 
       await confirm(tester, 'End session');
+      // The stop settles, then the revoke goes out and the pending sentence
+      // appears; the return read-back is a second settle after that.
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
       expect(find.text('emma-tablet is signed out.'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 4));
       await tester.pump();
 
-      expect(find.text('emma-tablet signed out, then signed straight back in.'),
+      expect(
+          find.text('emma-tablet stopped playing, then signed straight back in.'),
           findsOneWidget);
     });
 
-    testWidgets('an ended session that stays ended says nothing further',
+    testWidgets('the stop goes out before the revoke, not after',
         (tester) async {
-      // The revoke is measured to hold, so confirming it adds nothing the
-      // first sentence did not already say.
+      // **The ordering is the fix.** End is specified to stop the film and
+      // kill the session; it used to do only the second, and a revoke-first
+      // implementation is the same bug wearing the fix's clothes -- the stop
+      // would be addressed to a session the revoke had already removed, and
+      // the read-back would have nothing left to look at. Reverse the two
+      // calls in `_end` and this is what fails.
+      server.on('/Sessions', json: [
+        sessionJson(
+            user: 'kid-1',
+            userName: 'Emma',
+            device: 'emma-tablet',
+            playing: 'Paddington'),
+      ]);
+      await pumpCard(tester, emma);
+
+      await confirm(tester, 'End session');
+
+      // The stop has gone; the revoke is still waiting on the settle.
+      expect(server.requests.where((r) => r.path.endsWith('/Playing/Stop')),
+          hasLength(1));
+      expect(server.requests.where((r) => r.method == 'DELETE'), isEmpty);
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
+
+      expect(server.requests.where((r) => r.method == 'DELETE'), hasLength(1));
+      final paths = server.requests.map((r) => r.path).toList();
+      expect(paths.indexOf('/Sessions/session-emma-tablet/Playing/Stop'),
+          lessThan(paths.indexOf('/Devices')));
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
+    });
+
+    testWidgets('a device that ignores the stop is signed out and said so',
+        (tester) async {
+      // The case the parent most needs and the one a vanished card hides: the
+      // revoke held, and the film is still on the screen. Measured upstream --
+      // the media path is not token-gated, so revoking cannot interrupt it.
+      // Two read-backs, scripted in the order they happen: still playing when
+      // the stop is checked, then gone from the list when the revoke is. Both
+      // are queued up front because a lone queued reply is sticky rather than
+      // consumed, so a second one added later would answer the wrong call.
+      server.on('/Sessions', json: [
+        sessionJson(
+            user: 'kid-1',
+            userName: 'Emma',
+            device: 'emma-tablet',
+            playing: 'Paddington'),
+      ]);
       server.on('/Sessions', json: <Map<String, dynamic>>[]);
       await pumpCard(tester, emma);
 
       await confirm(tester, 'End session');
       await tester.pump(const Duration(seconds: 4));
       await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
 
-      expect(find.text('emma-tablet is signed out.'), findsOneWidget);
+      expect(find.text("emma-tablet is signed out, but it's still playing."),
+          findsOneWidget);
+    });
+
+    testWidgets('Stop is not offered to a device that says it cannot obey',
+        (tester) async {
+      // Reverses the decision that previously stood here. The flag is the
+      // client's own claim, so this does withdraw a control that might have
+      // worked -- that is the price, and the ruling took it: a button known in
+      // advance not to work is the same dishonesty as a toast that reports
+      // intent as outcome. End stays, because the revoke works regardless.
+      await pumpCard(tester, emma);
+
+      final stop = tester.widget<TextButton>(
+        find.ancestor(
+            of: find.text('Stop playback'), matching: find.byType(TextButton)),
+      );
+      expect(stop.onPressed, isNull);
+
+      final end = tester.widget<TextButton>(
+        find.ancestor(
+            of: find.text('End session'), matching: find.byType(TextButton)),
+      );
+      expect(end.onPressed, isNotNull);
+    });
+
+    testWidgets('a controllable device is told the film may be ignored, not that it may not stop',
+        (tester) async {
+      // The other confirmation body. Both are the only place these limits can
+      // be stated, and neither l10n gate reads a sentence for meaning.
+      await pumpCard(tester, emmaRemote);
+
+      await tester.tap(find.text('End session'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('keeps playing'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('End reports both halves: the film and the device',
+        (tester) async {
+      // What End is *for*. The revoke is measured to hold, but on its own that
+      // says nothing about the screen the child is looking at — so the
+      // sentence carries both, and neither half is inferred from a 204.
+      server.on('/Sessions', json: <Map<String, dynamic>>[]);
+      await pumpCard(tester, emma);
+
+      await confirm(tester, 'End session');
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
+
+      expect(find.text('emma-tablet stopped playing and is signed out.'),
+          findsOneWidget);
     });
   });
 

@@ -7,14 +7,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
+import 'package:garfin/models/collection_set.dart';
 import 'package:garfin/models/jellyfin_user.dart';
 import 'package:garfin/models/kid_summary.dart';
 import 'package:garfin/models/library_count.dart';
 import 'package:garfin/models/library_filters.dart';
 import 'package:garfin/models/parental_rating.dart';
 import 'package:garfin/providers/app_providers.dart';
+import 'package:garfin/providers/collection_providers.dart';
 import 'package:garfin/providers/kids_providers.dart';
 import 'package:garfin/providers/library_providers.dart';
+import 'package:garfin/repositories/library_repository.dart';
 import 'package:garfin/repositories/device_identity.dart';
 import 'package:garfin/repositories/jellyfin_api.dart';
 import 'package:garfin/screens/library_screen.dart';
@@ -136,7 +139,7 @@ void main() {
         kidsOverviewProvider(session).overrideWith(
           (ref) async => KidsOverview(
             shortlisted: [
-              KidSummary(user: child, visibleCount: 0, libraryTotal: 0),
+              KidSummary(user: child),
             ],
             withoutShortlist: const [],
           ),
@@ -279,6 +282,8 @@ void main() {
       required int total,
       required int tagged,
       required List<Map<String, dynamic>> page,
+      String? search,
+      SearchScope scope = SearchScope.title,
     }) async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final prefs = await SharedPreferences.getInstance();
@@ -324,22 +329,42 @@ void main() {
         kidsOverviewProvider(session).overrideWith(
           (ref) async => KidsOverview(
             shortlisted: [
-              KidSummary(user: child, visibleCount: 0, libraryTotal: 0),
+              KidSummary(user: child),
             ],
             withoutShortlist: const [],
           ),
         ),
         parentalRatingLadderProvider(session)
             .overrideWith((ref) async => const ParentalRatingLadder.empty()),
+        // A search reads the collection index to add the sets its films are
+        // in. Stubbed empty so it takes none of the scripted `/Items` replies
+        // above, whose order is the whole point of this harness.
+        if (search != null)
+          collectionIndexProvider(session)
+              .overrideWith((ref) async => const CollectionIndex.empty()),
       ]);
       addTearDown(container.dispose);
+      if (scope != SearchScope.title) {
+        // Resolves, so the query carries `person=` and the grid is drawn.
+        // A resolve that found nothing would empty the grid and take the
+        // line with it, and a test asserting "no relevance" would then pass
+        // on a screen with no line at all.
+        server.on('/Search/Hints', json: {
+          'SearchHints': [
+            {'Name': 'Audrey Tautou', 'Type': 'Person'},
+          ],
+        });
+        container.read(libraryFiltersProvider.notifier).setScope(scope);
+      }
+      if (search != null) {
+        container.read(libraryFiltersProvider.notifier).setSearch(search);
+      }
       await container.read(kidsOverviewProvider(session).future);
       container.read(pickingForProvider.notifier).select(child.id);
       // Show shared: the default, and the configuration the second defect
       // lived in — the grid then holds titles the child already has.
-      if (container.read(hideSharedProvider)) {
-        container.read(hideSharedProvider.notifier).toggle();
-      }
+      // This test is not about which slice is shown; show all of it.
+      container.read(libraryViewProvider.notifier).set(LibraryView.all);
 
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -356,18 +381,24 @@ void main() {
 
     testWidgets('the number is the library\'s, not the page buffer\'s',
         (tester) async {
-      // The original defect: 24 tiles loaded out of 400, and the line said
-      // "24 things Emma hasn't got yet" — a number that grew as you scrolled.
+      // The original defect: a page of tiles loaded out of 400, and the line
+      // said how many *tiles* — a number that grew as you scrolled.
+      //
+      // The fixture is one whole page, not a short one: `fetch` keeps asking
+      // until it has a page, so a short first answer sends it back for another
+      // and it consumes the next scripted reply — which is the count's, and
+      // the harness then answers the grid with it.
+      const buffer = LibraryRepository.pageSize;
       await pumpScreen(
         tester,
         child: user(),
         total: 400,
         tagged: 24,
-        page: [for (var i = 0; i < 24; i++) item(i)],
+        page: [for (var i = 0; i < buffer; i++) item(i)],
       );
 
       expect(find.text("376 things Emma hasn't got yet"), findsOneWidget);
-      expect(find.text("24 things Emma hasn't got yet"), findsNothing);
+      expect(find.text("\$buffer things Emma hasn't got yet"), findsNothing);
     });
 
     testWidgets('it counts what is outstanding, not what is on the grid',
@@ -397,7 +428,7 @@ void main() {
             name: 'Sam', allowed: const [], blocked: const ['no-horror']),
         total: 400,
         tagged: 7,
-        page: [for (var i = 0; i < 24; i++) item(i)],
+        page: [for (var i = 0; i < LibraryRepository.pageSize; i++) item(i)],
       );
 
       expect(find.text('7 things kept from Sam'), findsOneWidget);
@@ -411,11 +442,70 @@ void main() {
             allowed: const ['kids-emma'], blocked: const ['no-horror']),
         total: 400,
         tagged: 0,
-        page: [for (var i = 0; i < 24; i++) item(i)],
+        page: [for (var i = 0; i < LibraryRepository.pageSize; i++) item(i)],
       );
 
       expect(find.text('400 things'), findsOneWidget);
       expect(find.textContaining("hasn't got yet"), findsNothing);
+    });
+
+    // Ruled on the search issue, option A. The server orders a search by its
+    // own relevance and ignores `SortBy`, measured on stock 10.11.11 and
+    // 12.1.0, so the sort chosen in Settings does nothing while one is active.
+    testWidgets('while a search is active the line says it is sorted by '
+        'relevance', (tester) async {
+      await pumpScreen(
+        tester,
+        child: user(
+            name: 'Sam', allowed: const [], blocked: const ['no-horror']),
+        total: 400,
+        tagged: 7,
+        page: [for (var i = 0; i < LibraryRepository.pageSize; i++) item(i)],
+        search: 'paddington',
+      );
+
+      expect(find.text('7 things kept from Sam · sorted by relevance'),
+          findsOneWidget);
+    });
+
+    testWidgets('a cast & crew search does not claim it: it sends person=, '
+        'not searchTerm, and the sort was never measured there', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        child: user(
+            name: 'Sam', allowed: const [], blocked: const ['no-horror']),
+        total: 400,
+        tagged: 7,
+        page: [for (var i = 0; i < LibraryRepository.pageSize; i++) item(i)],
+        search: 'tautou',
+        scope: SearchScope.castAndCrew,
+      );
+
+      expect(
+        server.requests.any((r) => r.queryParameters['person'] == 'Audrey Tautou'),
+        isTrue,
+        reason: 'the control: the resolve happened and the filter went out',
+      );
+      expect(find.text('7 things kept from Sam'), findsOneWidget);
+      expect(find.textContaining('relevance'), findsNothing);
+    });
+
+    testWidgets('and without one it does not', (tester) async {
+      // The control for the case above: the same screen, no search. Without
+      // it, a suffix added unconditionally would pass the first test.
+      await pumpScreen(
+        tester,
+        child: user(
+            name: 'Sam', allowed: const [], blocked: const ['no-horror']),
+        total: 400,
+        tagged: 7,
+        page: [for (var i = 0; i < LibraryRepository.pageSize; i++) item(i)],
+      );
+
+      expect(find.text('7 things kept from Sam'), findsOneWidget);
+      expect(find.textContaining('relevance'), findsNothing);
     });
   });
 }

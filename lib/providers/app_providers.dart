@@ -8,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../repositories/auth_repository.dart';
 import '../repositories/birth_year_store.dart';
+import '../repositories/window_security.dart';
 import '../repositories/device_identity.dart';
+import '../repositories/device_warning.dart';
 import '../repositories/jellyfin_api.dart';
 import '../repositories/server_settings_store.dart';
 import '../repositories/token_store.dart';
@@ -47,6 +49,25 @@ final birthYearStoreProvider = Provider<BirthYearStore>(
 
 final serverSettingsStoreProvider = Provider<ServerSettingsStore>(
   (ref) => ServerSettingsStore(ref.watch(sharedPreferencesProvider)),
+);
+
+/// The window's capture flag, overridable in tests.
+final windowSecurityProvider = Provider<WindowSecurity>(
+  (ref) => const WindowSecurity(),
+);
+
+/// The certified-device warning, overridable in tests.
+///
+/// Not `const`: it remembers whether this launch has already asked, so the
+/// dialog is not raised again every time the gate reopens.
+final deviceWarningProvider = Provider<DeviceWarning>((ref) => DeviceWarning());
+
+/// Whether allowing capture also uncovers the recents thumbnail.
+///
+/// Asked once and cached: it is a property of the device's Android version,
+/// which does not change while the app is running.
+final recentsCoveredProvider = FutureProvider<bool>(
+  (ref) => ref.watch(windowSecurityProvider).isRecentsCovered(),
 );
 
 final jellyfinApiFactoryProvider = Provider<JellyfinApiFactory>(

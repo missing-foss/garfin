@@ -18,7 +18,14 @@ class LibraryItem {
     this.primaryImageTag,
     this.officialRating,
     this.productionYear,
+    this.runTimeTicks,
+    this.productionLocations = const [],
+    this.communityRating,
+    this.criticRating,
+    this.genres = const [],
+    this.studios = const [],
     this.childCount,
+    this.recursiveItemCount,
   });
 
   final String id;
@@ -56,8 +63,73 @@ class LibraryItem {
 
   final int? productionYear;
 
-  /// For a `BoxSet`, how many items it holds. Null for anything else.
+  /// How long the item runs, in the server's 100-nanosecond units.
+  ///
+  /// **Null means the server has no duration for it, not that it was not
+  /// asked for.** Measured 2026-09-17 on 12.1.0: a list row carries
+  /// `RunTimeTicks` *unasked* when the item has media streams — a generated 7 s
+  /// file answered `70030000` — and omits the key entirely for a file with
+  /// none. Writing a value through the item DTO does not stick; the server
+  /// derives it. A `BoxSet` never has one. See `docs/JELLYFIN-API.md`
+  /// § Duration and country of origin.
+  final int? runTimeTicks;
+
+  /// Where the item was made, as the metadata provider wrote it.
+  ///
+  /// **English country names, not codes, and a list** — `["United States"]`,
+  /// `["Germany", "France"]` — empty far more often than not in a library of
+  /// ripped files. Absent from a list row until `Fields=ProductionLocations`
+  /// is asked for, which is why this defaults to empty rather than null: the
+  /// caller cannot tell "not asked" from "none" and must not present either as
+  /// a fact.
+  final List<String> productionLocations;
+
+  /// The audience score, **out of ten** — `8.3`.
+  ///
+  /// Measured 2026-09-18 on 12.1.0: arrives on a list row **unasked**, on a
+  /// film and on a series alike. Null means the metadata has none.
+  final double? communityRating;
+
+  /// The critics score, **out of a hundred** — `89`, read as a percentage.
+  ///
+  /// A different scale from [communityRating], which is why the two are never
+  /// formatted alike. Arrives unasked like it; measured present on a film and
+  /// absent on the series fixture, which set none.
+  final double? criticRating;
+
+  /// Genre names, in the server's order. Absent from a list row until
+  /// `Fields=Genres` is asked for, so empty cannot tell "none" from "not asked"
+  /// — the same terms as [productionLocations].
+  final List<String> genres;
+
+  /// Studio names. The server sends `[{Name, Id}]` objects, not strings, and
+  /// needs `Fields=Studios` on a list row. Only the names are kept: nothing here
+  /// looks a studio up.
+  final List<String> studios;
+
+  /// How many children the server counts under this item — **one level down,
+  /// not all the way**.
+  ///
+  /// Measured on 10.11.11, and the distinction is the whole reason
+  /// [recursiveItemCount] exists beside it: for a `BoxSet` this is its films,
+  /// but for a `Series` it is the **seasons**, and for a `Season` the episodes.
+  /// A show with two seasons and five episodes reports `2` here. Absent for a
+  /// `Movie` even when asked for.
+  ///
+  /// Null means the server was not asked — `Fields=ChildCount` — never that the
+  /// item is empty.
   final int? childCount;
+
+  /// How many items sit under this one **all the way down**.
+  ///
+  /// Measured: `5` for the same two-season show whose [childCount] is `2`, and
+  /// equal to [childCount] for a `Season`, whose children are already episodes.
+  /// Absent for a `Movie` even when requested, which is what makes a badge
+  /// guarded on this field safe on a film without a type check.
+  ///
+  /// Requires `Fields=RecursiveItemCount`; absent otherwise, exactly like
+  /// [childCount].
+  final int? recursiveItemCount;
 
   bool get isCollection => type == 'BoxSet';
 
@@ -69,6 +141,13 @@ class LibraryItem {
   /// ancestor of its episodes, while a BoxSet is not an ancestor of its films.
   /// That is why one needs a cascade and the other does not.
   bool get isSeries => type == 'Series';
+
+  /// A film, as opposed to a set or a series.
+  bool get isMovie => type == 'Movie';
+
+  /// Whether the assign sheet draws the detail head for this item: films and
+  /// series (#160). A `BoxSet` stays out, as ruled on #145.
+  bool get hasDetailHead => isMovie || isSeries;
 
   /// Whether this item carries [label], case-insensitively.
   ///
@@ -106,8 +185,27 @@ class LibraryItem {
         primaryImageTag: _primaryImageTag(json),
         officialRating: readString(json, 'OfficialRating'),
         productionYear: readInt(json, 'ProductionYear'),
+        runTimeTicks: readInt(json, 'RunTimeTicks'),
+        productionLocations: readStringList(json, 'ProductionLocations'),
+        communityRating: readDouble(json, 'CommunityRating'),
+        criticRating: readDouble(json, 'CriticRating'),
+        genres: readStringList(json, 'Genres'),
+        studios: _names(json, 'Studios'),
         childCount: readInt(json, 'ChildCount'),
+        recursiveItemCount: readInt(json, 'RecursiveItemCount'),
       );
+
+  /// The `Name` of each object in a `[{Name, Id}]` list, skipping any without
+  /// one.
+  static List<String> _names(Map<String, dynamic> json, String field) {
+    final value = readField(json, field);
+    if (value is! List) return const [];
+    return [
+      for (final entry in value.whereType<Map<String, dynamic>>())
+        if (readString(entry, 'Name') case final name? when name.isNotEmpty)
+          name,
+    ];
+  }
 
   /// Items carry image tags in a map, unlike users which carry one string.
   static String? _primaryImageTag(Map<String, dynamic> json) {

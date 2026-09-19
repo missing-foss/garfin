@@ -47,10 +47,11 @@ android {
     // verify a downloaded APK against it. Only the keystore file and its
     // passwords are sensitive, and .gitignore excludes *.keystore/*.jks.
     //
-    // `expected` starts empty on purpose: generate a brand-new keystore for
-    // Garfin (do NOT reuse trobar-android's), build once with it, read the
-    // fingerprint from the warning this prints, paste it in below, then never
-    // change it again except deliberately.
+    // `expected` is filled in and enforcing: a release build whose keystore
+    // does not match the pinned fingerprint fails rather than producing an APK
+    // that could never be installed as an update. It is not changed again
+    // except deliberately -- a different value means a different key, and a
+    // different key strands every existing install.
     // ---------------------------------------------------------------------
     signingConfigs {
         create("release") {
@@ -62,12 +63,15 @@ android {
             keyAlias = alias
             keyPassword = System.getenv("GARFIN_KEY_PASSWORD") ?: keystorePass
             if (keystorePass.isNotEmpty() && file(keystorePath).exists()) {
-                // Same publisher key as the other app: one release keystore,
-                // held by the release identity alone. Filled in deliberately
-                // rather than left empty -- an empty `expected` makes the
-                // branch below a warning, and a guard that only warns is one
-                // that has already let an unsignable build through once.
-                val expected = "435a96631d400c88ecaf635aeadd1f5bf71f6260d29a614947362d27edf3f52e"
+                // This app's OWN key, not the other app's. The two were briefly
+                // signed by one key; that was never a maintainer decision and
+                // was corrected by generating a fresh key for this app while
+                // the install base was still effectively zero.
+                //
+                // Filled in rather than left empty: an empty `expected` makes
+                // the branch below a warning, and a guard that only warns is
+                // one that has already let an unsignable build through once.
+                val expected = "0b58bc2f1872c39df047ece3c3e0eda39d3f4f77107972f64c4ce8971be97155"
                 val ks = KeyStore.getInstance("PKCS12")
                 file(keystorePath).inputStream().use { ks.load(it, keystorePass.toCharArray()) }
                 val cert = ks.getCertificate(alias) as? X509Certificate
@@ -133,6 +137,41 @@ android {
                     "build unsigned on purpose.")
             }
 
+            // The case the guard above cannot reach: *nothing* was set. With
+            // neither a keystore nor a password there is genuinely nothing here
+            // to distinguish "CI, or a contributor, building release on
+            // purpose" -- which SECURITY.md and the forge workflow positively
+            // permit -- from "a maintainer whose signing environment was never
+            // sourced". Failing would break the first, so this is loud rather
+            // than fatal.
+            //
+            // Loud matters because the quiet version has already happened: a
+            // release APK was built, reported success, carried no `-unsigned`
+            // in its name because Flutter copies the artifact onward and drops
+            // Gradle's suffix, and went out for review before apksigner was
+            // pointed at it. Nothing in the output distinguished it from a
+            // signed build. `dev/verify.sh` is what CATCHES that, by reading
+            // the artifact's real signing state back; this line is what makes
+            // it visible in the build that produced it.
+            //
+            // `error` rather than `warn` or `lifecycle`, and not for severity:
+            // `flutter build apk --release` passes Gradle's error level through
+            // and swallows the other two, so anything quieter is a message
+            // nobody ever reads. Verified on the pinned Flutter by building
+            // with no signing environment and grepping the output -- see the
+            // PR that added this; re-check it if the Flutter pin moves.
+            //
+            // Phrased as a standing fact rather than "building X now", because
+            // this is configuration time: it is evaluated for a debug build
+            // too, where "building an unsigned release APK" would be false.
+            if (!keystorePresent) {
+                logger.error(
+                    "GARFIN: release builds will be UNSIGNED — no keystore at " +
+                    "${releaseSigning.storeFile}. An unsigned APK cannot be " +
+                    "installed or distributed. Source the signing environment " +
+                    "to sign it.")
+            }
+
             signingConfig = if (keystorePresent) releaseSigning else null
         }
     }
@@ -146,4 +185,25 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// ---------------------------------------------------------------------
+// The app's first explicit Android dependency. Everything else compiled
+// in here arrives through Flutter plugins, which declare their own.
+//
+// FreeDroidWarn shows the parent a dialog saying this app will stop
+// installing on certified Android devices once Google's developer
+// verification requirement lands. Garfin is distributed as a sideloaded
+// APK from its Releases page, which is exactly the route that policy
+// closes, and Android is the only platform in this repository -- so
+// there is no part of the audience the warning does not apply to.
+//
+// EXACT TAG, NOT `V1.+`. Upstream's own README gives a dynamic version.
+// A floating coordinate means the artifact can change under a build that
+// is otherwise byte-identical, which is the property release signing
+// exists to deny. Moving this is a deliberate act with a diff, the same
+// as the pinned keystore fingerprint above.
+// ---------------------------------------------------------------------
+dependencies {
+    implementation("com.github.woheller69:FreeDroidWarn:V1.14")
 }

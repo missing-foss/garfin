@@ -118,6 +118,140 @@ void main() {
 
   setUp(build);
 
+  group('the container follows the films, per set', () {
+    test('a removal leaves the container on while a sibling still holds the label',
+        () async {
+      // film-1 is being taken back; film-2 and film-3 still carry the label.
+      // Taking the container off here would strand them: a set the child has
+      // no label for is invisible, so those two would go loose.
+      scriptSet(tags: const ['kids-emma']);
+
+      final outcome = await repository.applyToCollection(
+        collectionId: 'set-1',
+        memberIds: const ['film-1'],
+        diff: take,
+        siblingIds: const ['film-2', 'film-3'],
+      );
+
+      expect(postedTo(), contains('film-1'));
+      expect(postedTo(), isNot(contains('set-1')),
+          reason: 'the container must stay while labelled siblings remain');
+      expect(outcome.setMarked, isTrue);
+    });
+
+    test('a removal takes the container off once no sibling holds the label',
+        () async {
+      // The mirror of the case above, and the one that makes it mean anything:
+      // with the siblings unlabelled there is nothing left to strand.
+      server.on('/Users/admin-1/Items/set-1',
+          json: fullItem('set-1', tags: const ['kids-emma']));
+      server.on('/Users/admin-1/Items/film-1',
+          json: fullItem('film-1', tags: const ['kids-emma']));
+      server.on('/Users/admin-1/Items/film-2',
+          json: fullItem('film-2', tags: const ['scraper-tag']));
+      server.on('/Users/admin-1/Items/film-3',
+          json: fullItem('film-3', tags: const ['scraper-tag']));
+      server.fallback(json: <String, dynamic>{'TotalRecordCount': 10});
+
+      await repository.applyToCollection(
+        collectionId: 'set-1',
+        memberIds: const ['film-1'],
+        diff: take,
+        siblingIds: const ['film-2', 'film-3'],
+      );
+
+      expect(postedTo(), contains('set-1'));
+    });
+
+    test('an unreadable sibling counts as still labelled', () async {
+      // The safe direction: leaving the container on costs an openable set
+      // holding fewer films. Taking it off on a failed read would strand
+      // whatever that sibling actually holds.
+      server.on('/Users/admin-1/Items/set-1',
+          json: fullItem('set-1', tags: const ['kids-emma']));
+      server.on('/Users/admin-1/Items/film-1',
+          json: fullItem('film-1', tags: const ['kids-emma']));
+      server.on('/Users/admin-1/Items/film-2', status: 500);
+      server.fallback(json: <String, dynamic>{'TotalRecordCount': 10});
+
+      await repository.applyToCollection(
+        collectionId: 'set-1',
+        memberIds: const ['film-1'],
+        diff: take,
+        siblingIds: const ['film-2'],
+      );
+
+      expect(postedTo(), isNot(contains('set-1')),
+          reason: 'a read that failed must not decide a write destructively');
+    });
+
+    test('for a block-list child, giving a film takes the container label off '
+        'even while siblings still carry it', () async {
+      // The inversion, and the one this nearly got wrong. `removals` is by raw
+      // `adding`; for a block-list child removing a label is how a film is
+      // GIVEN, and the container losing its label is what makes the set
+      // openable. Gating that on siblings would keep the set invisible to
+      // exactly the child being helped -- and would quietly reinstate the
+      // whole-set-or-nothing rule this entry exists to remove.
+      final sam = child('kid-2', 'Sam', blocked: const ['block-sam']);
+      final giveToSam = TagDiff([
+        TagChange(child: sam, label: 'block-sam', adding: false),
+      ]);
+      scriptSet(tags: const ['block-sam']);
+
+      await repository.applyToCollection(
+        collectionId: 'set-1',
+        memberIds: const ['film-1'],
+        diff: giveToSam,
+        siblingIds: const ['film-2', 'film-3'],
+      );
+
+      expect(postedTo(), contains('film-1'));
+      expect(postedTo(), contains('set-1'),
+          reason: 'the siblings still being blocked is not a reason to keep '
+              'the set shut to the child who was just given a film from it');
+    });
+
+    test('giving one film from inside a set writes that film and the container',
+        () async {
+      // The defect this entry exists for. Phase 3's condition is *what this
+      // write was asked to do*, not *the whole set* — so a partial give is
+      // complete when its own film lands, and the container follows it.
+      scriptSet();
+
+      final outcome = await repository.applyToCollection(
+        collectionId: 'set-1',
+        memberIds: const ['film-1'],
+        diff: give,
+        siblingIds: const ['film-2', 'film-3'],
+      );
+
+      expect(postedTo(), contains('film-1'));
+      expect(postedTo(), contains('set-1'));
+      expect(postedTo(), isNot(contains('film-2')),
+          reason: 'scope is the set in front of the parent, not its siblings');
+      expect(outcome.setMarked, isTrue);
+    });
+
+    test('a partial give whose own film fails leaves the container off',
+        () async {
+      // The condition still bites: "everything this write was asked to do"
+      // is one film here, and it did not land.
+      scriptSet();
+      server.on('/Items/film-1', status: 400);
+
+      final outcome = await repository.applyToCollection(
+        collectionId: 'set-1',
+        memberIds: const ['film-1'],
+        diff: give,
+        siblingIds: const ['film-2', 'film-3'],
+      );
+
+      expect(outcome.setMarked, isFalse);
+      expect(postedTo(), isNot(contains('set-1')));
+    });
+  });
+
   group('ground rule 5 — pre-flight, before anything is written', () {
     test('one unreadable member cancels the whole batch', () async {
       // film-2 has gone: the id is well formed and the server has no such item.

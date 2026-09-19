@@ -9,17 +9,45 @@ import 'dto_json.dart';
 /// `UserPolicy.maxParentalRating` is an integer; this is what turns it back
 /// into something a parent recognises.
 class ParentalRating {
-  const ParentalRating({required this.name, required this.value});
+  const ParentalRating({
+    required this.name,
+    required this.value,
+    this.subScore,
+  });
 
   final String name;
 
   /// The score this rung sits at, or null for a rung that carries no score.
+  ///
+  /// Read from `RatingScore.score` where the server sends it, falling back to
+  /// the deprecated top-level `Value`. The server's own source marks `Value`
+  /// deprecated and populates it from the score, so the two agree today —
+  /// reading the score first is what stops that becoming a silent divergence.
   final int? value;
 
-  factory ParentalRating.fromJson(Map<String, dynamic> json) => ParentalRating(
-        name: readString(json, 'Name') ?? '',
-        value: readInt(json, 'Value'),
-      );
+  /// The second half of the cap, and the reason [value] alone is not it.
+  ///
+  /// **Measured on 10.11.11, 2026-08-26: this is enforced.** Two rungs at the
+  /// same score and different sub-scores are different caps — a child capped at
+  /// `TV-PG` (10/0) is shown `TV-PG` and *not* `TV-PG-D` (10/1). 40 of the 56
+  /// default rungs carry a non-zero sub-score, so this is the majority of the
+  /// ladder rather than a curiosity.
+  ///
+  /// Null for a rung the server sends without a `RatingScore` — the `Unrated`
+  /// entry, and anything from a server predating the field.
+  final int? subScore;
+
+  factory ParentalRating.fromJson(Map<String, dynamic> json) {
+    final score = readMap(json, 'RatingScore');
+    return ParentalRating(
+      name: readString(json, 'Name') ?? '',
+      // `RatingScore.score` first, `Value` as the fallback for older servers.
+      value: score == null
+          ? readInt(json, 'Value')
+          : readInt(score, 'score') ?? readInt(json, 'Value'),
+      subScore: score == null ? null : readInt(score, 'subScore'),
+    );
+  }
 }
 
 /// The rating ladder as fetched from `/Localization/ParentalRatings`.
@@ -41,7 +69,11 @@ class ParentalRating {
 ///
 /// And the ladder is **locale-dependent**, so it must be fetched rather than
 /// hardcoded. A US ladder baked in would mislabel every cap on a server set to
-/// anywhere else. See `docs/JELLYFIN-API.md` § Gotchas.
+/// anywhere else. Measured rather than assumed: four `MetadataCountryCode`
+/// values give four different ladders — 56 rungs for `US`, 26 for `GB`, 24 for
+/// `DE`, 16 for `FR` — and the non-US ones carry the bare numeric certificates
+/// the US ladder has no rung for. See `docs/JELLYFIN-API.md` § The ladder
+/// really is per-country.
 class ParentalRatingLadder {
   const ParentalRatingLadder(this.ratings);
 
@@ -67,42 +99,75 @@ class ParentalRatingLadder {
   /// number alone is more honest than the nearest neighbour — guessing which
   /// way to round a *safety* control is exactly the wrong place to be clever.
   ///
-  /// ## The ladder is not injective, and this returns the first match
+  /// ## The ladder is not injective, and the score alone is not the cap
   ///
-  /// Measured on 10.11.11's default US ladder, 2026-08-05: 56 entries, and
-  /// **six scores carry more than one name**.
+  /// Measured on 10.11.11's default US ladder: 56 entries, and **six scores
+  /// carry more than one name**. This function used to take a score alone and
+  /// return the first name at it, on the argument that every name at a given
+  /// score is the same cap.
   ///
-  /// | Score | Names |
-  /// |---|---|
-  /// | 0 | Approved, G, TV-G, TV-Y |
-  /// | 7 | TV-Y7, TV-Y7-FV |
-  /// | 10 | PG, TV-PG, and 15 TV-PG-\* variants |
-  /// | 14 | TV-14 and 15 variants |
-  /// | 17 | R, NC-17, TV-MA and 7 more |
-  /// | 18 | TV-X, TV-AO |
+  /// **That argument was wrong, and it was measured wrong on 2026-08-26.**
+  /// `MaxParentalSubRating` is enforced by the server: at cap 10/0 a `TV-PG`
+  /// item is visible and a `TV-PG-D` item is hidden. Of the six shared scores,
+  /// **four mix sub-levels**, so 41 of 55 scored rungs could be mislabelled by
+  /// a score-only first match — including reporting `R` for a child actually
+  /// capped at `TV-MA`, which is the more permissive-looking of the two.
   ///
-  /// Jellyfin stores only the integer, so **which name the parent clicked is
-  /// not recoverable** — the information is gone server-side, not lost here.
-  /// A child capped at 10 shows "PG" whether the parent picked PG or TV-PG.
+  /// So the match is on the **pair**. Within one `(score, subScore)` the old
+  /// argument holds and is now correctly scoped: those names really are the
+  /// same cap, admitting the same items, so a first match is accurate about
+  /// the policy while being an unfaithful echo of which label was clicked —
+  /// and which one was clicked is not recoverable, the server storing only the
+  /// numbers.
   ///
-  /// That is deliberate, and it is *not* the same as the missing-rung case
-  /// above, which this refuses. Every name at a given score is the **same
-  /// cap**: score 10 admits exactly the same items whichever of those 17
-  /// labels was clicked. So a first-match name is accurate about the policy
-  /// while merely being an unfaithful echo of the click. A neighbouring rung
-  /// would be inaccurate about the policy, which is why that one returns null.
+  /// An earlier note here worried that falling back to the number whenever a
+  /// score is shared "costs every common cap its name, because on a US ladder
+  /// the colliding scores are the usual ones". That was true of a score-only
+  /// fallback, and the sub-score dissolves it **on a ladder that carries
+  /// sub-scores**: `PG` and `TV-PG` are both 10/0 and still name cleanly. Only
+  /// a pair with no rung at all falls through to the number.
   ///
-  /// First in the server's own order, so the answer is stable across calls and
-  /// across installs with the same ladder rather than incidental.
+  /// **It reduces the collisions; it does not end them, on any ladder
+  /// measured.** Counted 2026-09-02 on 10.11.11, over the distinct
+  /// `(score, subScore)` pairs each ladder actually sends:
   ///
-  /// If this ever needs revisiting, the honest alternatives are to show the
-  /// number alongside the name, or to fall back to the number whenever the
-  /// score is shared. Both were considered; both cost every common cap its
-  /// name, because on a US ladder the colliding scores are the usual ones.
-  String? nameFor(int? value) {
+  /// ```
+  /// ladder   pairs   pairs with >1 name   worst collapse
+  /// US          14                    6               15
+  /// GB          15                    6                5
+  /// DE          11                    5                5
+  /// FR          11                    1                5
+  /// ```
+  ///
+  /// The worst case is **`US`**, not the ladders without sub-scores: 15 names
+  /// share the single pair 10/1 (`TV-PG-D` through `TV-PG-DLSV`), 15 more
+  /// share 14/1, and 9 share 17/1. So `nameFor(10, 1)` answers `TV-PG-D` out
+  /// of fifteen. `PG` and `TV-PG` naming cleanly at 10/0 is the *best* case on
+  /// that ladder, not a representative one.
+  ///
+  /// `FR`, `DE` and `GB` send `RatingScore` with no `subScore` key at all, so
+  /// every rung reads as sub-score 0 and first-match is the only resolution
+  /// available. That sounds worse and measures better: `FR` has exactly **one**
+  /// colliding pair of eleven — five names at 0/0 (`0+`, `Public Averti`,
+  /// `Tous Publics`, `TP`, `U`) — against six on `US`.
+  ///
+  /// Not a defect to fix here, on any ladder: names sharing a pair admit the
+  /// same items, and which one was clicked is not recoverable because the
+  /// server stores only the numbers. Recorded so neither the "dissolves"
+  /// argument above nor its converse is read wider than what was counted.
+  ///
+  /// Null in for null out: an uncapped child has no rating to name.
+  ///
+  /// [subScore] null is treated as **0**, because that is what the server does
+  /// — see `UserPolicy.maxParentalSubRating`, where the reasoning and the
+  /// measurement live.
+  String? nameFor(int? value, [int? subScore]) {
     if (value == null) return null;
+    final wantedSub = subScore ?? 0;
     for (final rating in ratings) {
-      if (rating.value == value) return rating.name;
+      if (rating.value == value && (rating.subScore ?? 0) == wantedSub) {
+        return rating.name;
+      }
     }
     return null;
   }

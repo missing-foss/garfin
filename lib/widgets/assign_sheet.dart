@@ -10,6 +10,7 @@ import '../models/age_suitability.dart';
 import '../models/auth_session.dart';
 import '../models/collection_set.dart';
 import '../models/jellyfin_user.dart';
+import '../models/country_lookup.dart';
 import '../models/library_item.dart';
 import '../models/parental_rating.dart';
 import '../models/tag_diff.dart';
@@ -19,6 +20,8 @@ import '../providers/collection_providers.dart';
 import '../providers/kids_providers.dart';
 import '../providers/library_providers.dart';
 import '../providers/settings_providers.dart';
+import '../repositories/app_settings_store.dart';
+import 'item_detail_head.dart';
 import '../repositories/assign_repository.dart';
 import 'adaptive_layout.dart';
 import 'assign_result_toast.dart';
@@ -43,6 +46,7 @@ Future<void> showAssignSheet(
   BuildContext context, {
   required AuthSession session,
   required LibraryItem item,
+  LibraryItem? fromCollection,
 }) =>
     showModalBottomSheet<void>(
       context: context,
@@ -58,6 +62,7 @@ Future<void> showAssignSheet(
         child: AssignView(
           session: session,
           item: item,
+          fromCollection: fromCollection,
           onClose: () => Navigator.of(sheetContext).pop(),
         ),
       ),
@@ -76,10 +81,21 @@ class AssignView extends ConsumerStatefulWidget {
     required this.session,
     required this.item,
     required this.onClose,
+    this.fromCollection,
   });
 
   final AuthSession session;
   final LibraryItem item;
+
+  /// The set the parent was looking at when they picked [item], or null from
+  /// the library grid.
+  ///
+  /// **Not "the sets this film belongs to".** A film can be in several, and
+  /// `docs/DECISIONS.md` § Collections scopes the write to the one in front of
+  /// the parent: repairing every set a film sits in would hand the child
+  /// collections nobody offered them. This is how the write knows which
+  /// container may follow the film.
+  final LibraryItem? fromCollection;
 
   /// Called once the write is done and reported, and by the panel's own close
   /// button. Never called with anything pending: ground rule 1 means an
@@ -116,6 +132,25 @@ class _AssignViewState extends ConsumerState<AssignView> {
   /// Pending toggles, by child id. Nothing here has been written.
   final _pending = <String, bool>{};
   bool _applying = false;
+
+  /// Waiting on something Apply needs *before* it can write.
+  ///
+  /// The collection index is 1 + N calls — list the sets, then ask each what is
+  /// in it — and [_sets] has to wait for it rather than read it half-built, or
+  /// a parent is never asked a cascade question they were owed. That wait is
+  /// real work and used to happen with the button still reading *Apply* and
+  /// nothing on screen: no spinner, because [_applying] is only set once the
+  /// write starts, and the write is the fast part. Reported as the app doing
+  /// nothing at the moment it is doing its main job.
+  ///
+  /// Separate from [_applying] rather than folded into it because the write
+  /// paths manage that flag themselves, and one of them clears it between the
+  /// sets of a batch.
+  bool _preparing = false;
+
+  /// A tap is being processed — either half of it.
+  bool get _busy => _applying || _preparing;
+
   _Unfinished? _unfinished;
   String? _notice;
 
@@ -171,7 +206,37 @@ class _AssignViewState extends ConsumerState<AssignView> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(widget.item.name, style: theme.textTheme.titleLarge),
+        // Films and series (#160); a BoxSet stays out, as ruled on #145.
+        if (widget.item.hasDetailHead) ...[
+          ItemDetailHead(
+            session: widget.session,
+            item: widget.item,
+            posterSize: ref.watch(settingsProvider).posterSize,
+            // The head draws the title centred under the poster (#155). Every
+            // other kind of item keeps the plain left-aligned one below.
+            title: Text(
+              widget.item.name,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge,
+            ),
+            // Both empty until they arrive, and empty answers "no country
+            // named" for every rating — the rating still shows, alone — and
+            // no flag for any country, which then shows as its name.
+            ladderNames: ref
+                    .watch(parentalRatingLadderProvider(widget.session))
+                    .asData
+                    ?.value
+                    .ratings
+                    .map((r) => r.name)
+                    .toSet() ??
+                const {},
+            countries:
+                ref.watch(countriesProvider(widget.session)).asData?.value ??
+                    const CountryLookup.empty(),
+          ),
+          const SizedBox(height: 12),
+        ] else
+          Text(widget.item.name, style: theme.textTheme.titleLarge),
         const SizedBox(height: 4),
         Text(l10n.assignTitle, style: theme.textTheme.bodyMedium),
 
@@ -232,10 +297,10 @@ class _AssignViewState extends ConsumerState<AssignView> {
           _fixForward(unfinished)
         else
           FilledButton(
-            onPressed: diff.isEmpty || _applying
+            onPressed: diff.isEmpty || _busy
                 ? null
                 : () => _apply(diff, rows.first.libraryTotal),
-            child: _applying
+            child: _busy
                 ? const SizedBox(
                     height: 18,
                     width: 18,
@@ -276,7 +341,7 @@ class _AssignViewState extends ConsumerState<AssignView> {
   Widget _fixForward(_Unfinished unfinished) => BatchResultNotice(
         outcome: unfinished.outcome,
         diff: unfinished.diff,
-        enabled: !_applying,
+        enabled: !_busy,
         // The same write again. Tag writes are idempotent, so the titles that
         // landed are untouched and the ones that did not are retried — which is
         // the whole of "retry that item".
@@ -329,7 +394,7 @@ class _AssignViewState extends ConsumerState<AssignView> {
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
       value: _pending[row.child.id] ?? row.hasAccess,
-      onChanged: _applying
+      onChanged: _busy
           ? null
           : (v) => setState(() => _pending[row.child.id] = v),
       title: Text(row.child.name),
@@ -421,6 +486,32 @@ class _AssignViewState extends ConsumerState<AssignView> {
     if (sets == null || !mounted) return;
 
     if (sets.isEmpty) {
+      // Not necessarily "just this film". If the parent is standing inside a
+      // set, the container of THAT set follows the films they gave from it --
+      // otherwise the child gets the film loose and the set stays invisible to
+      // them, which is the defect this entry exists for.
+      //
+      // Only the set in front of them. A film in three sets would otherwise
+      // hand over three collections nobody offered.
+      //
+      // `CollectionPrompt.never` is excluded deliberately and keeps its
+      // documented meaning -- *treat a film in a set as a film*. A parent who
+      // set that has said they want the film alone, and this is the one place
+      // that answer is expressible.
+      final origin = widget.fromCollection;
+      final prompt = ref.read(settingsProvider).collectionPrompt;
+      if (origin != null && prompt != CollectionPrompt.never &&
+          diff.additions.isNotEmpty) {
+        final originSet = await _originSet(origin);
+        if (!mounted) return;
+        if (originSet != null) {
+          await _runPartial(originSet, diff, libraryTotal: libraryTotal);
+          return;
+        }
+        // Membership unavailable: fall through to the single write rather than
+        // guess at siblings. A loose film is the status quo; a container
+        // written without knowing what else is in the set is not.
+      }
       await _runSingle(diff, libraryTotal);
       return;
     }
@@ -509,12 +600,81 @@ class _AssignViewState extends ConsumerState<AssignView> {
   /// rather than guessing — the same thing a parent pressing *Just this one*
   /// would get.
   Future<List<CollectionSet>> _sets() async {
+    setState(() => _preparing = true);
     try {
       final index =
           await ref.read(collectionIndexProvider(widget.session).future);
       return index.setsContaining(widget.item.id);
     } on Object {
       return const [];
+    } finally {
+      if (mounted) setState(() => _preparing = false);
+    }
+  }
+
+  /// The membership of the set the parent is standing in, waited for.
+  ///
+  /// Null when it cannot be read. The caller then writes the film alone rather
+  /// than writing a container without knowing what else is inside — a partial
+  /// give that guesses at siblings is worse than the loose film it replaces.
+  Future<CollectionSet?> _originSet(LibraryItem origin) async {
+    final request =
+        CollectionRequest(session: widget.session, collection: origin);
+    setState(() => _preparing = true);
+    try {
+      return await ref.read(collectionSetProvider(request).future);
+    } on Object {
+      return null;
+    } finally {
+      if (mounted) setState(() => _preparing = false);
+    }
+  }
+
+  /// One film and the container of the set it was given from — nothing else.
+  ///
+  /// The same repository call a whole-set write uses, handed a single member.
+  /// Phase 3's condition is *what this write was asked to do*, so the container
+  /// follows as soon as that one film lands; the siblings are passed so a
+  /// removal can tell whether any label would be left behind.
+  Future<void> _runPartial(
+    CollectionSet set,
+    TagDiff diff, {
+    required int libraryTotal,
+  }) async {
+    final repository = ref.read(assignRepositoryProvider(widget.session));
+    final siblings = set.memberIds
+        .where((id) => id != widget.item.id)
+        .toList(growable: false);
+
+    setState(() {
+      _applying = true;
+      _notice = null;
+    });
+    try {
+      final outcome = await repository.applyToCollection(
+        collectionId: set.collection.id,
+        memberIds: <String>[widget.item.id],
+        diff: diff,
+        siblingIds: siblings,
+      );
+      if (!mounted) return;
+      _refreshEverything();
+      _reportAndClose(
+        diff: diff,
+        counts: Future<Map<String, int>>.value(outcome.counts),
+        libraryTotal: libraryTotal,
+        undo: () => repository.undoCollection(
+          collectionId: set.collection.id,
+          memberIds: <String>[widget.item.id],
+          diff: diff,
+        ),
+      );
+    } on Object {
+      if (mounted) {
+        setState(() => _notice = AppLocalizations.of(context).errorServer);
+      }
+    } finally {
+      if (mounted) setState(() => _applying = false);
     }
   }
 

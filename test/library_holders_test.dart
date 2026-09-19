@@ -32,8 +32,6 @@ void main() {
             blockedTags: blocked,
           ),
         ),
-        visibleCount: 0,
-        libraryTotal: 0,
         avatarUrl: avatarUrl,
       );
 
@@ -195,6 +193,63 @@ void main() {
       );
 
       expect(holders.map((h) => h.name), ['Emma']);
+    });
+  });
+
+  group('the selected child comes first (#99)', () {
+    // **Order is load-bearing since the plain-share badge was dropped.** The
+    // row draws holders in order and collapses the overflow into a `+N`, so on
+    // a narrow tile the face that survives is whoever is first. If that is not
+    // the selected child, the tile says nothing about the child it is
+    // selected for — which is the whole thing the face is now carrying.
+    final children = [
+      kid('Ana', allowed: const ['t']),
+      kid('Emma', allowed: const ['t']),
+      kid('Leo', allowed: const ['t']),
+    ];
+
+    test('they are moved to the front, and the rest keep their order', () {
+      final holders = holdersOf(
+        item: film(tags: const ['t']),
+        children: children,
+        selectedChildId: 'id-Emma',
+      );
+
+      expect(holders.map((h) => h.name), ['Emma', 'Ana', 'Leo']);
+    });
+
+    test('with nobody selected the order is untouched', () {
+      // Everyone: there is no child for the row to favour, and reordering
+      // would be inventing a priority the screen does not have.
+      final holders = holdersOf(
+        item: film(tags: const ['t']),
+        children: children,
+      );
+
+      expect(holders.map((h) => h.name), ['Ana', 'Emma', 'Leo']);
+    });
+
+    test('a selected child who does not hold it changes nothing', () {
+      final holders = holdersOf(
+        item: film(tags: const ['t']),
+        children: children,
+        selectedChildId: 'id-Nobody',
+      );
+
+      expect(holders.map((h) => h.name), ['Ana', 'Emma', 'Leo']);
+    });
+
+    test('a selected child already first is left alone', () {
+      // The `index <= 0` branch: rebuilding the list would be the same answer
+      // by a longer route, and getting the sublist arithmetic wrong here is
+      // exactly how a list loses an entry.
+      final holders = holdersOf(
+        item: film(tags: const ['t']),
+        children: children,
+        selectedChildId: 'id-Ana',
+      );
+
+      expect(holders.map((h) => h.name), ['Ana', 'Emma', 'Leo']);
     });
   });
 }

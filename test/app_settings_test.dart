@@ -31,11 +31,14 @@ void main() {
 
       expect(s.collectionPrompt, CollectionPrompt.ask);
       expect(s.refreshAfterWrite, isFalse);
-      expect(s.startingChildId, isNull);
       expect(s.hideShared, isTrue);
       expect(s.themeMode, ThemeMode.dark);
       expect(s.dynamicColour, isTrue);
       expect(s.posterSize, PosterSize.regular);
+      // Name, ascending: what every install did before the setting existed, so
+      // nobody's grid changes until they change it.
+      expect(s.librarySort, LibrarySort.name);
+      expect(s.librarySortDescending, isFalse);
     });
 
     test('refresh-after-write is off, because it is the slow one', () async {
@@ -52,11 +55,13 @@ void main() {
         'labels_collection_prompt': 'whatever-comes-next',
         'looks_theme_mode': 'sepia',
         'looks_poster_size': 'enormous',
+        'looks_library_sort': 'by-colour',
       });
 
       expect(s.collectionPrompt, CollectionPrompt.ask);
       expect(s.themeMode, ThemeMode.dark);
       expect(s.posterSize, PosterSize.regular);
+      expect(s.librarySort, LibrarySort.name);
     });
   });
 
@@ -68,7 +73,6 @@ void main() {
 
       await s.setCollectionPrompt(CollectionPrompt.always);
       await s.setRefreshAfterWrite(true);
-      await s.setStartingChildId('kid-1');
       await s.setHideShared(false);
       await s.setThemeMode(ThemeMode.light);
       await s.setDynamicColour(false);
@@ -79,25 +83,17 @@ void main() {
       final reread = AppSettingsStore(prefs);
       expect(reread.collectionPrompt, CollectionPrompt.always);
       expect(reread.refreshAfterWrite, isTrue);
-      expect(reread.startingChildId, 'kid-1');
       expect(reread.hideShared, isFalse);
       expect(reread.themeMode, ThemeMode.light);
       expect(reread.dynamicColour, isFalse);
       expect(reread.posterSize, PosterSize.small);
     });
 
-    test('the starting child can be cleared back to Everyone', () async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final prefs = await SharedPreferences.getInstance();
-      final s = AppSettingsStore(prefs);
-
-      await s.setStartingChildId('kid-1');
-      await s.setStartingChildId(null);
-
-      expect(s.startingChildId, isNull);
-      expect(prefs.containsKey('picking_starting_child'), isFalse,
-          reason: 'cleared, not stored as an empty string');
-    });
+    // "the starting child can be cleared back to Everyone" stood here. The
+    // setting is gone: the Library opens on Everyone from the navigation and
+    // on a child from that child's face, so a remembered default answered a
+    // question the parent had not asked on every visit but the first. Removed
+    // with the feature rather than left asserting about a key nothing writes.
   });
 
   group('poster size is a target width, not a column count (#95)', () {

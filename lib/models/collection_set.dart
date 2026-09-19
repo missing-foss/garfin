@@ -11,7 +11,14 @@ import 'tag_diff.dart';
 ///
 /// A Jellyfin collection is a **container**: the child's policy filters the
 /// films, not the box. Measured on 10.11.11, though, the container is not
-/// irrelevant either — see [isGivenTo].
+/// irrelevant either: with no label on it the set is **invisible** to the
+/// child rather than merely refused, so members given without it arrive loose.
+/// See [CollectionGiven] for what is counted and [CollectionGiven.containerWantsLabel]
+/// for which way the container has to move, which inverts with the mode.
+///
+/// (This sentence used to end "see [isGivenTo]", which was defined nowhere in
+/// `lib/` or `test/` — a dartdoc link that resolved to nothing, in the file
+/// whose subject is what the container's label means.)
 class CollectionSet {
   const CollectionSet({required this.collection, required this.members});
 
@@ -104,6 +111,16 @@ class CollectionIndex {
       .where((set) => set.members.any((m) => m.id == itemId))
       .toList(growable: false);
 
+  /// Every item that belongs to some collection, once.
+  ///
+  /// What the grid drops when it is standing sets in for their members (#144),
+  /// and what the result line subtracts when it can — see
+  /// `collapsedLibraryTotal`.
+  Set<String> get allMemberIds => {
+        for (final set in sets)
+          for (final member in set.members) member.id,
+      };
+
   CollectionSet? byId(String collectionId) {
     for (final set in sets) {
       if (set.collection.id == collectionId) return set;
@@ -155,6 +172,21 @@ class CollectionGiven {
 
   final int total;
   final ShortlistMode mode;
+
+  /// How many members the child actually **has**, which is not [labelled].
+  ///
+  /// The inversion again: a label gives in allow mode and withholds in block
+  /// mode, so a block-list child has the members that are *not* labelled.
+  /// [labelled] stays a literal count of labels because that is what the
+  /// sentence reports; this is the number the repair offer turns on.
+  int get givenToChild =>
+      mode == ShortlistMode.block ? total - labelled : labelled;
+
+  /// Whether the container must carry the label for the child to open the set.
+  ///
+  /// True in allow mode, false in block mode — where the label is what shuts
+  /// the set, so an openable container is an *unlabelled* one.
+  bool get containerWantsLabel => mode == ShortlistMode.allow;
 
   bool get none => labelled == 0;
   bool get all => labelled == total;

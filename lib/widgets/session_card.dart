@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -33,13 +34,21 @@ import 'session_result_toast.dart';
 /// measured that would report whether a line of text was displayed, so "sent"
 /// stays the whole of what that command claims.
 ///
-/// **Stop stays enabled when `SupportsRemoteControl` is false**, rather than
-/// being disabled as #70 also suggested. The flag is the client's own claim and
-/// the commands answer 204 either way, so disabling on it withdraws a control
-/// that may well work on the strength of a self-report. What made the button
-/// dishonest was the copy, and the copy now reads back — a client that ignores
-/// the command is reported as having ignored it, whatever it claimed in
-/// advance. The card still says the device does not accept remote commands.
+/// **End sends the stop command before revoking, and the order is
+/// load-bearing.** End is specified to stop what the child is watching *and*
+/// kill the session; a revoke on its own was never the whole of it, and until
+/// now it never even asked. The stop is addressed to the session and the revoke
+/// removes that session from `/Sessions`, so reversed the command goes to
+/// something no longer there and there is nothing left to read back either.
+///
+/// **Stop is disabled when `SupportsRemoteControl` is false**, reversing the
+/// decision that previously stood here: offering a button known in advance not
+/// to work is the same dishonesty as a toast reporting intent as outcome. The
+/// earlier argument — that the flag is the client's own claim, so disabling on
+/// it withdraws a control that might have worked on the strength of a
+/// self-report — is still true, and is the price of this. End stays enabled,
+/// because the revoke works whatever the flag says, but its confirmation no
+/// longer promises the film stops.
 ///
 /// The order is deliberate: a message first, because it is the move a parent
 /// actually wants most of the time and the only one that costs the child
@@ -96,17 +105,7 @@ class _SessionCardState extends ConsumerState<SessionCard> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              // Three distinct facts, and the server reports which: watching,
-              // paused, or signed in with nothing playing — which is the
-              // ordinary case, `NowPlayingItem` simply being absent.
-              switch ((active.isPlaying, active.isPaused)) {
-                (false, _) => l10n.sessionsNotPlaying,
-                (true, true) => l10n.sessionsPaused(active.nowPlayingName!),
-                (true, false) => l10n.sessionsWatching(active.nowPlayingName!),
-              },
-              style: theme.textTheme.bodyMedium,
-            ),
+            _NowPlaying(active: active, serverUrl: widget.session.serverUrl),
             if (active.progress case final progress?) ...[
               const SizedBox(height: 8),
               LinearProgressIndicator(value: progress),
@@ -132,7 +131,9 @@ class _SessionCardState extends ConsumerState<SessionCard> {
                   TextButton.icon(
                     icon: const Icon(Icons.stop_circle_outlined, size: 18),
                     label: Text(l10n.sessionsStop),
-                    onPressed: _working ? null : _stop,
+                    onPressed: _working || !active.supportsRemoteControl
+                        ? null
+                        : _stop,
                   ),
                 TextButton.icon(
                   icon: const Icon(Icons.logout, size: 18),
@@ -223,33 +224,68 @@ class _SessionCardState extends ConsumerState<SessionCard> {
 
   Future<void> _end() async {
     final l10n = AppLocalizations.of(context);
+    final active = widget.active;
     if (!await _confirm(
-      title: l10n.sessionsEndConfirm(
-        widget.active.userName,
-        _deviceLabel(widget.active),
-      ),
-      body: l10n.sessionsEndExplain,
+      title: l10n.sessionsEndConfirm(active.userName, _deviceLabel(active)),
+      // A device that says it cannot be remote-controlled gets a body that does
+      // not promise the film stops, because for that device it will not.
+      body: active.supportsRemoteControl
+          ? l10n.sessionsEndExplain
+          : l10n.sessionsEndExplainUncontrollable,
       action: l10n.sessionsEnd,
     )) {
       return;
     }
-    final device = _deviceLabel(widget.active);
+    final device = _deviceLabel(active);
+    final api = ref.read(libraryApiProvider(widget.session));
+    // Read back while the session still exists, because after the revoke it is
+    // gone from `/Sessions` and cannot be asked. Null when nothing was playing:
+    // there is no stop to report on.
+    StopOutcome? playback;
     await _run(
-      () => ref
-          .read(libraryApiProvider(widget.session))
-          .endSession(deviceId: widget.active.deviceId),
-      l10n.sessionsEnded(device),
-      verify: () async => switch (await _verifier.verifyEnded(
-        deviceId: widget.active.deviceId,
-      )) {
-        // The revoke is measured to hold — 204, then 401 on the next request —
-        // so confirming it adds nothing the opening sentence did not say.
-        EndOutcome.signedOut => null,
-        EndOutcome.signedBackIn => l10n.sessionsEndReturned(device),
-        EndOutcome.unknown => null,
+      () async {
+        if (active.isPlaying) {
+          await api.stopSessionPlayback(sessionId: active.id);
+          playback = await _verifier.verifyStopped(sessionId: active.id);
+        }
+        await api.endSession(deviceId: active.deviceId);
       },
+      l10n.sessionsEnded(device),
+      verify: () async => _endSentence(
+        l10n,
+        device,
+        playback,
+        await _verifier.verifyEnded(deviceId: active.deviceId),
+      ),
     );
   }
+
+  /// The two facts End has to leave the parent holding: whether the film
+  /// stopped, and whether the device is actually out.
+  ///
+  /// Null keeps the pending sentence, which already says the device is signed
+  /// out. That is the right answer twice over — when nothing was playing, and
+  /// when a read-back landed on nothing. Neither is inferred from a 204.
+  String? _endSentence(
+    AppLocalizations l10n,
+    String device,
+    StopOutcome? playback,
+    EndOutcome session,
+  ) =>
+      switch ((playback, session)) {
+        (StopOutcome.stopped, EndOutcome.signedOut) =>
+          l10n.sessionsEndStoppedAndOut(device),
+        (StopOutcome.stillPlaying, EndOutcome.signedOut) =>
+          l10n.sessionsEndOutStillPlaying(device),
+        (StopOutcome.stopped, EndOutcome.signedBackIn) =>
+          l10n.sessionsEndStoppedThenReturned(device),
+        (StopOutcome.stillPlaying, EndOutcome.signedBackIn) =>
+          l10n.sessionsEndReturnedStillPlaying(device),
+        // Nothing was playing, or the stop read-back learned nothing. The
+        // return is still worth saying on its own.
+        (_, EndOutcome.signedBackIn) => l10n.sessionsEndReturned(device),
+        (_, _) => null,
+      };
 
   SessionVerifier get _verifier =>
       SessionVerifier(ref.read(libraryApiProvider(widget.session)));
@@ -294,14 +330,33 @@ class _SessionCardState extends ConsumerState<SessionCard> {
   }) async {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
+
+    // Held from *sent* until *read back*, so the welcome screen's timer does
+    // not re-read `/Sessions` in between and redraw the card with a state the
+    // server has not caught up to yet. Released on every exit, including the
+    // ones that never reach a verification — a counter left raised would stop
+    // the poll for good and read as a dead timer.
+    final inFlight = ref.read(sessionCommandsInFlightProvider.notifier);
+    inFlight.begin();
+    var released = false;
+    void release() {
+      if (released) return;
+      released = true;
+      inFlight.end();
+    }
+
     setState(() => _working = true);
     try {
       await command();
-      if (!mounted) return;
+      if (!mounted) {
+        release();
+        return;
+      }
 
       if (verify == null) {
         ref.invalidate(childSessionsProvider(widget.session));
         messenger.showSnackBar(SnackBar(content: Text(sent)));
+        release();
         return;
       }
 
@@ -319,14 +374,151 @@ class _SessionCardState extends ConsumerState<SessionCard> {
       unawaited(
         outcome.whenComplete(() {
           if (mounted) ref.invalidate(childSessionsProvider(widget.session));
+          // After the invalidate, not before: releasing first would let a tick
+          // land between the two and re-read the very state this is replacing.
+          release();
         }),
       );
     } on Object {
+      release();
       if (mounted) {
         messenger.showSnackBar(SnackBar(content: Text(l10n.errorServer)));
       }
     } finally {
       if (mounted) setState(() => _working = false);
     }
+  }
+}
+
+/// What the child is watching, said in as many words as the server gives.
+///
+/// **An episode name on its own is not an answer.** Reported from use: a card
+/// reading "Chapter 3" or "The One Where…" tells a parent nothing about what is
+/// on the screen. So an episode shows the show it belongs to as its title and
+/// the episode name underneath it, and a film — which was always
+/// self-describing — keeps the single line it had.
+///
+/// The artwork is the other half of the same fix, and it is a glance-level
+/// answer where the words are a reading one.
+///
+/// **Absent artwork is a supported state, not a failure**, and it is the state
+/// this widget was written to degrade into: the fields it needs are inferred
+/// from `BaseItemDto` rather than measured off a server (see [ActiveSession]),
+/// so if they are named something else the row is the plain sentence the card
+/// showed before. Nothing here reserves space for a picture that never comes.
+class _NowPlaying extends StatelessWidget {
+  const _NowPlaying({required this.active, required this.serverUrl});
+
+  final ActiveSession active;
+  final String serverUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+
+    // Three distinct facts, and the server reports which: watching, paused, or
+    // signed in with nothing playing — which is the ordinary case,
+    // `NowPlayingItem` simply being absent.
+    if (!active.isPlaying) {
+      return Text(l10n.sessionsNotPlaying, style: theme.textTheme.bodyMedium);
+    }
+
+    // The show's name is the title when there is one, and the episode name
+    // moves below it. With no show — a film — the item's own name is the title
+    // and there is no second line, which is the card as it was.
+    final show = active.showName;
+    final title = show ?? active.nowPlayingName!;
+    final secondary = show == null ? null : active.nowPlayingName;
+
+    final lines = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          active.isPaused
+              ? l10n.sessionsPaused(title)
+              : l10n.sessionsWatching(title),
+          style: theme.textTheme.bodyMedium,
+        ),
+        if (secondary != null)
+          Text(
+            secondary,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+      ],
+    );
+
+    final artwork = active.artwork;
+    if (artwork == null) return lines;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _Artwork(artwork: artwork, serverUrl: serverUrl),
+        const SizedBox(width: 12),
+        Expanded(child: lines),
+      ],
+    );
+  }
+}
+
+/// The poster beside what is playing.
+///
+/// A poster's shape, at a size that reads on a card rather than competing with
+/// it: the library grid is where artwork is the point, and here it is a hint
+/// beside a sentence that already says the answer.
+///
+/// **Nothing is announced to a screen reader.** The title is in the text
+/// alongside, in full; a second rendering of it as an image label would be the
+/// same fact twice — the same reasoning that keeps the library tile's faces out
+/// of its own semantics.
+class _Artwork extends StatelessWidget {
+  const _Artwork({required this.artwork, required this.serverUrl});
+
+  final NowPlayingArtwork artwork;
+  final String serverUrl;
+
+  /// Poster proportions, 2:3, like the grid's tiles.
+  static const _width = 44.0;
+  static const _height = 66.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final placeholder = ColoredBox(
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: Center(
+        child: Icon(
+          Icons.movie_outlined,
+          size: 20,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+
+    final base = serverUrl.endsWith('/')
+        ? serverUrl.substring(0, serverUrl.length - 1)
+        : serverUrl;
+
+    return SizedBox(
+      width: _width,
+      height: _height,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: CachedNetworkImage(
+          // The tag is what makes the URL change when the artwork does;
+          // without it a cached poster would outlive the picture it shows.
+          imageUrl: '$base/Items/${artwork.itemId}/Images/Primary'
+              '?tag=${artwork.imageTag}',
+          fit: BoxFit.cover,
+          placeholder: (_, _) => placeholder,
+          errorWidget: (_, _, _) => placeholder,
+        ),
+      ),
+    );
   }
 }

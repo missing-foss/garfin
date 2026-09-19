@@ -4,6 +4,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/models/jellyfin_user.dart';
+import 'package:garfin/models/library_filters.dart';
 import 'package:garfin/models/library_item.dart';
 import 'package:garfin/repositories/device_identity.dart';
 import 'package:garfin/repositories/jellyfin_api.dart';
@@ -252,7 +253,7 @@ void main() {
       final slice = await repository.fetch(
         startIndex: 0,
         child: child(allowed: const ['kids-emma', 'family-films']),
-        hideShared: true,
+        view: LibraryView.toGive,
       );
 
       expect(slice.entries.map((e) => e.item.name), ['Bravo']);
@@ -313,41 +314,47 @@ void main() {
     });
   });
 
-  group('hide-shared fills the screen rather than returning a ragged page', () {
-    test('it keeps fetching until it has a screenful', () async {
+  group('hide-shared fills the page rather than returning a ragged one', () {
+    test('it keeps fetching until it has a page', () async {
       // The whole reason this is client-side: there is no excludeTags, and
       // excludeItemIds would be a URL that grows with the shared set.
       //
       // First window is entirely shared, so filtering empties it. The loop must
       // go back for more rather than hand up nothing while the server still has
       // items.
+      // One window of each, named rather than written out: the window is a
+      // constant that moved from 96 to 240 when a page grew from one screen to
+      // roughly twenty-seven, and a fixture pinned to the old number tests
+      // nothing.
+      const window = LibraryRepository.filteringWindow;
       final shared = [
-        for (var i = 0; i < 96; i++)
+        for (var i = 0; i < window; i++)
           item('s$i', 'Shared $i', tags: ['kids-emma'])
       ];
       final fresh = [
-        for (var i = 0; i < 96; i++) item('f$i', 'Fresh $i', tags: ['other'])
+        for (var i = 0; i < window; i++) item('f$i', 'Fresh $i', tags: ['other'])
       ];
 
       server
-        ..on('/Items', json: {'Items': shared, 'TotalRecordCount': 192})
+        ..on('/Items',
+            json: {'Items': shared, 'TotalRecordCount': window * 2})
         ..on('/Items', json: {
           'Items': [for (final s in shared) <String, dynamic>{'Id': s['Id']}],
-          'TotalRecordCount': 96,
+          'TotalRecordCount': window,
         })
-        ..on('/Items', json: {'Items': fresh, 'TotalRecordCount': 192})
+        ..on('/Items', json: {'Items': fresh, 'TotalRecordCount': window * 2})
         ..fallback(json: {'Items': <Object>[], 'TotalRecordCount': 0});
 
       final slice = await repository.fetch(
         startIndex: 0,
         child: child(),
-        hideShared: true,
+        view: LibraryView.toGive,
       );
 
       // At least a full screen of not-yet-given items, out of a first window
       // that had none of them.
       //
-      // At *least*: a window that yields more than a screenful is not trimmed.
+      // At *least*: a window that yields more than a page is not trimmed.
       // Those items are already fetched and already classified, and throwing
       // them away would only mean fetching them again.
       expect(
@@ -360,7 +367,7 @@ void main() {
       );
       // And the denominator still describes the whole library, not the filtered
       // remainder.
-      expect(slice.totalRecordCount, 192);
+      expect(slice.totalRecordCount, window * 2);
     });
 
     test('an empty response ends the loop instead of spinning', () async {
@@ -369,7 +376,7 @@ void main() {
       final slice = await repository.fetch(
         startIndex: 0,
         child: child(),
-        hideShared: true,
+        view: LibraryView.toGive,
       );
 
       expect(slice.entries, isEmpty);
@@ -401,5 +408,101 @@ void main() {
 
       expect(entry.isShared, isTrue);
     });
+  });
+
+  group('the view a face tap lands on (#88)', () {
+    test('keeps what the child has, which is the mirror of hiding it',
+        () async {
+      // The same page, classified the same way, kept the other way round. That
+      // symmetry is the argument for this being a lens on the administrator's
+      // grid rather than a second grid.
+      respondWith(
+        items: [
+          item('a', 'Alpha', tags: ['family-films']),
+          item('b', 'Bravo', tags: ['dinosaur']),
+        ],
+        visibleIds: ['a'],
+      );
+      final emma = child(allowed: const ['kids-emma', 'family-films']);
+
+      final given = await repository.fetch(
+        startIndex: 0,
+        child: emma,
+        view: LibraryView.given,
+      );
+
+      expect(given.entries.map((e) => e.item.name), ['Alpha'],
+          reason: 'hide-shared keeps Bravo; this keeps exactly the other one');
+      expect(given.entries.every((e) => e.isShared), isTrue);
+    });
+
+    test('a child with no labels is not narrowed to nothing', () async {
+      // Without a label to classify by every item lands on the same side, so
+      // narrowing would page through the whole library collecting an empty
+      // list. The guard is shared with hide-shared; this pins it for the new
+      // view too, since that is the half a future edit could miss.
+      respondWith(
+        items: [
+          item('a', 'Alpha'),
+          item('b', 'Bravo'),
+        ],
+        visibleIds: const [],
+      );
+
+      final slice = await repository.fetch(
+        startIndex: 0,
+        child: child(allowed: const []),
+        view: LibraryView.given,
+      );
+
+      expect(slice.entries, isNotEmpty);
+    });
+  });
+
+  group('a collection with nothing in it (#109)', () {
+    test('is not drawn, and a film beside it is', () async {
+      // Nothing in it to give or withhold, an assign sheet with no members to
+      // write to, and the share ring already suppressed for it — the tile could
+      // only ever be a row a parent cannot act on.
+      respondWith(
+        items: [
+          item('a', 'Paddington'),
+          {...item('b', 'Empty Set'), 'Type': 'BoxSet', 'ChildCount': 0},
+          {...item('c', 'Full Set'), 'Type': 'BoxSet', 'ChildCount': 4},
+        ],
+        visibleIds: const ['a', 'b', 'c'],
+      );
+
+      final slice = await repository.fetch(startIndex: 0, child: child());
+
+      expect(slice.entries.map((e) => e.item.name), ['Paddington', 'Full Set']);
+    });
+
+    test('a set whose count the server did not send is kept', () async {
+      // **`null` is not zero.** `ChildCount` is absent unless `Fields` asks for
+      // it, and the tile's own code already reads a missing count as "the
+      // server did not say". Dropping on absence would hide real collections
+      // the moment that field stopped being requested.
+      respondWith(
+        items: [
+          {...item('b', 'Unknown Set'), 'Type': 'BoxSet'},
+        ],
+        visibleIds: const ['b'],
+      );
+
+      final slice = await repository.fetch(startIndex: 0, child: child());
+
+      expect(slice.entries.map((e) => e.item.name), ['Unknown Set']);
+    });
+
+    // "and nothing asks the server about one" stood here and could not fail.
+    // It looked for a request path containing `/Items/b`; a membership is
+    // fetched as `GET /Items?parentId=<id>`, so no path in this app ever
+    // contains it — and `fetch` does not ask for memberships at all, which the
+    // grid does through `collectionSetProvider`. It asserted the absence of
+    // something this layer would not do with the filter deleted.
+    //
+    // The claim is worth pinning and now lives where the request happens:
+    // `collection_given_test.dart`, "an empty set costs no membership request".
   });
 }

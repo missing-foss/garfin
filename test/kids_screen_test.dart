@@ -9,13 +9,6 @@ import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/models/jellyfin_user.dart';
 import 'package:garfin/models/kid_summary.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:garfin/models/active_session.dart';
-import 'package:garfin/providers/app_providers.dart';
-import 'package:garfin/providers/kids_providers.dart';
-import 'package:garfin/providers/session_providers.dart';
-import 'package:garfin/repositories/device_identity.dart';
-import 'package:garfin/screens/kids_screen.dart';
 import 'package:garfin/widgets/kid_card.dart';
 import 'package:garfin/widgets/user_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -47,6 +40,7 @@ void main() {
     List<String> allowed = const ['kids-emma'],
     List<String> blocked = const [],
     int? cap = 7,
+    int? subCap,
     String? capName = 'PG',
     int? birthYear,
   }) =>
@@ -60,57 +54,68 @@ void main() {
             allowedTags: allowed,
             blockedTags: blocked,
             maxParentalRating: cap,
+            maxParentalSubRating: subCap,
           ),
         ),
-        visibleCount: 12,
-        libraryTotal: 40,
         ratingCapName: capName,
         birthYear: birthYear,
       );
 
-  Future<void> pumpCard(WidgetTester tester, KidSummary summary) =>
-      tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: Scaffold(body: KidCard(kid: summary, session: session)),
-          ),
+  /// Pumps a card **and opens it.**
+  ///
+  /// The resting card is now the picture, the name, the age and the way in;
+  /// the cap, the hours, the mode and the tags are reference and wait behind
+  /// the chevron. Every test below is about *what the card says* about one of
+  /// those facts rather than about where it says it, so they all start from
+  /// the open card.
+  ///
+  /// That they are hidden at rest is asserted once, in
+  /// `kid_card_at_rest_test.dart`, rather than sixteen times here — a property
+  /// worth one sharp test, not a precondition restated everywhere.
+  Future<void> pumpCard(WidgetTester tester, KidSummary summary) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: KidCard(kid: summary, session: session)),
         ),
-      );
+      ),
+    );
+    await tester.pumpAndSettle();
+    // Only if it is closed. A second `pumpCard` in the same test reuses the
+    // card's `State` — same type, same position — so `_expanded` survives the
+    // rebuild and an unconditional tap would shut the card the caller just
+    // asked for.
+    if (find.byIcon(Icons.expand_more).evaluate().isNotEmpty) {
+      await tester.tap(find.text(summary.user.name));
+      await tester.pumpAndSettle();
+    }
+  }
 
-  testWidgets('a card shows the name, count, cap, mode and tags',
-      (tester) async {
+  testWidgets('a card shows the name, cap, mode and tags', (tester) async {
     await pumpCard(tester, kid(birthYear: 2015));
     await tester.pumpAndSettle();
 
     expect(find.text('Emma'), findsOneWidget);
-    // Both numbers came from the server. Ground rule 4.
-    expect(find.text('12 of 40 things visible'), findsOneWidget);
+    // The headline "N of M things visible" is gone: the per-library card
+    // answers the same question with more resolution, and two answers to one
+    // question can disagree.
+    expect(find.textContaining('things visible'), findsNothing);
     expect(find.text('Up to PG'), findsOneWidget);
-    expect(find.text('Shortlist'), findsOneWidget);
+    expect(find.text('Shortlist based on these labels:'), findsOneWidget);
     expect(find.text('kids-emma'), findsOneWidget);
     expect(find.textContaining('years old'), findsOneWidget);
   });
 
   group('whose settings these are (#74, #76)', () {
-    testWidgets('the status is not drawn as something you can press',
-        (tester) async {
-      // Reported from use as "a 'select' button — it doesn't seem to work".
-      // It never did: `_ModeChip` had no `onPressed`. The problem was that a
-      // `Chip` is what this app uses for the library filter bar's *tappable*
-      // `FilterChip`s and `ChoiceChip`s, so a pill taught the parent it was a
-      // button and then ignored them.
-      await pumpCard(tester, kid());
-      await tester.pumpAndSettle();
-
-      expect(find.text('Shortlist'), findsOneWidget);
-      expect(find.widgetWithText(Chip, 'Shortlist'), findsNothing,
-          reason: 'the status is drawn as a chip again');
-      expect(find.widgetWithText(InkWell, 'Shortlist'), findsNothing,
-          reason: 'and it must not be tappable either — it reports, it does '
-              'not act');
-    });
+    // The test that stood here checked the mode was not drawn as a `Chip`,
+    // after it was reported from use as "a 'select' button — it doesn't seem
+    // to work". There is no mode pill any more: the labels now carry a
+    // sentence that says which list they are, so the pill it guarded against
+    // cannot come back in that shape. What replaced its intent is
+    // 'a block-list account says so', below — the mode still has to be
+    // readable, and it still must not claim to be a control.
 
     testWidgets('the tags below it are still chips, which is correct',
         (tester) async {
@@ -131,9 +136,9 @@ void main() {
       await pumpCard(tester, kid(birthYear: 2015));
       await tester.pumpAndSettle();
 
-      expect(find.text('Set in Jellyfin'), findsOneWidget);
+      expect(find.text('Parental controls for Emma'), findsOneWidget);
 
-      final heading = tester.getRect(find.text('Set in Jellyfin'));
+      final heading = tester.getRect(find.text('Parental controls for Emma'));
       final age = tester.getRect(find.textContaining('years old'));
       final cap = tester.getRect(find.text('Up to PG'));
       expect(age.top, lessThan(heading.top),
@@ -231,9 +236,10 @@ void main() {
   testWidgets('in French the status reads as a state, not an action (#76)',
       (tester) async {
     // The other half of the report, and the reason it was read as a button:
-    // "Sélection" is both a noun and what a select button does. The pair was
-    // asymmetric too — a bare noun beside a named list — so the two did not
-    // read as two values of one setting.
+    // "Sélection" is both a noun and what a select button does. The pill is
+    // gone, but the requirement outlived it — whatever carries the mode has to
+    // read as a state rather than as something to press, and it now does that
+    // inside the sentence introducing the labels.
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
@@ -245,9 +251,18 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // Its own scope rather than `pumpCard`, for the locale — so it opens the
+    // card itself.
+    await tester.tap(find.text('Emma'));
+    await tester.pumpAndSettle();
 
-    expect(find.text('Liste de sélection'), findsOneWidget);
+    expect(
+      find.text('Liste de sélection basée sur les étiquettes suivantes :'),
+      findsOneWidget,
+    );
     expect(find.text('Sélection'), findsNothing);
+    expect(find.widgetWithText(InkWell, 'Sélection'), findsNothing,
+        reason: 'it reports, it does not act');
   });
 
   testWidgets('a block-list account says so, and never says Shortlist',
@@ -257,8 +272,9 @@ void main() {
     await pumpCard(tester, kid(allowed: const [], blocked: const ['horror']));
     await tester.pumpAndSettle();
 
-    expect(find.text('Blocklist'), findsOneWidget);
-    expect(find.text('Shortlist'), findsNothing);
+    expect(find.text('Blocklist based on these labels:'), findsOneWidget);
+    expect(find.text('Shortlist based on these labels:'), findsNothing,
+        reason: 'ground rule 3: for this account the labels mean the opposite');
     expect(find.text('horror'), findsOneWidget);
   });
 
@@ -269,9 +285,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Both lists are set'), findsOneWidget);
     expect(find.textContaining("Garfin can't tell which one you meant"),
         findsOneWidget);
+    // Neither sentence, because neither verb is Garfin's to pick here.
+    expect(find.textContaining('based on these labels:'), findsNothing,
+        reason: 'ground rule 3 forbids choosing a verb for this account');
     // Neither list is shown as "the" tags — offering one would be the guess
     // the whole state exists to avoid.
     expect(find.text('ok'), findsNothing);
@@ -294,6 +312,62 @@ void main() {
     expect(find.text('Rating limit 99'), findsOneWidget);
   });
 
+  group('an unnameable cap shows its sub-level only when it means something',
+      () {
+    // The cap is a pair and the server enforces both halves, so a fallback
+    // printing the score alone renders two different caps identically. It is
+    // the fallback that had to change: the named case was already correct.
+
+    testWidgets('an absent sub-level is not printed, because it behaves as 0',
+        (tester) async {
+      await pumpCard(tester, kid(cap: 99, capName: null));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Rating limit 99'), findsOneWidget);
+      expect(find.textContaining('99/'), findsNothing);
+    });
+
+    testWidgets('an explicit 0 is not printed either, for the same reason',
+        (tester) async {
+      await pumpCard(tester, kid(cap: 99, subCap: 0, capName: null));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Rating limit 99'), findsOneWidget);
+      expect(find.textContaining('99/'), findsNothing);
+    });
+
+    testWidgets('a non-zero sub-level is printed, because it changes the cap',
+        (tester) async {
+      await pumpCard(tester, kid(cap: 99, subCap: 1, capName: null));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Rating limit 99/1'), findsOneWidget);
+    });
+
+    testWidgets('the regression this exists for: 99/0 and 99/1 do not read '
+        'the same', (tester) async {
+      await pumpCard(tester, kid(cap: 99, subCap: 0, capName: null));
+      await tester.pumpAndSettle();
+      final strict = find.text('Rating limit 99').evaluate().length;
+
+      await pumpCard(tester, kid(cap: 99, subCap: 1, capName: null));
+      await tester.pumpAndSettle();
+      final loose = find.text('Rating limit 99').evaluate().length;
+
+      expect(strict, 1);
+      expect(loose, 0, reason: 'a looser cap must not render as the stricter one');
+      expect(find.text('Rating limit 99/1'), findsOneWidget);
+    });
+
+    testWidgets('a named cap is unaffected by the sub-level', (tester) async {
+      await pumpCard(tester, kid(cap: 10, subCap: 1, capName: 'TV-PG-D'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Up to TV-PG-D'), findsOneWidget);
+      expect(find.textContaining('Rating limit'), findsNothing);
+    });
+  });
+
   testWidgets('a child with no birth year is invited to have one',
       (tester) async {
     // Jellyfin has no DateOfBirth, so the absence is normal rather than an
@@ -305,121 +379,15 @@ void main() {
     expect(find.textContaining('years old'), findsNothing);
   });
 
-  group('the accounts Garfin does not manage (#79)', () {
-    JellyfinUser parent(String name, {String? tag}) => JellyfinUser(
-          id: 'p-$name',
-          name: name,
-          primaryImageTag: tag,
-          policy: const UserPolicy(
-            isAdministrator: true,
-            isDisabled: false,
-            allowedTags: <String>[],
-            blockedTags: <String>[],
-            maxParentalRating: null,
-          ),
-        );
-
-    Future<void> pumpScreen(
-      WidgetTester tester,
-      List<UnshortlistedUser> unmanaged,
-    ) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            deviceIdentityProvider.overrideWithValue(
-              const DeviceIdentity(deviceId: 'device-1', deviceName: 'Test'),
-            ),
-            kidsOverviewProvider(session).overrideWith(
-              (ref) async => KidsOverview(
-                shortlisted: const <KidSummary>[],
-                withoutShortlist: unmanaged,
-              ),
-            ),
-            // The screen also lists active sessions; this test is not about
-            // those, and an unscripted request would leave a timer pending.
-            childSessionsProvider(session)
-                .overrideWith((ref) async => <ActiveSession>[]),
-          ],
-          child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: Scaffold(body: KidsScreen(session: session)),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-
-    testWidgets('a parent with a picture gets their picture', (tester) async {
-      // The bug: this list built a bare CircleAvatar with a letter — not as a
-      // fallback, as the only branch — so an account with an avatar set in
-      // Jellyfin showed a grey circle while the children above it showed
-      // faces.
-      await pumpScreen(tester, [
-        UnshortlistedUser(
-          user: parent('Mum', tag: 'abc123'),
-          avatarUrl: 'http://host:8096/Users/p-Mum/Images/Primary?tag=abc123',
-        ),
-      ]);
-
-      final image = tester.widget<CachedNetworkImage>(
-        find.byType(CachedNetworkImage),
-      );
-      expect(image.imageUrl, contains('/Users/p-Mum/Images/Primary'));
-      expect(image.imageUrl, contains('tag=abc123'));
-    });
-
-    testWidgets('a parent with no picture still gets their initial',
-        (tester) async {
-      await pumpScreen(tester, [
-        UnshortlistedUser(user: parent('Dad'), avatarUrl: null),
-      ]);
-
-      expect(find.byType(CachedNetworkImage), findsNothing);
-      expect(find.text('D'), findsOneWidget);
-    });
-
-    testWidgets('three unmanaged accounts are three distinguishable rows',
-        (tester) async {
-      // Why this is worth a screen test rather than a widget one: the whole
-      // point of the fix is telling accounts apart, and that only shows up
-      // with more than one of them on screen at once.
-      await pumpScreen(tester, [
-        UnshortlistedUser(
-          user: parent('Mum', tag: 't1'),
-          avatarUrl: 'http://host:8096/Users/p-Mum/Images/Primary?tag=t1',
-        ),
-        UnshortlistedUser(
-          user: parent('Dad', tag: 't2'),
-          avatarUrl: 'http://host:8096/Users/p-Dad/Images/Primary?tag=t2',
-        ),
-        UnshortlistedUser(user: parent('Guest'), avatarUrl: null),
-      ]);
-
-      expect(find.byType(CachedNetworkImage), findsNWidgets(2));
-      expect(find.text('G'), findsOneWidget);
-    });
-
-    testWidgets('the rows are still not tappable', (tester) async {
-      // The assertion this file's header has always claimed to make. Ground
-      // rule 8 is why: Garfin cannot give a child their first label, so a row
-      // that looked tappable would be a dead end. Showing a picture must not
-      // quietly turn a boundary into a control.
-      await pumpScreen(tester, [
-        UnshortlistedUser(
-          user: parent('Mum', tag: 'abc'),
-          avatarUrl: 'http://host:8096/Users/p-Mum/Images/Primary?tag=abc',
-        ),
-      ]);
-
-      final tile = tester.widget<ListTile>(
-        find.ancestor(of: find.text('Mum'), matching: find.byType(ListTile)),
-      );
-      expect(tile.enabled, isFalse);
-      expect(tile.onTap, isNull);
-    });
-  });
+  // The section that listed accounts Garfin cannot manage is gone, and its
+  // four tests with it: they asserted that those rows drew a picture, an
+  // initial, three distinguishable entries, and no tap target. There are no
+  // rows now, so each of them was asserting about a widget that is not built.
+  //
+  // What replaced them is `kids_only_managed_test.dart`, which asserts the
+  // opposite property — that such an account is never named on this screen —
+  // and fails on the old code by finding "Dad" on it. The coverage moved
+  // rather than went.
 
   group('UserAvatar, the widget both lists now share', () {
     testWidgets('a name starting outside the BMP is not cut in half',

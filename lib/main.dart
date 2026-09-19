@@ -5,11 +5,13 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'app_info.dart';
 import 'l10n/gen/app_localizations.dart';
 import 'logging.dart';
 import 'providers/app_providers.dart';
@@ -25,6 +27,8 @@ Future<void> main() async {
   // reaches a device log the smaller the surface. `redactSecrets` scrubs what
   // does get through either way.
   configureLogging(level: kReleaseMode ? Level.WARNING : Level.INFO);
+
+  registerPlatformLicences();
 
   // Both need async setup before the first frame, so they are resolved here and
   // injected. See the note on `sharedPreferencesProvider` for why those
@@ -43,11 +47,65 @@ Future<void> main() async {
   );
 }
 
-class GarfinApp extends ConsumerWidget {
+
+/// Adds the licences of dependencies Flutter cannot discover for itself.
+///
+/// `LicenseRegistry` is populated from Dart package licences and the engine's
+/// vendored `NOTICES`. FreeDroidWarn is an Android library resolved by Gradle,
+/// so it is linked into the APK while being invisible to every one of those
+/// sources — without this the licence page would list eleven packages and ship
+/// twelve. That is an attribution licence going unattributed, and it would also
+/// make the claim in `licences_screen.dart` about the full page being
+/// "generated from what is actually linked" untrue.
+///
+/// Read from the shipped asset rather than a string constant, so the licence
+/// travels as a file that can be diffed against upstream's rather than as a
+/// blob pasted into source. `test/platform_licence_test.dart` checks the asset
+/// is declared, because an undeclared one throws at load time and the entry
+/// then silently never appears.
+///
+/// **Top-level, and called from `main`, so that a test can call it too.** A
+/// registration reachable only from `main` cannot be exercised, and one that is
+/// never exercised is indistinguishable from one that was deleted.
+///
+/// Lazy: the callback body runs only if something drains the registry, so an
+/// app whose licence page is never opened pays nothing for this.
+void registerPlatformLicences() {
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(
+      platformDependencies,
+      await rootBundle.loadString('assets/licences/Apache-2.0.txt'),
+    );
+  });
+}
+
+class GarfinApp extends ConsumerStatefulWidget {
   const GarfinApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GarfinApp> createState() => _GarfinAppState();
+}
+
+class _GarfinAppState extends ConsumerState<GarfinApp> {
+  @override
+  void initState() {
+    super.initState();
+    // **The window starts secure and is relaxed here, not the other way
+    // round.** `MainActivity` sets `FLAG_SECURE` at creation because the safe
+    // state is the one that should hold while the preference is still being
+    // read; this pushes the stored answer once the store is available. A
+    // parent who has never touched the setting therefore never has an
+    // unprotected frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(windowSecurityProvider).setScreenshotsAllowed(
+            allowed: ref.read(settingsProvider).allowScreenshots,
+          );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
 
     return DynamicColorBuilder(

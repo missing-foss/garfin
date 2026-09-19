@@ -8,9 +8,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_info.dart';
 import '../l10n/gen/app_localizations.dart';
+import 'licences_screen.dart';
 import '../providers/update_providers.dart';
 import '../repositories/update_repository.dart';
 import '../widgets/adaptive_layout.dart';
+import '../widgets/garfin_tank.dart';
 
 /// What Garfin is, who made it, and where to get it (#66).
 ///
@@ -35,6 +37,13 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
   bool _checking = false;
   UpdateCheck? _result;
 
+  /// Taps on the mark so far.
+  ///
+  /// Not persisted and not announced: no `Semantics` button, no ripple, no
+  /// hint anywhere in the app, the README or the release notes. Five taps on
+  /// one picture is already obscure and it is meant to stay that way.
+  int _marktaps = 0;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -54,13 +63,20 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
           // same SVG the launcher icon comes from, so the picture has one
           // source and no runtime renderer.
           Center(
-            child: Image.asset(
-              'assets/brand/garfin-mark.png',
-              width: 84,
-              height: 84,
-              // A missing asset otherwise paints a grey box that reads as a
-              // loading state on a screen with nothing to load.
-              semanticLabel: appClientName,
+            child: GestureDetector(
+              // Opaque so the taps land on the picture rather than through it,
+              // and with no visual feedback of any kind — a ripple here would
+              // be the app hinting that something is behind the mark.
+              behavior: HitTestBehavior.opaque,
+              onTap: _tapMark,
+              child: Image.asset(
+                'assets/brand/garfin-mark.png',
+                width: 84,
+                height: 84,
+                // A missing asset otherwise paints a grey box that reads as a
+                // loading state on a screen with nothing to load.
+                semanticLabel: appClientName,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -128,6 +144,21 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             child: Text(l10n.settingsLicence,
                 style: theme.textTheme.bodyMedium),
           ),
+          // The short list first, because it is the one anyone is looking for.
+          // The full page below it is unchanged and still authoritative — this
+          // groups the display rather than replacing the source.
+          ListTile(
+            leading: const Icon(Icons.inventory_2_outlined),
+            title: Text(l10n.aboutOurPackages),
+            subtitle:
+                Text(l10n.aboutOurPackagesCount(directDependencies.length)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const LicencesScreen(),
+              ),
+            ),
+          ),
           ListTile(
             leading: const Icon(Icons.description_outlined),
             title: Text(l10n.settingsLicences),
@@ -153,6 +184,20 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Five taps on the mark, and nothing at all before the fifth.
+  ///
+  /// Counted rather than timed: a window would make it flaky to find and
+  /// impossible to test without a clock. The count resets on the way in, so
+  /// coming back and tapping four more times does nothing.
+  void _tapMark() {
+    _marktaps++;
+    if (_marktaps < 5) return;
+    _marktaps = 0;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const GarfinTank()),
     );
   }
 

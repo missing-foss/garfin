@@ -44,6 +44,7 @@ Direct dependencies. Transitive dependencies are covered by the Flutter
 | `local_auth` | BSD-3-Clause | 2013 The Flutter Authors |
 | `url_launcher` | BSD-3-Clause | 2013 The Flutter Authors |
 | `dynamic_color` | Apache-2.0 | Google LLC |
+| `diacritic` | BSD-3-Clause | 2016 Agilord |
 
 `local_auth` pulls in `local_auth_android`, and `pubspec.lock` also resolves
 `local_auth_darwin` and `local_auth_windows`. All four carry the **same**
@@ -52,7 +53,7 @@ Direct dependencies. Transitive dependencies are covered by the Flutter
 redistributed in the APK**: Garfin is Android-only, so they are listed here for
 completeness rather than as components this file is attributing.
 
-`url_launcher` (6.3.2, added in #66 for the About screen's links) federates the
+`url_launcher` (6.3.2, added for the About screen's links) federates the
 same way: `url_launcher_android` 6.3.32 is the implementation that ships, and
 `pubspec.lock` also resolves the `_ios`, `_linux`, `_macos`, `_web` and
 `_windows` packages plus `url_launcher_platform_interface`. All eight are
@@ -69,6 +70,59 @@ Development-only, not shipped in the APK: `mocktail` (MIT, 2026 Felix Angelov),
 Apache-2.0 is compatible with GPLv3 and is therefore fine for this project as
 licensed. See the note at the end of this file on why GPLv2 is not a
 consideration.
+
+## Android libraries
+
+Resolved by Gradle rather than pub, and therefore **not covered by the Flutter
+`LicenseRegistry` collection described above** — that registry is built from
+Dart package licences and the engine's vendored notices, and an Android archive
+enters neither. `lib/main.dart` registers the licence below explicitly so the
+in-app page is not one licence short of what ships;
+`test/platform_licence_test.dart` fails if that registration is removed.
+
+| Library | Licence | Source |
+|---|---|---|
+| `com.github.woheller69:FreeDroidWarn` | Apache-2.0 | <https://github.com/woheller69/FreeDroidWarn> |
+
+Pinned to the exact tag `V1.14` in `android/app/build.gradle.kts`; upstream's
+own README suggests a floating `V1.+`, which is not used here. It is fetched
+from JitPack, declared in `android/build.gradle.kts` and scoped with
+`includeGroup` so it serves that one group and nothing else.
+
+### Where its dialog sends a parent
+
+The warning is a platform `AlertDialog` raised by the library, so its three
+buttons are upstream's rather than ours. **Two of them leave the app for a
+third-party site**, and those destinations are kept as upstream ships them:
+
+| Button | Label (EN) | Destination |
+|---|---|---|
+| Positive | `OK` | nothing — records the version code and dismisses |
+| Negative | `Details` | <https://keepandroidopen.org> |
+| Neutral, coloured red | `Solution` | upstream's own README, `#solutions` |
+
+Read from `FreeDroidWarn.java` at tag `V1.14`, which is the tag pinned here.
+
+Recorded because it is the part a reader cannot infer from "this app shows a
+warning": the app hands a parent a one-tap route to two sites neither we nor
+Jellyfin control, and the red button's answer to *what do I do about this* is a
+third party's page. Garfin does not endorse either destination and does not
+control what they say.
+
+This is also why the dialog is raised **after** the unlock gate rather than from
+`MainActivity.onCreate`: before the gate, those two buttons would be reachable
+by whoever is holding the device, authenticated or not.
+
+The full licence text ships in the APK at
+[`assets/licences/Apache-2.0.txt`](assets/licences/Apache-2.0.txt), beside the
+font licences and for the same reason. `LICENSES/Apache-2.0.txt` is REUSE's
+canonical copy of the same text; the asset is the one the app reads, because
+`LICENSES/` describes what files in *this* repository are licensed under and
+none of them is Apache-2.0 — the library is redistributed as a binary, not
+vendored here.
+
+Apache-2.0 is compatible with GPLv3 in this direction; see the note at the end
+of this file.
 
 ## Fonts — SIL Open Font License 1.1
 
@@ -128,7 +182,7 @@ relicence.
 > it isn't. Re-confirmed against a rebuilt release APK on 2026-08-04.
 >
 > It is also now the project's **only** icon-font attribution, since
-> `material_symbols_icons` was removed in #28. A tidy-up that swept both as
+> `material_symbols_icons` was removed. A tidy-up that swept both as
 > "icon font stuff" would drop a licence condition, not a redundancy.
 
 Copyright Google, licensed under Creative Commons Attribution 4.0 International
@@ -156,7 +210,7 @@ already ships in the APK:
 - **`dynamic_color`** — Apache-2.0 Dart code, compiled in, and its grant is
   verifiable in the app's own `assets/flutter_assets/NOTICES.Z`. Re-checked
   against a rebuilt release APK on 2026-08-04, when `material_symbols_icons`
-  was removed (#28) and this bullet inherited the evidence the other one used
+  was removed and this bullet inherited the evidence the other one used
   to carry: the decompressed notices contain a `dynamic_color` entry followed
   by the Apache License 2.0 text.
 
@@ -176,4 +230,4 @@ icons section above, which reads it from the shipped artifact. It is not part of
 the Apache-2.0 exposure; that comes from the two packages named above.
 
 The operative rule is therefore simply: **every dependency must be
-GPLv3-compatible.** Refs #1.
+GPLv3-compatible.**

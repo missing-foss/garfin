@@ -31,11 +31,11 @@ class AssignPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
-    final item = ref.watch(assignPanelProvider);
+    final target = ref.watch(assignPanelProvider);
 
     return Material(
       color: theme.colorScheme.surfaceContainerLow,
-      child: item == null
+      child: target == null
           ? Padding(
               padding: const EdgeInsets.all(24),
               child: Center(
@@ -72,9 +72,10 @@ class AssignPanel extends ConsumerWidget {
                     // switch they set for the first. Nothing on screen would
                     // look wrong: the switch is on, and it is the switch they
                     // flicked.
-                    key: ValueKey(item.id),
+                    key: ValueKey(target.item.id),
                     session: session,
-                    item: item,
+                    item: target.item,
+                    fromCollection: target.from,
                     onClose: () =>
                         ref.read(assignPanelProvider.notifier).clear(),
                   ),

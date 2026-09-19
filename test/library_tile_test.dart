@@ -28,6 +28,7 @@ void main() {
     String? childId,
     String type = 'Movie',
     int? childCount,
+    int? recursiveItemCount,
     AgeSuitability suitability = AgeSuitability.unknown,
     String? rating,
     List<ItemHolder> holders = const [],
@@ -51,6 +52,7 @@ void main() {
                     type: type,
                     tags: tags,
                     childCount: childCount,
+                    recursiveItemCount: recursiveItemCount,
                     officialRating: rating,
                   ),
                   state: state,
@@ -83,11 +85,25 @@ void main() {
     expect(find.text('Paddington'), findsOneWidget);
   });
 
-  testWidgets('given, held back and blocked each read differently',
+  testWidgets('held back and blocked badge; a plain share does not',
       (tester) async {
-    await pump(tester, LibraryItemState.given);
+    // **Inverted from what this asserted, deliberately.** It required a
+    // "Given" badge. A shared title now says so with the child's own face —
+    // asked for directly: "when an item has been shared it says so on the
+    // poster on top of the kids profile picture. I think the kids profile
+    // picture is enough."
+    //
+    // The two that stay are the two a face cannot express. Held-back is the
+    // opposite of what a face implies — the label is there and the server is
+    // still not showing the title — and a block-list child is never collected
+    // as a holder at all, so nothing else could carry `blocked`.
+    // The holder inline rather than through the group's helper: that lives in
+    // the faces group, and this test is above it.
+    await pump(tester, LibraryItemState.given,
+        holders: const [ItemHolder(userId: 'id-Emma', name: 'Emma')]);
     await tester.pumpAndSettle();
-    expect(find.text('Given'), findsOneWidget);
+    expect(find.text('Given'), findsNothing);
+    expect(find.text('E'), findsOneWidget, reason: 'the face is the badge now');
 
     await pump(tester, LibraryItemState.givenButHidden);
     await tester.pumpAndSettle();
@@ -132,20 +148,31 @@ void main() {
       expect(find.text("Above Emma's age"), findsOneWidget);
     });
 
-    testWidgets('not-known looks different from suitable, not absent',
-        (tester) async {
-      // The whole point of the third state. A helper that rendered "unknown"
-      // as nothing would read as a pass on exactly the items — unrated ones —
-      // where a parent most needs telling that Garfin cannot say.
+    testWidgets('not-known is silent, like suitable', (tester) async {
+      // **This assertion is inverted from what it was, deliberately.** It used
+      // to require the badge, on the argument that an unrated title is where a
+      // parent most needs telling Garfin cannot say. Overruled from use: "if
+      // there are no classifications then it shouldn't show anything, we are
+      // only interested by classifications". The badge was on a large share of
+      // the grid, and a marker that common is one the eye learns to skip —
+      // taking the ones that mean something with it.
       await pump(tester, LibraryItemState.notGiven,
           suitability: AgeSuitability.unknown);
       await tester.pumpAndSettle();
-      expect(find.text('No age rating'), findsOneWidget);
+      expect(find.text('No age rating'), findsNothing);
 
       await pump(tester, LibraryItemState.notGiven,
           suitability: AgeSuitability.suitsAge, rating: 'G');
       await tester.pumpAndSettle();
       expect(find.text('No age rating'), findsNothing);
+
+      // The control, and the reason this is a change of copy rather than the
+      // hint being switched off: the one state that is worth a second look
+      // still speaks.
+      await pump(tester, LibraryItemState.notGiven,
+          suitability: AgeSuitability.aboveAge, rating: '15');
+      await tester.pumpAndSettle();
+      expect(find.text("Above Emma's age"), findsOneWidget);
     });
 
     testWidgets('a suitable title is not badged — that is most of the grid',
@@ -337,10 +364,15 @@ void main() {
         // measures, and the font in a widget test is not the font on the
         // phone. What must hold at *any* width is that the two never share a
         // pixel — which is exactly what the first attempt got wrong.
-        for (final width in <double>[83, 110, 118, 178]) {
+        // 240 and 360 are past the point where the circles start growing,
+        // and a badge that stays put while the row beside it gets bigger is
+        // exactly how a scaling change would reintroduce the overlap this
+        // pins. 360 is the widest a tile can be: the grid sizes by
+        // `maxCrossAxisExtent`, and the largest poster target is 360.
+        for (final width in <double>[83, 110, 118, 178, 240, 360]) {
           await pump(
             tester,
-            LibraryItemState.given,
+            LibraryItemState.givenButHidden,
             width: width,
             holders: [
               holder('Emma'),
@@ -352,7 +384,7 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          final badge = tester.getRect(find.text('Given'));
+          final badge = tester.getRect(find.text('Held back'));
           for (final face in find.byType(UserAvatar).evaluate()) {
             expect(
               badge.overlaps(tester.getRect(find.byWidget(face.widget))),
@@ -378,14 +410,78 @@ void main() {
         }
       });
 
+      testWidgets('a large poster gets larger faces, a small one does not',
+          (tester) async {
+        Future<double> faceWidthAt(double width) async {
+          await pump(
+            tester,
+            LibraryItemState.given,
+            width: width,
+            holders: [holder('Emma')],
+          );
+          await tester.pumpAndSettle();
+          return tester.getRect(find.byType(UserAvatar).first).width;
+        }
+
+        // Every width these tests already pinned is below the threshold, and
+        // stays byte-identical: the 22dp circle was measured against a real
+        // phone tile and there was never anything wrong with it there. 83 is
+        // not among them because at 83 the row gives way to the badge and
+        // draws nothing at all -- the rule the test above this one pins.
+        final at118 = await faceWidthAt(118);
+        expect(await faceWidthAt(178), at118);
+
+        // Above it the row grows with the poster instead of sitting in the
+        // corner of one several times its size.
+        expect(await faceWidthAt(360), greaterThan(at118));
+      });
+
+      testWidgets('the faces stop growing before they compete with the title',
+          (tester) async {
+        // Unbounded would be the easy mistake: a poster is capped at 360, but
+        // the row is handed a width, not a promise, and a clamp is cheaper to
+        // keep than an assumption about who calls it.
+        //
+        // Neither width is a real tile. A real one does not reach the ceiling:
+        // the row gets the tile minus the badge, so even the widest poster
+        // scales by about 1.4 rather than the full 1.6. This is the clamp
+        // doing nothing in production and everything if the row is ever reused
+        // somewhere wider.
+        //
+        // **400 and 2000 rather than two large widths.** Past about 800dp the
+        // face stops growing on its own -- the top edge runs out of height --
+        // so a pair chosen from up there matches whether the clamp is applied
+        // or not, and the test passes with the ceiling removed. Verified by
+        // raising it and watching all 39 still pass. The pair has to straddle
+        // that saturation, not sit above it.
+        Future<double> faceWidthAt(double width) async {
+          await pump(
+            tester,
+            LibraryItemState.given,
+            width: width,
+            holders: [holder('Emma')],
+          );
+          await tester.pumpAndSettle();
+          return tester.getRect(find.byType(UserAvatar).first).width;
+        }
+
+        // `closeTo` because the two arrive at the same size by different
+        // arithmetic and land a 14th decimal place apart.
+        expect(await faceWidthAt(2000), closeTo(await faceWidthAt(400), 0.001));
+      });
+
       testWidgets('room for more means more of them', (tester) async {
         // The other half of the same rule: giving way is a response to the
         // width, not a permanent retreat. Counting circles rather than naming
         // them keeps this independent of the test font too.
+        //
+        // `givenButHidden` for the same reason as the test above — with no
+        // badge to give way to, the row has the whole edge at every width and
+        // there is nothing for this to measure.
         Future<int> circlesAt(double width) async {
           await pump(
             tester,
-            LibraryItemState.given,
+            LibraryItemState.givenButHidden,
             width: width,
             holders: [
               holder('Emma'),
@@ -497,9 +593,38 @@ void main() {
         (tester) async {
       // "Emma has this, but the server isn't showing it to them … Given to
       // Emma" reads as a contradiction to anyone who has not internalised the
-      // given-versus-visible split — and on a plain given tile it reads as a
-      // stutter: "Given. Given to Emma." The badge has already spoken about
-      // the selected child; the sentence adds who *else*.
+      // given-versus-visible split. The badge has already spoken about the
+      // selected child; the sentence adds who *else*.
+      //
+      // **Held back rather than a plain share**, which is where this rule now
+      // applies: the exclusion was always conditional on the badge speaking,
+      // and for a plain share it no longer does.
+      // Wide enough for the faces to survive beside the badge: at the default
+      // width the row gives way to "Held back", which is a different rule and
+      // is pinned by its own group.
+      await pump(
+        tester,
+        LibraryItemState.givenButHidden,
+        childId: 'id-Emma',
+        width: 240,
+        holders: [holder('Emma'), holder('Léo')],
+      );
+      await tester.pumpAndSettle();
+
+      final semantics = tester.getSemantics(find.byType(LibraryTile));
+      expect(semantics.label, contains('Given to Léo'));
+      expect(semantics.label, isNot(contains('Given to Emma')));
+      // Her face is still on the poster. The row says who has it; the sentence
+      // says who else — dropping her from both would lose a fact.
+      expect(find.text('E'), findsOneWidget);
+    });
+
+    testWidgets('but she is named when no badge speaks for her',
+        (tester) async {
+      // **The regression this closes.** With the plain-share badge gone,
+      // dropping her unconditionally left the tile saying "Given to Léo" and
+      // nothing about Emma — which reads as *not given to Emma*, a confident
+      // wrong statement about a named child.
       await pump(
         tester,
         LibraryItemState.given,
@@ -509,12 +634,9 @@ void main() {
       await tester.pumpAndSettle();
 
       final semantics = tester.getSemantics(find.byType(LibraryTile));
-      expect(semantics.label, contains('Given to Léo'));
-      expect(semantics.label, isNot(contains('Given to Emma')));
-      expect(semantics.label, isNot(contains('Emma')));
-      // Her face is still on the poster. The row says who has it; the sentence
-      // says who else — dropping her from both would lose a fact.
-      expect(find.text('E'), findsOneWidget);
+      expect(semantics.label, contains('Emma'),
+          reason: 'nothing else on this tile says it out loud any more');
+      expect(semantics.label, contains('Léo'));
     });
 
     testWidgets('a title only the selected child has says it once',
@@ -528,16 +650,49 @@ void main() {
       await tester.pumpAndSettle();
 
       final semantics = tester.getSemantics(find.byType(LibraryTile));
-      expect(semantics.label, contains('Given'));
-      expect(semantics.label, isNot(contains('Given to')));
+      // **Inverted, and it is the same rule rather than a new one.** #84
+      // guarded against saying it twice — "Given. Given to Emma." — and with
+      // the plain-share badge gone there is only one place left to say it, so
+      // the sentence is where it belongs.
+      expect(semantics.label, contains('Given to Emma'));
+      expect('Given to'.allMatches(semantics.label).length, 1,
+          reason: 'once, which was always the point');
     });
 
-    testWidgets('the row never replaces the state badge', (tester) async {
-      await pump(tester, LibraryItemState.given, holders: [holder('Emma')]);
+    testWidgets('the row keeps the front of the list when it cannot keep all',
+        (tester) async {
+      // **This replaces "the row never replaces the state badge", whose
+      // premise is now the opposite of the behaviour**: for a plain share the
+      // row *is* the badge.
+      //
+      // Which makes list order load-bearing rather than tidy — the row draws
+      // holders in order and collapses the rest, so whoever is first is
+      // whoever survives a narrow tile. *Who* ends up first is
+      // `holdersOf`'s job and is tested there; this pins the half the row
+      // owns, which is what makes that sort worth doing.
+      // Five, because three fit: dropping the badge gave the row the whole
+      // edge back, so overflow now needs more holders than it used to. That is
+      // a good consequence of the change and a trap for a test written against
+      // the old widths.
+      await pump(
+        tester,
+        LibraryItemState.given,
+        width: 83,
+        holders: [
+          holder('Emma'),
+          holder('Ana'),
+          holder('Leo'),
+          holder('Sam'),
+          holder('Zoe'),
+        ],
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text('Given'), findsOneWidget);
-      expect(find.text('E'), findsOneWidget);
+      expect(find.text('E'), findsOneWidget,
+          reason: 'the first holder is the one that fits');
+      expect(find.text('Z'), findsNothing);
+      expect(find.textContaining('+'), findsOneWidget,
+          reason: 'the rest collapse rather than disappearing silently');
     });
   });
 
@@ -554,7 +709,11 @@ void main() {
           width: width,
           type: 'BoxSet',
           childCount: 7,
-          suitability: AgeSuitability.unknown,
+          // `aboveAge` rather than `unknown`: this group is about two badges
+          // colliding, not about which badge, and `unknown` no longer draws
+          // one at all.
+          suitability: AgeSuitability.aboveAge,
+          rating: '15',
         );
 
     testWidgets('at every width, the two never share a pixel', (tester) async {
@@ -562,7 +721,7 @@ void main() {
         await pumpBottom(tester, width);
         await tester.pumpAndSettle();
 
-        final hint = tester.getRect(find.text('No age rating'));
+        final hint = tester.getRect(find.text("Above Emma's age"));
         final count = tester.getRect(find.text('7 titles'));
         expect(hint.overlaps(count), isFalse,
             reason: 'they collided at ${width}dp');
@@ -580,7 +739,7 @@ void main() {
         await pumpBottom(tester, width);
         await tester.pumpAndSettle();
 
-        expect(find.text('No age rating'), findsOneWidget,
+        expect(find.text("Above Emma's age"), findsOneWidget,
             reason: 'the hint went missing at ${width}dp');
         expect(find.text('7 titles'), findsOneWidget,
             reason: 'the count went missing at ${width}dp');
@@ -589,15 +748,19 @@ void main() {
 
     testWidgets('side by side when there is room, stacked when there is not',
         (tester) async {
-      // 300dp rather than a real tile width, deliberately: how much fits
+      // 400dp rather than a real tile width, deliberately: how much fits
       // depends on how wide the badge text measures, and the font in a widget
       // test is not the font on the phone — rendered with the shipped fonts
       // these sit side by side at 178dp, and in here they do not. The claim
       // worth pinning is that *enough* room keeps them on one line, not the
       // exact width at which that starts being true.
-      await pumpBottom(tester, 300);
+      //
+      // It was 300 while the hint read "No age rating"; the badge this group
+      // now uses is longer, and the number moved with it — which is the whole
+      // reason the comment above says the exact width is not the claim.
+      await pumpBottom(tester, 400);
       await tester.pumpAndSettle();
-      final wideHint = tester.getRect(find.text('No age rating'));
+      final wideHint = tester.getRect(find.text("Above Emma's age"));
       final wideCount = tester.getRect(find.text('7 titles'));
       expect(wideHint.center.dy, closeTo(wideCount.center.dy, 1),
           reason: 'a wide tile should keep them on one line');
@@ -606,7 +769,7 @@ void main() {
 
       await pumpBottom(tester, 83);
       await tester.pumpAndSettle();
-      final narrowHint = tester.getRect(find.text('No age rating'));
+      final narrowHint = tester.getRect(find.text("Above Emma's age"));
       final narrowCount = tester.getRect(find.text('7 titles'));
       expect(narrowCount.center.dy, greaterThan(narrowHint.center.dy),
           reason: 'a narrow tile should stack them, count below');
@@ -633,10 +796,10 @@ void main() {
     testWidgets('a film with no collection count is unaffected',
         (tester) async {
       await pump(tester, LibraryItemState.notGiven,
-          width: 83, suitability: AgeSuitability.unknown);
+          width: 83, suitability: AgeSuitability.aboveAge, rating: '15');
       await tester.pumpAndSettle();
 
-      expect(find.text('No age rating'), findsOneWidget);
+      expect(find.text("Above Emma's age"), findsOneWidget);
       expect(find.textContaining('titles'), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -726,6 +889,176 @@ void main() {
       final label = tester.getSemantics(find.byType(LibraryTile)).label;
       expect(label, contains('Collection, 7 titles'));
       expect(label, contains('Emma'));
+    });
+  });
+
+  group('a collection is outlined (#107)', () {
+    /// The line by its own key. Reading the decoration is the point: a
+    /// `DecoratedBox` in the right place with the wrong colour, the wrong
+    /// width or the wrong paint order looks identical to the finder.
+    Finder outline() => find.byKey(const ValueKey('collection-outline'));
+
+    BoxDecoration decorationOf(WidgetTester tester) =>
+        tester.widget<DecoratedBox>(outline()).decoration as BoxDecoration;
+
+    testWidgets('a film has none', (tester) async {
+      // The control, and the half that would be easy to lose: this is a change
+      // to collections, and an ordinary tile must look exactly as it did.
+      await pump(tester, LibraryItemState.notGiven);
+      await tester.pumpAndSettle();
+
+      expect(outline(), findsNothing);
+    });
+
+    testWidgets('a collection has one, in the tertiary tone', (tester) async {
+      await pump(tester, LibraryItemState.notGiven,
+          type: 'BoxSet', childCount: 7);
+      await tester.pumpAndSettle();
+
+      expect(outline(), findsOneWidget);
+
+      final border = decorationOf(tester).border! as Border;
+      // The scheme the tile was actually handed, rather than one rebuilt here
+      // — but named: asking for `tertiary` and comparing against `tertiary`
+      // still fails on a line drawn in `primary`, which is the mistake this
+      // catches. What it must not do is re-derive the colour by the same
+      // expression the widget uses, which accepts whatever that returns.
+      final scheme = Theme.of(tester.element(find.byType(LibraryTile)))
+          .colorScheme;
+      expect(border.top.color, scheme.tertiary,
+          reason: 'the palette has no gold; tertiary is the tone this screen '
+              'already uses for "worth a second look"');
+      expect(border.top.width, 2,
+          reason: 'a hairline is what "too subtle" already looked like');
+      expect(border.isUniform, isTrue,
+          reason: 'the whole silhouette, which is what a corner marker was not');
+    });
+
+    testWidgets('painted over the artwork, not under it', (tester) async {
+      // **The failure this catches is invisible rather than wrong.** The
+      // poster fills the whole rect, so a border in the background position is
+      // painted and then covered — the widget is in the tree, the colour and
+      // the width are exactly right, and there is no line on the screen. It
+      // would look like a colour that was too faint, which is the report this
+      // change came from.
+      await pump(tester, LibraryItemState.notGiven,
+          type: 'BoxSet', childCount: 7);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<DecoratedBox>(outline()).position,
+          DecorationPosition.foreground);
+    });
+
+    testWidgets('and around the whole poster, not inside it', (tester) async {
+      // The stack cost the poster its top-right corner, and the line does not.
+      // Same rect, so the artwork is the size it is on a film.
+      await pump(tester, LibraryItemState.notGiven,
+          type: 'BoxSet', childCount: 7, width: 178);
+      await tester.pumpAndSettle();
+
+      final poster = tester.getRect(find.byType(ClipRRect).first);
+      expect(tester.getRect(outline()), poster);
+    });
+
+    testWidgets('the badge and the faces are back in the tile\'s own corners',
+        (tester) async {
+      // They carried an offset for as long as a collection's poster was inset
+      // for the sheets behind it. With the inset gone the offset would push
+      // them *into* the artwork, so this is not a leftover that costs nothing.
+      //
+      // `givenButHidden`, because a plain share has no badge to place any
+      // more; and holders, because `_HolderRow` renders a `SizedBox.shrink()`
+      // for an empty list — an earlier version of this assertion measured a
+      // row that was not in the tree.
+      await pump(tester, LibraryItemState.givenButHidden,
+          type: 'BoxSet',
+          childCount: 7,
+          width: 178,
+          holders: const [
+            ItemHolder(userId: 'kid-2', name: 'Leo'),
+            ItemHolder(userId: 'kid-3', name: 'Ana'),
+          ]);
+      await tester.pumpAndSettle();
+
+      final tile = tester.getRect(find.byType(LibraryTile));
+      final badge = tester.getRect(find.text('Held back'));
+      expect(badge.top - tile.top, lessThan(8),
+          reason: 'the badge sits on the tile inset, not below a sheet edge');
+
+      // The **rightmost** face: the left end of a row does not move when the
+      // right inset does, which is how an earlier attempt at this passed on
+      // the mutant it was written to catch.
+      final rowRight = find
+          .byType(UserAvatar)
+          .evaluate()
+          .map((e) => tester.getRect(find.byWidget(e.widget)).right)
+          .reduce((a, b) => a > b ? a : b);
+      expect(tile.right - rowRight, lessThan(8),
+          reason: 'and the faces reach the tile edge, not a sheet edge');
+    });
+  });
+
+  group('a series says how many episodes it holds (#119)', () {
+    testWidgets('the count is the episodes, not the seasons', (tester) async {
+      // **The whole of this change is in this assertion.** Measured on
+      // 10.11.11: a two-season, five-episode show reports `ChildCount: 2` and
+      // `RecursiveItemCount: 5`. Reusing the collection badge would read the
+      // first and print "2 titles" for a show holding five of neither, so the
+      // fixture carries both numbers and they are deliberately different.
+      await pump(tester, LibraryItemState.notGiven,
+          type: 'Series', childCount: 2, recursiveItemCount: 5);
+      await tester.pumpAndSettle();
+
+      expect(find.text('5 episodes'), findsOneWidget);
+      expect(find.text('2 episodes'), findsNothing,
+          reason: 'two is the seasons, and the seasons are not the answer');
+      expect(find.textContaining(RegExp(r'\d+ titles')), findsNothing,
+          reason: 'a series holds episodes; titles is the collection noun');
+    });
+
+    testWidgets('a film has no episode badge', (tester) async {
+      // The control. Measured: a `Movie` reports neither count field even when
+      // both are requested, so this is the server's own shape rather than a
+      // type check — but the tile must still be seen not to badge it.
+      await pump(tester, LibraryItemState.notGiven);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Paddington'), findsOneWidget,
+          reason: 'the tile is drawn; it is the badge that is absent');
+      expect(find.textContaining(RegExp(r'\d+ episodes')), findsNothing);
+    });
+
+    testWidgets('and neither does a show whose size was not asked for',
+        (tester) async {
+      // `RecursiveItemCount` is absent unless `Fields` names it. Absent is not
+      // zero, so nothing is invented for the corner — the same rule the
+      // collection badge follows.
+      await pump(tester, LibraryItemState.notGiven, type: 'Series');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Paddington'), findsOneWidget);
+      expect(find.textContaining(RegExp(r'\d+ episodes')), findsNothing);
+    });
+
+    testWidgets('a screen reader is told what it is, and how big',
+        (tester) async {
+      await pump(tester, LibraryItemState.notGiven,
+          type: 'Series', childCount: 2, recursiveItemCount: 5);
+      await tester.pumpAndSettle();
+
+      final label = tester.getSemantics(find.byType(LibraryTile)).label;
+      expect(label, contains('Series, 5 episodes'));
+    });
+
+    testWidgets('degrading to the noun alone when the count is missing',
+        (tester) async {
+      await pump(tester, LibraryItemState.notGiven, type: 'Series');
+      await tester.pumpAndSettle();
+
+      final label = tester.getSemantics(find.byType(LibraryTile)).label;
+      expect(label, contains('Series'));
+      expect(label, isNot(contains('episodes')),
+          reason: 'no count was sent, so none is spoken');
     });
   });
 }

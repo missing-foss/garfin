@@ -12,168 +12,365 @@ import 'user_avatar.dart';
 import '../models/auth_session.dart';
 import '../models/jellyfin_user.dart';
 import '../models/kid_summary.dart';
+import '../models/library_filters.dart';
 import '../providers/app_providers.dart';
+import '../providers/home_tab_providers.dart';
 import '../providers/kids_providers.dart';
+import '../providers/library_providers.dart';
+import '../repositories/jellyfin_exception.dart';
+import 'error_notice.dart';
 import '../repositories/birth_year_store.dart';
 
 /// One child's card: avatar, name, age, cap, the mode chip, the tags, progress
 /// and the count.
-class KidCard extends ConsumerWidget {
-  const KidCard({super.key, required this.kid, required this.session});
+/// How big a child's face is, given how many there are.
+///
+/// **Fewer children, bigger faces** — they are the subject of this screen, and
+/// a household with two of them has the room to say so.
+///
+/// **Capped at 36 rather than sized to the space available.** Measured on
+/// 10.11.11 and recorded in `docs/JELLYFIN-API.md`: a user's avatar arrives at
+/// whatever resolution it was uploaded, and Jellyfin accepts every request to
+/// resize it and ignores them all. Nothing in the user DTO reports the source
+/// dimensions either, so the app cannot know that a picture is small until it
+/// has already drawn it too large. A conservative ceiling is the only version
+/// of this that cannot make somebody's photograph look worse.
+double kidAvatarRadius(int children) => switch (children) {
+  <= 2 => 36,
+  <= 4 => 30,
+  _ => 24,
+};
+
+class KidCard extends ConsumerStatefulWidget {
+  const KidCard({
+    super.key,
+    required this.kid,
+    required this.session,
+    this.avatarRadius = 24,
+  });
 
   final KidSummary kid;
   final AuthSession session;
 
+  /// From [kidAvatarRadius]. Defaulted so a caller that does not care gets the
+  /// size this card always had.
+  final double avatarRadius;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<KidCard> createState() => _KidCardState();
+}
+
+class _KidCardState extends ConsumerState<KidCard> {
+  /// Whether the per-library breakdown is showing.
+  ///
+  /// **Local, and that is the design.** Nothing asks the server for a
+  /// per-library count until this is true for a row, so a screen of six
+  /// children costs nothing extra until a parent asks about one of them.
+  bool _expanded = false;
+
+  KidSummary get kid => widget.kid;
+  AuthSession get session => widget.session;
+
+  /// Pick this child and go to the Library, in that order.
+  ///
+  /// Two writes rather than a route with an argument: the selection is the
+  /// Library's own, so the screen arrives already filtered instead of being
+  /// handed a child it would have to apply itself — and there is no second
+  /// path to keep in step with the first.
+  /// Pick this child, and land on what they can already see.
+  ///
+  /// **Both halves of "has access to", not one.** A label is what Garfin gives;
+  /// the rating cap silently overrides it, so a grid filtered to the labels
+  /// alone would show a child titles their own account refuses them. The cap
+  /// filter is the server's, applied to the administrator's view, and it is
+  /// what the per-library counts on the card use too — so the screen a face
+  /// opens agrees with the number the face was sitting next to.
+  ///
+  /// The full grid is one tap away, and the giving workflow lives there:
+  /// `library_repository.dart` builds every view from the administrator's, so
+  /// nothing is lost by arriving narrowed. Provisional by the owner's decision
+  /// on the issue — whether this should be permanent is parked until it has
+  /// been used.
+  void _pick(WidgetRef ref) {
+    ref.read(pickingForProvider.notifier).select(kid.user.id);
+    ref.read(libraryViewProvider.notifier).set(LibraryView.given);
+    ref.read(libraryFiltersProvider.notifier).set(
+          ref.read(libraryFiltersProvider).copyWith(withinCap: true),
+        );
+    ref.read(homeTabProvider.notifier).go(HomeTab.library);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
     final conflicting = kid.mode == ShortlistMode.conflicting;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    // **A column of cards, not one card with headings.** What the tap reveals
+    // is two unrelated things: what Jellyfin enforces on the account, and what
+    // the child can see library by library. Stacked together they were one run
+    // of lines that a label had to keep apart; separate cards say it in the
+    // shape instead, which is what a card is for.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                UserAvatar(name: kid.user.name, avatarUrl: kid.avatarUrl),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // **The picture is its own target.** Tapping it means *pick
+                    // this child* — the same act as choosing them in the Library's
+                    // "Picking for" row, and it sets the same selection rather
+                    // than a lookalike, so the grid, the rating-cap chip and what
+                    // carries into the assign sheet are the state that row
+                    // produces and not a second version of it.
+                    //
+                    // Sized to the avatar and no larger: this is the one place on
+                    // this screen where a mistap takes a parent somewhere they did
+                    // not ask to go, so the target is the picture rather than the
+                    // padding around it.
+                    Semantics(
+                      button: true,
+                      label: l10n.kidsPickThisChild(kid.user.name),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => _pick(ref),
+                        child: UserAvatar(
+                          name: kid.user.name,
+                          avatarUrl: kid.avatarUrl,
+                          radius: widget.avatarRadius,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // **The rest of the row is the expander**, and it is a
+                    // separate target from the picture beside it on purpose: the
+                    // picture leaves this screen, this does not. Revealing in
+                    // place rather than pushing a route is what keeps the two
+                    // meanings apart — one goes somewhere, one shows more here.
+                    Expanded(
+                      child: Semantics(
+                        button: true,
+                        expanded: _expanded,
+                        child: InkWell(
+                          onTap: () => setState(() => _expanded = !_expanded),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      kid.user.name,
+                                      style: theme.textTheme.titleMedium,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    _AgeLine(kid: kid, session: session),
+                                  ],
+                                ),
+                              ),
+                              // **The affordance.** A card whose detail is hidden
+                              // behind a tap has to say so, or the tap is a thing
+                              // only whoever built it knows about. Inside the same
+                              // `InkWell` rather than beside it, so it is a hint
+                              // and not a second control with its own meaning —
+                              // the whole row does one thing.
+                              Icon(
+                                _expanded ? Icons.expand_less : Icons.expand_more,
+                                size: 20,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // The conflicting case is stated, not resolved. Ground rule 3 says
+                // the two verbs are never mixed; the server permits it anyway, and
+                // picking one here would be a guess that silently reverses what
+                // every later action does.
+                if (conflicting) ...[
+                  Text(
+                    l10n.kidsModeConflictingDetail,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // Signing this child in on one of their devices (#40). On their own
+                // card on purpose: the child is then chosen by construction, and
+                // approving for the wrong child — the failure that matters here,
+                // and a silent one — has no list to happen in.
+                //
+                // Absent for a conflicting account, which Garfin refuses to
+                // interpret at all (ground rule 3). Minting a session for an
+                // account it cannot describe would be acting past the point where
+                // it stopped understanding.
+                if (!conflicting) ...[
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.phonelink_lock_outlined, size: 18),
+                      label: Text(l10n.deviceSignInAction),
+                      onPressed: () => showDeviceSignInSheet(
+                        context,
+                        session: session,
+                        child: kid.user,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+
+        // Everything else waits for the tap. The resting card is the picture,
+        // the name, the age and the way in — what a parent needs to recognise a
+        // child and act on them. The rest is reference, read when a question is
+        // asked.
+        //
+        // The mode label comes down here with the rest. It reports which kind
+        // of list the account uses, which is a fact about the account rather
+        // than about the child, and it never did anything on tap.
+        if (_expanded) ...[
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // **Whose settings these are, said before what they say.**
+                  // The two lines below are read from the child's Jellyfin account
+                  // and never written; the age above is Garfin's own, kept on this
+                  // phone. Stacked without a word they read as one list, and the
+                  // birth year sounds like it drives the limit beneath it.
+                  //
+                  // The heading mattered more when all three sat in one column at
+                  // rest. It still earns its place: revealing them together is the
+                  // same stack, one tap later.
+                  Row(
                     children: [
-                      Text(kid.user.name, style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 2),
-                      _AgeLine(kid: kid, session: session),
+                      // `Flexible`, and it is not decoration: measured at a 296dp
+                      // card with Android's 200% text scale, this row overflowed by
+                      // 15px in English. Raised in review as probably-unreachable
+                      // arithmetic; it is reachable.
+                      Flexible(
+                        child: Text(
+                          l10n.kidsServerSection(kid.user.name),
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      // The tap the mode label used to promise and not have. One
+                      // explanation for all three server-owned facts, next to the
+                      // two that are hardest to place.
+                      //
+                      // **No `visualDensity: compact` here.** It measured 40x40,
+                      // under the 48dp interactive minimum — on the one control
+                      // that explains the card to a parent who could not work out
+                      // what it was telling them, which is the worst place to save
+                      // eight pixels.
+                      IconButton(
+                        icon: const Icon(Icons.help_outline, size: 18),
+                        tooltip: l10n.kidsServerExplainAction,
+                        onPressed: () => _explain(context, l10n, kid.user.name),
+                      ),
                     ],
                   ),
-                ),
-                // Flexible for the same measured reason as the heading row
-                // below, and this one is **older than this change**: the
-                // status has always been an inflexible child beside an
-                // `Expanded`, and at 296dp/200% the header row overflowed
-                // too. Found while measuring the row the review asked about.
-                Flexible(child: _ModeLabel(mode: kid.mode)),
-              ],
-            ),
-            const SizedBox(height: 12),
 
-            // The conflicting case is stated, not resolved. Ground rule 3 says
-            // the two verbs are never mixed; the server permits it anyway, and
-            // picking one here would be a guess that silently reverses what
-            // every later action does.
-            if (conflicting) ...[
-              Text(
-                l10n.kidsModeConflictingDetail,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.error),
-              ),
-              const SizedBox(height: 12),
-            ],
+                  Text(_capLabel(l10n), style: theme.textTheme.bodySmall),
 
-            // **Whose settings these are, said before what they say** (#74).
-            // The two lines below sit directly under the age — which the
-            // parent has just been able to edit, and which Garfin keeps on
-            // this phone — so three lines from three different places read as
-            // one list of Garfin's. The heading is the whole fix: one label
-            // above two existing lines, no new data.
-            Row(
-              children: [
-                // `Flexible`, and it is not decoration: measured at a 296dp
-                // card with Android's 200% text scale, this row overflowed by
-                // 15px in English. Raised in review as probably-unreachable
-                // arithmetic; it is reachable.
-                Flexible(
-                  child: Text(
-                    l10n.kidsServerSection,
-                    style: theme.textTheme.labelMedium
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  // The other half of what the server enforces. A card that shows the
+                  // rating cap and not the hours summarises half a parental control
+                  // and reads as the whole of one.
+                  const SizedBox(height: 4),
+                  Text(
+                    _scheduleLabel(context, l10n),
+                    style: theme.textTheme.bodySmall,
                   ),
-                ),
-                // The tap the mode label used to promise and not have. One
-                // explanation for all three server-owned facts, next to the
-                // two that are hardest to place.
-                //
-                // **No `visualDensity: compact` here.** It measured 40x40,
-                // under the 48dp interactive minimum — on the one control
-                // that explains the card to a parent who could not work out
-                // what it was telling them, which is the worst place to save
-                // eight pixels.
-                IconButton(
-                  icon: const Icon(Icons.help_outline, size: 18),
-                  tooltip: l10n.kidsServerExplainAction,
-                  onPressed: () =>
-                      _explain(context, l10n, kid.user.name),
-                ),
-              ],
-            ),
 
-            Text(_capLabel(l10n), style: theme.textTheme.bodySmall),
-
-            // The other half of what the server enforces. A card that shows the
-            // rating cap and not the hours summarises half a parental control
-            // and reads as the whole of one.
-            const SizedBox(height: 4),
-            Text(_scheduleLabel(context, l10n), style: theme.textTheme.bodySmall),
-
-            if (kid.tags.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final tag in kid.tags)
-                    Chip(
-                      label: Text(tag, style: theme.textTheme.labelSmall),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize:
-                          MaterialTapTargetSize.shrinkWrap,
+                  // **The labels, said rather than shown bare.** A row of
+                  // chips under two sentences was a list with no verb: it
+                  // never said whether carrying one of these is what lets the
+                  // child see a thing or what stops them. Ground rule 3 — for
+                  // a block-list account those are opposites — so the sentence
+                  // is chosen by the mode rather than assumed.
+                  //
+                  // A conflicting account gets neither sentence. Both lists
+                  // are set, the red line above already says Garfin will not
+                  // guess which was meant, and picking a verb here is exactly
+                  // the guess that rule forbids.
+                  if (kid.tags.isNotEmpty && !conflicting) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      kid.mode == ShortlistMode.allow
+                          ? l10n.kidsLabelsAllow
+                          : l10n.kidsLabelsBlock,
+                      style: theme.textTheme.bodySmall,
                     ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final tag in kid.tags)
+                          Chip(
+                            label: Text(tag, style: theme.textTheme.labelSmall),
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                      ],
+                    ),
+                  ],
+
                 ],
               ),
-            ],
-
-            const SizedBox(height: 12),
-            // Both numbers came back from the server (ground rule 4). The bar
-            // is a rendering of them, not a second opinion about them.
-            LinearProgressIndicator(value: kid.progress),
-            const SizedBox(height: 6),
-            Text(
-              l10n.kidsVisibleOfTotal(kid.visibleCount, kid.libraryTotal),
-              style: theme.textTheme.bodySmall,
             ),
+          ),
+          const SizedBox(height: 12),
 
-            // Signing this child in on one of their devices (#40). On their own
-            // card on purpose: the child is then chosen by construction, and
-            // approving for the wrong child — the failure that matters here,
-            // and a silent one — has no list to happen in.
-            //
-            // Absent for a conflicting account, which Garfin refuses to
-            // interpret at all (ground rule 3). Minting a session for an
-            // account it cannot describe would be acting past the point where
-            // it stopped understanding.
-            if (!conflicting) ...[
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.phonelink_lock_outlined, size: 18),
-                  label: Text(l10n.deviceSignInAction),
-                  onPressed: () => showDeviceSignInSheet(
-                    context,
-                    session: session,
-                    child: kid.user,
+          // The second card, and the reason the total above it is gone: these
+          // numbers answer "how much can they see" per library, which is the
+          // same question with more resolution. Keeping both meant a headline
+          // that could disagree with the breakdown beneath it — and the
+          // headline was the most expensive thing the card computed.
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.kidsLibrariesSection(kid.user.name),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
+                  _PerLibrary(session: session, kid: kid),
+                ],
               ),
-            ],
-          ],
-        ),
-      ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -194,11 +391,13 @@ class KidCard extends ConsumerWidget {
     if (schedules.isEmpty) return l10n.kidsScheduleNone;
 
     final lines = schedules
-        .map((s) => l10n.kidsScheduleWindow(
-              _dayLabel(context, l10n, s.dayOfWeek),
-              formatScheduleHour(s.startHour),
-              formatScheduleHour(s.endHour),
-            ))
+        .map(
+          (s) => l10n.kidsScheduleWindow(
+            _dayLabel(context, l10n, s.dayOfWeek),
+            formatScheduleHour(s.startHour),
+            formatScheduleHour(s.endHour),
+          ),
+        )
         .join('  ·  ');
     return l10n.kidsScheduleServerTime(lines);
   }
@@ -242,17 +441,26 @@ class KidCard extends ConsumerWidget {
 
   /// The cap, named where the server's ladder can name it.
   ///
-  /// Three distinct answers, and they are not interchangeable: no cap at all,
-  /// a cap the ladder knows, and a cap it does not. The last one shows the raw
-  /// number — see [ParentalRatingLadder.nameFor] for why guessing a nearby rung
-  /// on a safety control is the wrong kind of helpful.
+  /// Four distinct answers, and they are not interchangeable: no cap at all, a
+  /// cap the ladder knows, and a cap it does not — which splits again on
+  /// whether the sub-level carries meaning.
+  ///
+  /// The unnameable case shows the raw numbers rather than a nearby rung; see
+  /// [ParentalRatingLadder.nameFor] for why guessing on a safety control is the
+  /// wrong kind of helpful. It prints the sub-level **only when it is
+  /// non-zero**: 0 and absent both behave as the strictest sub-level, so the
+  /// score alone is then the whole cap, while 10/0 and 10/1 are genuinely
+  /// different caps and one number for both would render them identically. The
+  /// measurement is at [UserPolicy.maxParentalSubRating].
   String _capLabel(AppLocalizations l10n) {
     final value = kid.user.policy.maxParentalRating;
     if (value == null) return l10n.kidsRatingCapNone;
     final name = kid.ratingCapName;
-    return name == null
+    if (name != null) return l10n.kidsRatingCap(name);
+    final sub = kid.user.policy.maxParentalSubRating ?? 0;
+    return sub == 0
         ? l10n.kidsRatingCapValue(value)
-        : l10n.kidsRatingCap(name);
+        : l10n.kidsRatingCapPair(value, sub);
   }
 }
 
@@ -283,26 +491,33 @@ void _explain(BuildContext context, AppLocalizations l10n, String name) {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(l10n.kidsServerSection, style: theme.textTheme.titleMedium),
+              Text(l10n.kidsServerSection(name), style: theme.textTheme.titleMedium),
               const SizedBox(height: 12),
-              Text(l10n.kidsServerExplainMode(name),
-                  style: theme.textTheme.bodyMedium),
+              Text(
+                l10n.kidsServerExplainMode(name),
+                style: theme.textTheme.bodyMedium,
+              ),
               const SizedBox(height: 8),
-              Text(l10n.kidsServerExplainPolicy(name),
-                  style: theme.textTheme.bodyMedium),
+              Text(
+                l10n.kidsServerExplainPolicy(name),
+                style: theme.textTheme.bodyMedium,
+              ),
               const SizedBox(height: 8),
               // The path is Jellyfin's own menu names, read out of the
               // 10.11.11 web client's strings rather than remembered: the
               // issue that asked for this line flagged that a wrong path is
               // worse than none, and it is the kind of claim that reads as
               // verified whether or not it was.
-              Text(l10n.kidsServerExplainWhere(name),
-                  style: theme.textTheme.bodyMedium),
+              Text(
+                l10n.kidsServerExplainWhere(name),
+                style: theme.textTheme.bodyMedium,
+              ),
               const SizedBox(height: 8),
               Text(
                 l10n.kidsServerExplainBirthYear,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -312,52 +527,6 @@ void _explain(BuildContext context, AppLocalizations l10n, String name) {
   );
 }
 
-class _ModeLabel extends StatelessWidget {
-  const _ModeLabel({required this.mode});
-
-  final ShortlistMode mode;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
-
-    final (label, colour) = switch (mode) {
-      ShortlistMode.allow => (l10n.kidsModeAllowList, null),
-      ShortlistMode.block => (l10n.kidsModeBlockList, null),
-      ShortlistMode.conflicting =>
-        (l10n.kidsModeConflicting, theme.colorScheme.errorContainer),
-      // Cards are only built for users who have a shortlist, so this arm is
-      // unreachable today. It exists because the alternative is a non-exhaustive
-      // switch that would fail to compile the day a fourth mode is added, which
-      // is precisely when someone should be made to think about this screen.
-      ShortlistMode.none => (l10n.kidsModeAllowList, null),
-    };
-
-    // **A label, not a `Chip`** (#76). This reports which kind of list the
-    // child's Jellyfin account uses; it has never done anything on tap. The
-    // app's chips *are* tappable — `FilterChip` and `ChoiceChip` on the
-    // library filter bar — so a pill here taught the parent it was a button
-    // and then ignored them. It was reported as "a 'select' button that
-    // doesn't seem to work", which is exactly what the widget promised.
-    //
-    // The explanation it provoked now lives beside the two lines below,
-    // where the same question is asked about the rating limit and the hours.
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: colour ?? theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(label, style: theme.textTheme.labelSmall),
-    );
-  }
-}
-
-/// The age, or an invitation to supply one.
-///
-/// Tappable in both states, because a year typed wrongly needs correcting as
-/// much as a missing one needs adding.
 class _AgeLine extends ConsumerWidget {
   const _AgeLine({required this.kid, required this.session});
 
@@ -415,8 +584,9 @@ class _BirthYearDialog extends StatefulWidget {
 }
 
 class _BirthYearDialogState extends State<_BirthYearDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initial?.toString() ?? '');
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial?.toString() ?? '',
+  );
   String? _error;
 
   @override
@@ -480,12 +650,96 @@ class _BirthYearDialogState extends State<_BirthYearDialog> {
 
     final year = int.tryParse(text);
     if (year == null || !BirthYearStore.isPlausible(year)) {
-      setState(() => _error = l10n.kidsBirthYearInvalid(
-            BirthYearStore.minYear,
-            BirthYearStore.maxYear,
-          ));
+      setState(
+        () => _error = l10n.kidsBirthYearInvalid(
+          BirthYearStore.minYear,
+          BirthYearStore.maxYear,
+        ),
+      );
       return;
     }
     Navigator.of(context).pop(_BirthYearResult(year));
+  }
+}
+
+/// One child's counts, library by library.
+///
+/// **Visibility only, and one number per row.** `UI-SPEC.md` is explicit that
+/// labels and visibility never share a line, and this is the child's own
+/// visible count per library — the same question the headline asks, narrowed.
+/// A label count could join it later; it would be a second row, not a second
+/// number on this one.
+class _PerLibrary extends ConsumerWidget {
+  const _PerLibrary({required this.session, required this.kid});
+
+  final AuthSession session;
+  final KidSummary kid;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    final counts = ref.watch(
+      childLibraryCountsProvider(
+        ChildLibrariesRequest(session: session, childId: kid.user.id),
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: counts.when(
+        // Small and in place: the row has already opened, so a full-width
+        // spinner would push the card around for something that is about to
+        // be four lines of text.
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 4),
+          child: LinearProgressIndicator(),
+        ),
+        // The card keeps everything else it was saying. A breakdown that could
+        // not be fetched is not a reason to lose the numbers above it.
+        error: (error, _) => Text(
+          jellyfinErrorText(
+            l10n,
+            error is JellyfinException
+                ? error
+                : const JellyfinException(JellyfinErrorKind.server),
+          ),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.error,
+          ),
+        ),
+        // **Most-seen first.** Sorted here rather than by the server: the
+        // rows come from one `/Items` count per library, so there is no single
+        // query whose order could be asked for. Ties keep the server's own
+        // order, which is `/UserViews`' — a stable arrangement a parent may
+        // recognise from Jellyfin, rather than one this screen invented.
+        data: (rows) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final row in [...rows]..sort(
+                (a, b) => b.visible.compareTo(a.visible)))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        row.library.name,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+                    Text(
+                      l10n.libraryItemCount(row.visible),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

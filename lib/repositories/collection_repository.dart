@@ -44,8 +44,22 @@ class CollectionRepository {
   /// cannot see yet. That is the whole point of the screen.
   Future<CollectionIndex> index() async {
     final collections = await _api.collections(userId: _adminUserId);
+
+    // **An empty set is skipped before its membership is asked for** (#109).
+    // This is `1 + N` requests over every collection on the server, so each
+    // empty one is a whole round trip spent to be told "nothing" — a larger
+    // saving than the grid's, which only pays for what is on screen.
+    //
+    // `childCount != 0` rather than `> 0`: the field is absent unless `Fields`
+    // asks for it, and `null` means the server was not asked rather than that
+    // the set is empty. `collections()` does ask, so this is the defensive
+    // form of a condition that holds — which is the right way round.
+    final worthAsking = collections
+        .where((collection) => collection.childCount != 0)
+        .toList(growable: false);
+
     final sets = await mapBounded<LibraryItem, CollectionSet>(
-      collections,
+      worthAsking,
       (collection) async => CollectionSet(
         collection: collection,
         members: await _api.collectionMembers(
@@ -61,11 +75,21 @@ class CollectionRepository {
   ///
   /// What the sheet needs when a **collection** was tapped: the set is already
   /// identified, so there is nothing to search for.
-  Future<CollectionSet> setFor(LibraryItem collection) async => CollectionSet(
+  /// [sortBy] and [sortOrder] are the grid's, because this is what the
+  /// collection screen draws. The index built above deliberately does not pass
+  /// them: it is a membership lookup, and a set of ids has no order.
+  Future<CollectionSet> setFor(
+    LibraryItem collection, {
+    String sortBy = 'SortName',
+    String sortOrder = 'Ascending',
+  }) async =>
+      CollectionSet(
         collection: collection,
         members: await _api.collectionMembers(
           userId: _adminUserId,
           collectionId: collection.id,
+          sortBy: sortBy,
+          sortOrder: sortOrder,
         ),
       );
 

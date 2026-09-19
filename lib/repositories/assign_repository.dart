@@ -253,27 +253,43 @@ class AssignRepository {
     return AssignOutcome(counts: _countsFor(diff), applied: diff);
   }
 
-  /// Writes [diff] across a whole collection: every member, and the container.
+  /// Writes [diff] to [memberIds] and to the container that holds them.
   ///
-  /// **The container is not decoration.** Measured on 10.11.11 for an allow-list
-  /// child: labelling only the members hands over the films while the set itself
-  /// stays absent and browsing it answers 401, and labelling only the container
-  /// hands over an **empty** set. Both halves, or the parent has not given what
-  /// they think they gave.
+  /// **The container's label means "the child can open this set."** Measured on
+  /// 10.11.11 for an allow-list child: labelling only the members hands over the
+  /// films while the set is absent from their library, and labelling only the
+  /// container hands over an **empty** set. With the container labelled and only
+  /// some members labelled, the child sees the set containing exactly those —
+  /// the rest do not leak, and their client reports a `ChildCount` of the
+  /// labelled ones, so it reads as a smaller set rather than one with holes.
+  ///
+  /// A set the child has no label for is **invisible**, not merely refused —
+  /// their copy of a member mentions no BoxSet, its ancestors are the library
+  /// folder chain, and asking for the set by id returns nothing. So the failure
+  /// this prevents is *loose films*, not a dead link. Full matrix in
+  /// `docs/JELLYFIN-API.md`.
+  ///
+  /// [memberIds] need not be the whole set. Giving one film from inside a set
+  /// writes that film and the container, and nothing else — scope is the set in
+  /// front of the parent, never every set the film belongs to. Pass the set's
+  /// other members as [siblingIds] so a removal can tell whether any label is
+  /// left behind.
   ///
   /// Three phases, in this order, and the order is the point:
   ///
-  /// 1. **the container's removals** — before any member loses its label, so the
-  ///    set stops claiming to be complete first;
-  /// 2. **every member**, [batchConcurrency] at a time, each its own full-object
-  ///    round-trip;
-  /// 3. **the container's additions — last, and only if every member landed.**
+  /// 1. **the container's removals** — before any member loses its label, and
+  ///    **only when no sibling still carries one**. A set still holding labelled
+  ///    films must stay openable, or those films go loose;
+  /// 2. **every member in [memberIds]**, [batchConcurrency] at a time, each its
+  ///    own full-object round-trip;
+  /// 3. **the container's additions — last, and only if everything this write
+  ///    was asked to do landed.**
   ///
-  /// Phase 3 is what makes the container's label mean "the whole set is here".
-  /// A partly-failed batch therefore leaves it off, the set reads as not-given
-  /// on the grid, and it stays in the to-do list instead of looking finished —
-  /// which is what `docs/DECISIONS.md` § Collections asks for, at the cost of no
-  /// extra query.
+  /// Phase 3's condition is *what was asked*, not *the whole set*: a partial
+  /// give is complete when its own film lands. A partly-failed batch leaves the
+  /// container off, so the set stays in the to-do list instead of looking
+  /// finished — `docs/DECISIONS.md` § Collections, at the cost of no extra
+  /// query.
   ///
   /// Nothing that succeeded is ever undone (ground rule 5). The failures come
   /// back in [BatchOutcome.failed] for the user to finish or reverse, both of
@@ -285,6 +301,7 @@ class AssignRepository {
     required String collectionId,
     required List<String> memberIds,
     required TagDiff diff,
+    List<String> siblingIds = const <String>[],
   }) async {
     if (diff.isEmpty) {
       return BatchOutcome(
@@ -312,8 +329,41 @@ class AssignRepository {
     // the Activity log needs it and the server has already sent it.
     String? collectionName;
     if (!removals.isEmpty) {
-      collectionName = await _tryWrite(collectionId, removals);
-      setMarked = collectionName != null;
+      // The container comes off only when no labelled member is left. Taking
+      // one film back out of a set the child still has four films from would
+      // otherwise strand those four: they keep their labels, the set loses
+      // its, and a set the child has no label for is invisible rather than
+      // refused — so the four go loose, which is the defect this whole entry
+      // is about, produced by the removal path instead of the addition one.
+      //
+      // Read fresh rather than trusting the cached membership. The index is
+      // what makes the decision cheap to reach; it is not what makes it right,
+      // and a sibling labelled since the index was built would be missed.
+      // **Only a change that TAKES ACCESS AWAY is gated.** `removals` is by
+      // raw `adding`, and the label inverts: for a block-list child removing a
+      // label is how a film is GIVEN, and the container losing its label is
+      // what makes the set openable at all. Gating that on siblings would keep
+      // the set invisible to exactly the child the write is helping, and would
+      // reinstate the whole-set-or-nothing rule this entry removes.
+      final takeAway =
+          removals.changes.where((c) => !c.givesAccess).toList(growable: false);
+      final grants =
+          removals.changes.where((c) => c.givesAccess).toList(growable: false);
+      final held = await _labelsSiblingsStillHold(siblingIds, takeAway);
+      final containerRemovals = TagDiff(<TagChange>[
+        ...grants,
+        for (final c in takeAway)
+          if (!held.contains(c.label.toLowerCase())) c,
+      ]);
+      if (containerRemovals.isEmpty) {
+        // Not a failure and not silent: the members asked for still lose their
+        // labels below. The container staying is the correct outcome, and the
+        // caller reports it rather than the parent inferring it.
+        setMarked = true;
+      } else {
+        collectionName = await _tryWrite(collectionId, containerRemovals);
+        setMarked = collectionName != null;
+      }
     }
 
     final results = await mapBounded<String, ({String id, String? name})>(
@@ -364,6 +414,42 @@ class AssignRepository {
   /// the Undo rule both forbid — and it would be stale by exactly as long as the
   /// batch takes. Every write below fetches its own. This returns ids, so there
   /// is no body to be tempted by.
+  /// Which of [taking]'s labels a sibling still carries, lower-cased.
+  ///
+  /// The question the container's removal turns on, asked **per label**: a set
+  /// still holding a labelled film for one child must stay openable for that
+  /// child, while a different child's label coming off is unaffected. One
+  /// boolean for the whole diff would hold every take-away because of any one
+  /// of them.
+  ///
+  /// Read fresh — the cached index is how the caller knows which siblings to
+  /// ask about, not evidence of what they carry now.
+  ///
+  /// **A sibling that cannot be read counts as still carrying every label under
+  /// question.** That is the safe direction: it leaves the container as it is,
+  /// which costs an openable set holding fewer films than it did, against
+  /// stranding films the parent never took back. Ground rule 5's instinct —
+  /// never let a failed read decide a write in the destructive direction.
+  Future<Set<String>> _labelsSiblingsStillHold(
+    List<String> siblingIds,
+    List<TagChange> taking,
+  ) async {
+    if (siblingIds.isEmpty || taking.isEmpty) return const <String>{};
+    final labels = taking.map((c) => c.label.toLowerCase()).toSet();
+    final answers =
+        await mapBounded<String, Set<String>>(siblingIds, (id) async {
+      try {
+        final item = await _api.fullItem(userId: _adminUserId, itemId: id);
+        final tags =
+            readStringList(item, 'Tags').map((t) => t.toLowerCase()).toSet();
+        return labels.intersection(tags);
+      } on Object {
+        return labels;
+      }
+    });
+    return answers.expand((s) => s).toSet();
+  }
+
   Future<List<String>> _preflight(List<String> itemIds) async {
     final results = await mapBounded<String, String?>(itemIds, (id) async {
       try {

@@ -358,8 +358,9 @@ function Kids({ go, setKidId, grants }) {
   return (
     <div className="m3-body">
       <p className="m3-overline m3-flush">Kept to a shortlist</p>
+      {/* No `seen` total here any more: the card stopped showing one. It is
+          still computed in KidDetail below, which does. */}
       {MANAGED.map((k) => {
-        const seen = Object.values(k.libs).reduce((a, b) => a + b, 0) + extra(k.id);
         return (
           <button key={k.id} className="m3-card" onClick={() => { setKidId(k.id); go("kid"); }}>
             <div className="m3-card-top">
@@ -376,27 +377,16 @@ function Kids({ go, setKidId, grants }) {
             <div className="m3-tagwrap">
               {k.tags.map((t) => <code key={t} className="m3-code-chip">{t}</code>)}
             </div>
-            <Progress value={seen} total={total} hue={k.hue} />
-            <span className="m3-label m3-onvar">
-              {seen.toLocaleString()} of {total.toLocaleString()} things visible
-            </span>
+            {/* At rest the card stops above this. The bar and the headline
+                count are both gone -- the per-library rows answer the same
+                question with more resolution. See UI-SPEC.md § Kids. */}
           </button>
         );
       })}
 
-      <p className="m3-overline">No shortlist set</p>
-      {KIDS.filter((k) => !k.mode).map((k) => (
-        <div key={k.id} className="m3-list-item">
-          <Avatar kid={k} />
-          <div className="m3-list-text">
-            <span className="m3-body-large">{k.name}</span>
-            <span className="m3-body-medium m3-onvar">
-              {k.admin ? "Administrator — sees the lot" : "No allowed or blocked tags yet"}
-            </span>
-          </div>
-          {!k.admin && <button className="m3-text-btn">Set up</button>}
-        </div>
-      ))}
+      {/* Accounts with no rule are deliberately absent: not listed, not counted,
+          not named. The screen is the children under a rule. See UI-SPEC.md
+          § "Accounts Garfin cannot manage are absent, not explained". */}
       <div className="m3-spacer" />
     </div>
   );
@@ -912,7 +902,7 @@ const SPEC = [
     s: "Collections",
     b: [
       "A Jellyfin BoxSet is a container, and tagging the container does nothing for the child — the films inside are what the policy filters. So tagging a collection always writes to every member.",
-      "Collections are browsable in their own right: they appear in the grid with a stacked cover, a count badge, and the strictest rating found among their members.",
+      "Collections are browsable in their own right: they appear in the grid with an outlined poster, a count badge, and the strictest rating found among their members.",
       "A collection counts as 'shared' with a child only when every film inside is. A half-shared set stays in the to-do list rather than looking finished.",
       "Tag a single film that belongs to a set and the app asks once, listing the other members and their ratings, then either keeps the set together or writes just the one.",
       "The question only fires on additions. Removing a label from one film never silently strips the rest — that would make an unshare unpredictable.",
@@ -941,9 +931,9 @@ const SPEC = [
     ],
   },
   {
-    s: "Library — the landing screen",
+    s: "Library",
     b: [
-      "Sign-in lands here. The task that brings you into the app is 'find something for a kid', so the app opens on the thing you act on.",
+      "Not the landing screen any more: the app opens on Kids, and Kids is first in the navigation. The Library opened the app until 0.2.0, on the reasoning that the task which brings you in is 'find something for a kid', so it should open on the thing you act on — overruled, because a parent wants an answer about their children first.",
       "The 'Picking for' row uses the same avatars Jellyfin shows the children on their own login screen.",
       "Selecting a child switches the grid to what they can't see yet and turns the rating cap into a one-tap chip.",
       "Already-shared titles are hidden by default and carry a check badge when shown.",
@@ -954,8 +944,9 @@ const SPEC = [
     ],
   },
   {
-    s: "Kids and ratings",
+    s: "Kids and ratings — the landing screen",
     b: [
+      "Sign-in lands here: the children, what each of them can see, and anything playing right now.",
       "Allow-list mode (AllowedTags set): the child sees only tagged items — sharing means adding a tag.",
       "Block-list mode (BlockedTags set): sharing means removing one. Every action inverts to match, and the two are never mixed on one account.",
       "Visible counts are fetched twice, once as admin and once as the child, so the server applies the policy rather than the app guessing.",

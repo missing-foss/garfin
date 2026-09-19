@@ -4,29 +4,26 @@
 
 import 'jellyfin_user.dart';
 
-/// One card on the Kids screen: a user under shortlist control, plus the
-/// server-computed facts about what they can see.
+/// One card on the Kids screen: a user under shortlist control, and what
+/// Garfin knows about them beyond their Jellyfin account.
+///
+/// **No totals here any more.** This used to carry the child's visible count
+/// and the administrator's, for a "N of M things visible" line and the bar
+/// above it. Both are gone from the card — the per-library breakdown answers
+/// the same question with more resolution — and the fields went with them
+/// rather than staying as fields nothing reads. The fetch behind them was the
+/// most expensive call the app makes: one for the administrator plus one per
+/// child, 19 ms at a single title and 8.7 s at six thousand, on the screen a
+/// parent opens first.
 class KidSummary {
   const KidSummary({
     required this.user,
-    required this.visibleCount,
-    required this.libraryTotal,
     this.ratingCapName,
     this.birthYear,
     this.avatarUrl,
   });
 
   final JellyfinUser user;
-
-  /// What the **server** says this child can see. Never computed here.
-  ///
-  /// Ground rule 4. The rating cap silently overrides tags, so a count derived
-  /// from the tag list would be confidently wrong for exactly the children who
-  /// matter most.
-  final int visibleCount;
-
-  /// The same query asked as the administrator, for the "N of M" denominator.
-  final int libraryTotal;
 
   /// The cap as a parent would recognise it, or null when uncapped *or* when
   /// the ladder has no rung at that score. The screen distinguishes the two by
@@ -49,15 +46,44 @@ class KidSummary {
   /// rating cap is ever used at.
   int? ageIn(int currentYear) =>
       birthYear == null ? null : currentYear - birthYear!;
+}
 
-  /// How much of the library this child can reach, for the progress bar.
-  ///
-  /// Zero when the library is empty rather than a division by zero, and clamped
-  /// because the child's count can exceed the admin's denominator when the
-  /// admin's own view is itself restricted.
-  double get progress => libraryTotal <= 0
-      ? 0
-      : (visibleCount / libraryTotal).clamp(0.0, 1.0).toDouble();
+/// The children and their pictures, before a single count has been asked for.
+///
+/// **Split out of [KidsOverview] so the faces can arrive first.** Listing the
+/// users is one cheap request; the counts beside them are the most expensive
+/// thing this app does — measured, a child's count is 19 ms when they can see
+/// one title and **8.7 s at six thousand**, and the administrator's total is
+/// 7.6 s on the same library. A landing screen that waited for all of that
+/// before drawing anything showed a spinner for as long as the slowest child
+/// took, on the first screen anyone sees.
+///
+/// [KidsOverview] is built on top of this rather than beside it, so the users
+/// are fetched once and the counts are what the second wait is for.
+class KidsRoster {
+  const KidsRoster({required this.shortlisted, required this.withoutShortlist});
+
+  /// Label-controlled users, in the order the server gave them.
+  final List<KidFace> shortlisted;
+
+  final List<UnshortlistedUser> withoutShortlist;
+
+  bool get isEmpty => shortlisted.isEmpty && withoutShortlist.isEmpty;
+}
+
+/// One child and their picture, with nothing counted yet.
+///
+/// Deliberately not [UnshortlistedUser] despite the identical shape: that type
+/// means *an account Garfin does not manage*, and reusing it for the managed
+/// half would make the one place that distinction is drawn depend on reading
+/// which field it was assigned to.
+class KidFace {
+  const KidFace({required this.user, required this.avatarUrl});
+
+  final JellyfinUser user;
+
+  /// Null when the user has no picture. Same rule as [KidSummary.avatarUrl].
+  final String? avatarUrl;
 }
 
 /// The Kids screen's whole payload.

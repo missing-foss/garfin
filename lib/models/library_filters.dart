@@ -2,6 +2,57 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+/// Which slice of the administrator's grid is being shown.
+///
+/// **Not a server filter**, which is why it is not part of [LibraryFilters]:
+/// all three run the same query and differ only in which classified entries
+/// are kept. The grid stays the administrator's view in every one of them.
+enum LibraryView {
+  /// What the child does not have yet — the giving workflow, and the default.
+  toGive,
+
+  /// Everything, shared or not.
+  all,
+
+  /// What the child can actually see: their labels, and — when the cap filter
+  /// rides along — within their rating cap. Reached by tapping a face on the
+  /// Kids screen.
+  ///
+  /// Deliberately a *state* rather than a mode the app remembers. Whether it
+  /// should become permanent is a decision the owner has parked until it has
+  /// been used, so nothing here persists it.
+  given,
+}
+
+/// Which field the typed search term is matched against.
+///
+/// **Three modes rather than one box that searches everything, because
+/// `/Items` ANDs its filters and has no OR.** A single box matching title *or*
+/// person *or* studio would be a union of up to three server queries, and a
+/// union cannot be paged by the server: page 2 of "title matches ∪ cast
+/// matches" is not page 2 of anything Jellyfin will answer. Sieving a page
+/// after it arrives is the other way out and is the thing this screen was
+/// built not to do — the match is usually not in the first page.
+enum SearchScope {
+  /// The film's title. The default, so a parent who never touches the selector
+  /// gets exactly the behaviour that existed before this mode did.
+  title,
+
+  /// Anyone credited — cast **and** crew, which is what the server does.
+  ///
+  /// **Named for what it matches rather than what a parent hoped for.** Bare
+  /// `person=` matches every credit, and narrowing it to actors is possible
+  /// only on 12.0.0: `personTypes` is *ignored* on 10.11.11 and *applied* on
+  /// 12.0.0, measured in both directions. Calling this "Actor" would mean one
+  /// label meaning two things depending on the server. Sending no
+  /// `personTypes` at all makes the two versions behave identically, so this
+  /// feature has no server-version branch in it.
+  castAndCrew,
+
+  /// The production studio.
+  studio,
+}
+
 /// What the filter bar is asking the server for.
 ///
 /// Every one of these is a **server-side** filter: `/Items` has the parameters,
@@ -15,6 +66,8 @@ class LibraryFilters {
     this.decade,
     this.withinCap = false,
     this.searchTerm,
+    this.searchScope = SearchScope.title,
+    this.resolvedSearchValue,
   });
 
   /// `Movie`, `Series` or `BoxSet`, or null for all three.
@@ -28,9 +81,10 @@ class LibraryFilters {
 
   /// What the parent typed, matched by the **server** against the title (#73).
   ///
-  /// Measured on 10.11.11, because none of this is guessable and the repo has
-  /// been bitten twice by a parameter that answered 200 while filtering
-  /// nothing:
+  /// Measured on a stock 10.11.11, because none of this is guessable and the
+  /// repo has been bitten twice by a parameter that answered 200 while
+  /// filtering nothing. **A server-side search plugin replaces every line
+  /// below** — see `searchQueryParameters`:
   ///
   /// - **Title only.** Not the overview, not the cast, not tags, not genres.
   ///   Proven with a film whose overview says "Nothing like Paddington at all"
@@ -50,6 +104,22 @@ class LibraryFilters {
   /// says nothing is easier to read in a log than one that says nothing loudly.
   final String? searchTerm;
 
+  /// Which field [searchTerm] is matched against.
+  final SearchScope searchScope;
+
+  /// The exact name [searchScope] needs, resolved from what the parent typed.
+  ///
+  /// **`person=` and `studios=` are exact-match, and this is measured rather
+  /// than assumed**: `person=Tautou` returns nothing where
+  /// `person=Audrey Tautou` returns the film. A parent types three letters, so
+  /// the typed text cannot go to the server in these modes. `/Search/Hints`
+  /// turns a substring into the exact, typed name, and the result lands here.
+  ///
+  /// Null in [SearchScope.title], where the server takes the substring itself.
+  /// Null in the other two means *the resolve found nothing* — which is not
+  /// the same as no filter, and [isImpossible] is what keeps those apart.
+  final String? resolvedSearchValue;
+
   /// Hide titles rated above the selected child's cap.
   ///
   /// **A filter over the administrator's view, not a claim about what the child
@@ -66,6 +136,30 @@ class LibraryFilters {
   /// all (measured — `searchTerm=%20` returns the whole library), so counting
   /// it as active would put a "1 filter" badge on an unfiltered grid.
   bool get hasSearch => (searchTerm ?? '').trim().isNotEmpty;
+
+  /// Whether this search needs `/Search/Hints` before it can be sent.
+  ///
+  /// **False for every title search and every unfiltered grid**, and callers
+  /// rely on that to stay synchronous. Awaiting a resolve that is not needed
+  /// is not merely wasteful: it delays the grid's first request by an async
+  /// hop and reorders it against the other queries the screen issues. Measured
+  /// — doing so unconditionally turned three passing count tests red, because
+  /// the count and the grid swapped places in the sequence.
+  bool get needsResolve =>
+      searchScope != SearchScope.title && hasSearch;
+
+  /// A search that cannot match anything, because nothing resolved.
+  ///
+  /// **The grid must show an empty result rather than run the query without
+  /// the filter.** Dropping an unresolvable `person=` would send a query with
+  /// no person filter at all, and the server would cheerfully return the whole
+  /// library — a search for a name nobody is credited under would look exactly
+  /// like a search that was never applied. That is the failure this whole
+  /// screen exists to avoid, arriving through a different door.
+  bool get isImpossible =>
+      searchScope != SearchScope.title &&
+      hasSearch &&
+      (resolvedSearchValue ?? '').isEmpty;
 
   bool get isEmpty =>
       type == null && genre == null && decade == null && !withinCap &&
@@ -95,6 +189,8 @@ class LibraryFilters {
     Object? decade = _keep,
     bool? withinCap,
     Object? searchTerm = _keep,
+    SearchScope? searchScope,
+    Object? resolvedSearchValue = _keep,
   }) =>
       LibraryFilters(
         // `_keep` rather than null-means-keep, so a filter can be *cleared*.
@@ -106,6 +202,10 @@ class LibraryFilters {
         withinCap: withinCap ?? this.withinCap,
         searchTerm:
             identical(searchTerm, _keep) ? this.searchTerm : searchTerm as String?,
+        searchScope: searchScope ?? this.searchScope,
+        resolvedSearchValue: identical(resolvedSearchValue, _keep)
+            ? this.resolvedSearchValue
+            : resolvedSearchValue as String?,
       );
 
   static const _keep = Object();
@@ -133,9 +233,16 @@ class LibraryFilters {
       other.genre == genre &&
       other.decade == decade &&
       other.withinCap == withinCap &&
-      other.searchTerm == searchTerm;
+      other.searchTerm == searchTerm &&
+      // Both of these narrow the grid, so both are here. Switching Title ->
+      // Cast & crew changes nothing about the typed text and everything about
+      // what is asked for; left out of `==`, the provider would not notify and
+      // the selector would be inert in exactly the way `searchTerm` once was.
+      other.searchScope == searchScope &&
+      other.resolvedSearchValue == resolvedSearchValue;
 
   @override
   int get hashCode =>
-      Object.hash(type, genre, decade, withinCap, searchTerm);
+      Object.hash(type, genre, decade, withinCap, searchTerm, searchScope,
+          resolvedSearchValue);
 }

@@ -7,12 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
+import 'package:garfin/models/collection_set.dart';
 import 'package:garfin/models/jellyfin_user.dart';
 import 'package:garfin/models/kid_summary.dart';
 import 'package:garfin/models/library_item.dart';
 import 'package:garfin/models/parental_rating.dart';
 import 'package:garfin/models/tag_diff.dart';
 import 'package:garfin/providers/app_providers.dart';
+import 'package:garfin/providers/collection_providers.dart';
 import 'package:garfin/providers/assign_providers.dart';
 import 'package:garfin/providers/auth_providers.dart';
 import 'package:garfin/providers/kids_providers.dart';
@@ -55,7 +57,7 @@ void main() {
     ),
   );
 
-  final emma = KidSummary(user: emmaUser, visibleCount: 3, libraryTotal: 40);
+  final emma = KidSummary(user: emmaUser);
 
   late FakeJellyfinServer server;
 
@@ -110,6 +112,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          // The collection index is an artefact here: this fake answers every
+          // /Items with the queued page, so the index would read the films as
+          // members of a set and the grid would collapse them away (#144).
+          // These tests have no collections; say so.
+          collectionIndexProvider(session)
+              .overrideWith((ref) async => const CollectionIndex.empty()),
           sharedPreferencesProvider.overrideWithValue(prefs),
           deviceIdentityProvider.overrideWithValue(
             const DeviceIdentity(deviceId: 'd', deviceName: 't'),
@@ -236,6 +244,14 @@ void main() {
             state: AuthSignedIn(session: session, verified: true),
           ),
         );
+        // The app opens on Kids now, so the Library has to be selected before
+        // there is a library pane to measure. Driven through the rail's own
+        // callback rather than by tapping a label: this test runs in two
+        // locales, and the destination's text differs between them.
+        tester
+            .widget<NavigationRail>(find.byType(NavigationRail))
+            .onDestinationSelected!(1);
+        await tester.pumpAndSettle();
 
         final rail = tester.getRect(find.byType(NavigationRail)).width;
         // The 1dp is the `VerticalDivider` between them, which this shell owns.
@@ -454,6 +470,54 @@ void main() {
         find.text('Pick a title, and what giving it would change appears here.'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('a member picked inside a set carries the set it was picked '
+        'from', (tester) async {
+      // What makes a partial give land as a set the child can open rather than
+      // a loose film. The film's own membership lists every set it belongs to;
+      // only the one in front of the parent may be written, so the origin has
+      // to travel with the selection rather than be inferred later.
+      server.onQuery(
+        '/Items',
+        (q) => q['parentId'] == 'coll-1',
+        json: <String, dynamic>{
+          'TotalRecordCount': 1,
+          'Items': [json('film-9', 'Iron Man')],
+        },
+      );
+      late WidgetRef captured;
+      await pump(
+        tester,
+        width: 1280,
+        home: Scaffold(
+          body: Consumer(builder: (context, ref, _) {
+            captured = ref;
+            return LibraryScreen(session: session);
+          }),
+        ),
+        rows: [film('film-1', 'Paddington')],
+        items: [
+          json('film-1', 'Paddington'),
+          json('coll-1', 'Phase One', type: 'BoxSet'),
+        ],
+      );
+
+      // From the grid: no origin. This is the control — without it the
+      // assertion below would pass on a field that is simply always set.
+      await tester.tap(find.text('Paddington'));
+      await tester.pumpAndSettle();
+      expect(captured.read(assignPanelProvider)?.from, isNull);
+
+      await tester.tap(find.text('Phase One'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Iron Man'));
+      await tester.pumpAndSettle();
+
+      final target = captured.read(assignPanelProvider);
+      expect(target?.item.id, 'film-9');
+      expect(target?.from?.id, 'coll-1',
+          reason: 'the set in front of the parent, not the film\'s membership');
     });
   });
 }

@@ -8,9 +8,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/gen/app_localizations.dart';
 import '../models/auth_session.dart';
 import '../models/collection_set.dart';
+import '../models/jellyfin_user.dart';
 import '../models/library_item.dart';
+import '../models/tag_diff.dart';
+import '../providers/assign_providers.dart';
 import '../providers/collection_providers.dart';
+import '../providers/kids_providers.dart';
 import '../providers/library_providers.dart';
+import '../repositories/assign_repository.dart';
 import '../repositories/jellyfin_exception.dart';
 import '../repositories/library_repository.dart';
 import '../widgets/adaptive_layout.dart';
@@ -19,7 +24,7 @@ import '../widgets/assign_sheet.dart';
 import '../widgets/collection_given_line.dart';
 import '../widgets/error_notice.dart';
 import '../widgets/library_grid.dart';
-import '../widgets/picking_for_row.dart';
+import '../widgets/picking_for_avatar.dart';
 
 /// Open a collection to see what is in it (#83).
 ///
@@ -48,6 +53,7 @@ void openFor(
   required AuthSession session,
   required LibraryItem item,
   required bool twoPane,
+  LibraryItem? fromCollection,
 }) {
   if (item.isCollection) {
     // A collection is a place, not an action (#83). The panel is emptied on the
@@ -58,7 +64,11 @@ void openFor(
     openCollection(context, session: session, collection: item);
     return;
   }
-  openAssign(context, ref, session: session, item: item, twoPane: twoPane);
+  openAssign(context, ref,
+      session: session,
+      item: item,
+      twoPane: twoPane,
+      fromCollection: fromCollection);
 }
 
 /// The write preview for [item], on whichever surface this width has.
@@ -74,12 +84,14 @@ void openAssign(
   required AuthSession session,
   required LibraryItem item,
   required bool twoPane,
+  LibraryItem? fromCollection,
 }) {
   if (twoPane) {
-    ref.read(assignPanelProvider.notifier).select(item);
+    ref.read(assignPanelProvider.notifier).select(item, from: fromCollection);
     return;
   }
-  showAssignSheet(context, session: session, item: item);
+  showAssignSheet(
+      context, session: session, item: item, fromCollection: fromCollection);
 }
 
 /// What is inside one collection.
@@ -94,8 +106,18 @@ void openAssign(
 ///
 /// The tiles are the library's own ([LibraryGrid]), so a member says exactly
 /// what it says on the grid — given, held back, above their age, who else has
-/// it. The child chips stay on screen because deciding about a set is when a
-/// parent is most likely to want to check it against a second child.
+/// it, and how big it is if it is a set or a show. The child chips stay on
+/// screen because deciding about a set is when a parent is most likely to want
+/// to check it against a second child.
+///
+/// **That sentence is a promise about a request, not only about a widget**, and
+/// it was briefly untrue. The same tiles draw a count only when the count was
+/// asked for, and `collectionMembers()` asked for `Fields: 'Tags'` alone — so a
+/// series inside a set drew no episode badge and a set inside a set drew no
+/// size, silently, while the identical tile on the grid drew both. The members
+/// query now asks for what the tiles draw, and a test pins the field list
+/// rather than the badge: a fake server answers with its fixture whatever the
+/// client asked for, so only an assertion on the query can catch this.
 class CollectionScreen extends ConsumerWidget {
   const CollectionScreen({
     super.key,
@@ -115,7 +137,13 @@ class CollectionScreen extends ConsumerWidget {
     final members = ref.watch(collectionMembersProvider(request));
 
     return Scaffold(
-      appBar: AppBar(title: Text(collection.name)),
+      // The avatar is here too, and not as decoration: a parent must be able
+      // to switch child without leaving the set, which is what the picker row
+      // used to provide on this screen.
+      appBar: AppBar(
+        title: Text(collection.name),
+        actions: [PickingForAvatar(session: session)],
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           // A set is browsed for the same reason the grid is, so it gets the
@@ -125,7 +153,6 @@ class CollectionScreen extends ConsumerWidget {
           final browsing = Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              PickingForRow(session: session),
               Expanded(
                 child: members.when(
                   // Same reasoning as the grid (#93): a child switch re-runs the
@@ -257,22 +284,41 @@ class _Members extends ConsumerWidget {
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
+                    // The state this whole entry is about, as it exists on
+                    // installs written before the container followed the
+                    // films: members given, container not openable, so the
+                    // titles arrive loose and the set is invisible.
+                    //
+                    // **Offered, never applied.** It is a write, and ground
+                    // rule 5 says a write is the parent's to make -- repairing
+                    // it on sight would be the app changing what a child can
+                    // reach because a screen was opened.
+                    if (given != null &&
+                        given.givenToChild > 0 &&
+                        collection.hasAnyLabel(child!.policy.shortlistTags) !=
+                            given.containerWantsLabel)
+                      _RepairOffer(
+                        session: session,
+                        collection: collection,
+                        child: child,
+                        wantsLabel: given.containerWantsLabel,
+                      ),
                   ],
                 ),
               ),
-              // The old tap, made explicit. Disabled with nobody picked
-              // because the sheet it opens is a write preview *for a child*,
-              // and there is no answer to "give it to whom" yet.
+              // The old tap, made explicit. Enabled whether or not a child is
+              // picked: the sheet builds a row per shortlisted child and never
+              // reads the selection, which is why the same sheet opens from the
+              // library grid with nobody picked. Gating it here left a dead
+              // control on the way a parent usually arrives.
               FilledButton(
-                onPressed: child == null
-                    ? null
-                    : () => openAssign(
-                          context,
-                          ref,
-                          session: session,
-                          item: collection,
-                          twoPane: twoPane,
-                        ),
+                onPressed: () => openAssign(
+                  context,
+                  ref,
+                  session: session,
+                  item: collection,
+                  twoPane: twoPane,
+                ),
                 child: Text(l10n.collectionGiveWholeSet),
               ),
             ],
@@ -299,16 +345,106 @@ class _Members extends ConsumerWidget {
             // member arrives from `GET /Items?parentId=` with 16 fields against
             // the write path's 41, and posting one of those bodies back would
             // strip the rest.
+            // `fromCollection` is what makes a partial give land as a set the
+            // child can open rather than a loose film. This screen is the only
+            // place that knows which set the parent is looking at: the film's
+            // own membership lists every set it belongs to, and writing all of
+            // them would hand over collections nobody offered.
             onTap: (item) => openFor(
               context,
               ref,
               session: session,
               item: item,
               twoPane: twoPane,
+              fromCollection: collection,
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The one-tap repair for a set whose members are given but whose container is
+/// not openable.
+///
+/// Writes **only the container**. The members already carry what the parent
+/// gave them; the set being shut is the whole of the defect, so touching a
+/// member here would be doing something they did not ask for.
+///
+/// Idempotent by construction — it writes the state the container should
+/// already be in, so pressing it twice is pressing it once. That is what makes
+/// offering it safe rather than needing a confirmation of its own.
+class _RepairOffer extends ConsumerStatefulWidget {
+  const _RepairOffer({
+    required this.session,
+    required this.collection,
+    required this.child,
+    required this.wantsLabel,
+  });
+
+  final AuthSession session;
+  final LibraryItem collection;
+  final JellyfinUser child;
+
+  /// True in allow mode, false in block mode: the label is what shuts a set for
+  /// a block-list child, so the repair there is to take it off.
+  final bool wantsLabel;
+
+  @override
+  ConsumerState<_RepairOffer> createState() => _RepairOfferState();
+}
+
+class _RepairOfferState extends ConsumerState<_RepairOffer> {
+  bool _busy = false;
+
+  Future<void> _repair() async {
+    final label = AssignRepository.labelFor(widget.child);
+    if (label == null) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(assignRepositoryProvider(widget.session)).apply(
+            itemId: widget.collection.id,
+            diff: TagDiff([
+              TagChange(
+                child: widget.child,
+                label: label,
+                adding: widget.wantsLabel,
+              ),
+            ]),
+          );
+      // The same refresh the write path uses, rather than an invalidation
+      // list invented here that would drift from it.
+      refreshLibrary(ref);
+      ref.invalidate(kidsOverviewProvider(widget.session));
+    } on Object {
+      // Left visible rather than swallowed: the offer staying is the honest
+      // report that the set is still shut.
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.collectionRepairLoose(widget.child.name),
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 4),
+          FilledButton.tonal(
+            onPressed: _busy ? null : _repair,
+            child: Text(l10n.collectionRepairAction),
+          ),
+        ],
+      ),
     );
   }
 }

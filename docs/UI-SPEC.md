@@ -8,8 +8,28 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 Screen by screen. `docs/ui-mockup.jsx` is the clickable version — reference only, not source.
 
-Bottom navigation, four destinations: **Library · Kids · Activity · Settings** — a
+Bottom navigation, four destinations: **Kids · Library · Activity · Settings** — a
 **navigation rail** on the left instead, from 600dp (see § Large screens).
+
+**Back returns to Kids, and only from another tab.** Confirmed by the maintainer on the
+issue, case by case. The app is one route with an internal tab switch, so back had no
+meaning and went straight to the system from everywhere; Kids is where a face tap sends a
+parent, so back is the way out of where it sent them. From Kids it leaves the app, which is
+the one case that was already right.
+
+Everything else that looks like navigation is a real route — a collection, the sheets, the
+dialogs, About, Licences — so Flutter already pops those, and a route on top of the shell
+receives the gesture before the shell does.
+
+**Behind the lock the gesture is not intercepted.** The lock screen is an overlay in a
+`Stack` rather than a route, so back there already means *leave the app* and cannot dismiss
+the gate. Catching it would send a parent to a tab they cannot see and leave them with a
+back gesture that does nothing behind a lock — worse than exiting.
+
+**The app opens on Kids, and Kids is first in the navigation.** Both moved together: a
+landing screen sitting second in its own navigation is a small lie about which screen the
+app is built around, and it leaves the highlighted destination somewhere other than where
+the app opened. This reverses the order that stood until 0.2.0 — see § Kids.
 
 ## Large screens
 
@@ -92,34 +112,248 @@ Backgrounding during Quick Connect is normal — authorising the code means open
 Jellyfin session. If the process is killed, pairing restarts with a fresh code; the secret is
 never persisted to survive it.
 
-## Library — the landing screen
+## Library
 
-1. **"Picking for"** — a horizontal row of Jellyfin avatars for every label-controlled user, plus
-   "Everyone". Selecting one filters the grid to what that child can't see yet, exposes their
-   rating cap as a chip, and carries into the assign sheet.
-2. **Filter bar** — one row: a **search field** first, then a tune button (opens all groups with
-   Reset), then dropdown chips for Type, Genre, Decade, then the rating toggle when a child is
-   selected. Chips show the filter name when unset, the value when set. Sticky on scroll.
+**Not the landing screen any more.** It opened the app until 0.2.0, on the reasoning that
+the task which opens the app is *find something for a kid*, so the app should open on the
+thing you act on. That is overruled: the first thing a parent wants is an answer about
+their children — who they are, what each can see, and whether anyone is watching something
+right now — and a grid of films is where they go once they have it. The Library is second
+in the navigation and unchanged in every other respect.
 
- **Search finds; the chips narrow.** The grid is the administrator's whole library — that
+1. **Who this is about — one avatar in the app bar, right-aligned.** It shows the current child,
+   or the app's own mark for Everyone. One tap moves to the next child and past the last one back
+   to Everyone; with no managed children it is not a control at all, because a control whose only
+   move is back to where it already is teaches a parent that taps there do nothing.
+
+   It replaced a row of avatar chips above the filters. That row was the first thing on the screen
+   and was not the library, and the selection is one fact — it belongs where the screen says what
+   it is showing. A cycle rather than a menu: two or three children is the shape this app is for,
+   and a menu is a second surface to open for a choice with three answers. Everyone is the mark
+   rather than a group of faces, because at 32dp a shoal is a smudge.
+
+   **The same avatar is on the collection screen**, where switching child without leaving the set
+   was the picker row's job and would otherwise have gone with it.
+
+   Selecting a child still does everything it did: filters the grid, exposes the rating cap as a
+   switch in the tune sheet, and carries into the assign sheet.
+2. **Filter bar** — one row, and it does not scroll: a **search field** taking the width, then a
+   tune button (opens all groups with Reset) carrying a badge with the number of active filters.
+   Sticky on scroll.
+
+   It used to carry a chip per filter after the tune button — Type, Genre, Decade, and the rating
+   toggle when a child was selected — which made the row wider than the screen and left the search
+   field a fixed 300dp. Every one of those filters is in the tune sheet, so the chips added reach
+   rather than capability. What went with them is reading each filter's *value* at a glance; the
+   badge's count remains. Measured at 412dp: the search field goes 300 → 324dp.
+
+ **Search finds; the tune sheet narrows.** The grid is the administrator's whole library — that
    is what makes "not given yet" answerable — so it is as long as the library gets, and no
    category filter answers *the one film they asked for at dinner*. The server does the matching:
  `searchTerm` on the same request, never a filter applied to a page after it arrives, because
-   the match is usually not in the first 24 rows.
+   the match is usually not in the first page of rows.
 
    It matches the **title only** — measured, not the overview, cast, tags or genres — any
    substring, case- and accent-insensitively, and it combines with the other filters rather than
    replacing them. Typing is debounced at 350ms: every keystroke would otherwise be a
    library-sized query, which was measured at up to half a second. Whitespace is not a search, and
    an active search counts toward the filter badge like anything else.
-3. **Result line** — "N things Emma hasn't got yet", with a Show/Hide shared text button. **N is
+
+**The share sits in the collection's own badge, on the poster.** One badge rather than two,
+because all four corners of a poster are already spoken for — state top-left, faces top-right, age
+hint bottom-left, this one bottom-right — and the share is the same subject as the count, which is
+not lost but becomes the denominator.
+
+**That corner has four states, not two**, and the three that are not the ordinary one are what a
+reader is most likely to get wrong:
+
+| what is known | what the badge reads |
+|---|---|
+| a child is picked and the set's membership has arrived | `3/6` beside the ring |
+| nobody is picked | "6 titles" |
+| a child is picked, membership still in flight or failed | "6 titles" |
+| the server sent no `ChildCount` and there is no share to show | nothing |
+
+The third row is the one that costs something to get right. The share is one membership request per
+visible collection tile, so *every* collection tile passes through it, and a tile whose request
+fails stays there. The count is the fallback rather than the ring's companion: it stands in the
+share's place until the share can speak, so the corner never goes blank while the answer is merely
+unknown.
+
+The fourth row is a corner deliberately left empty. A missing `ChildCount` means the field was not
+asked for, never that the set is empty — those collections stay on the grid — so nothing there
+invents a size. The share itself needs no count, and does not wait for one.
+
+It began as a bare ring under the title, sized to *fit* an 83dp tile, and was reported
+unnoticeable on a phone. Fitting was the wrong target: it had to be **seen** at arm's length. The
+numerals came back with the move — a ring alone is a proportion to interpret, a ring beside `3/6`
+is one to read.
+
+**How much of a collection is a child's is a ring, not a sentence.** "Les 5 partagés avec Emma" was
+the longest thing on a tile and named a child the app bar already names. The ring fills clockwise
+from the top; **a closed ring is *all***, which is the shape's own answer to the distinction six
+strings used to carry — "8 of 8 reads like a coincidence" was the argument, and a full circle is
+read as *all* without counting.
+
+**Direction is carried by tone**, in the two colours this screen already uses for state. Ground
+rule 3 makes an allow list and a block list opposite verbs and a proportion reads the same either
+way, so tone is doing real work — and it is a weaker carrier than a word. That is a deliberate
+trade, made on the owner's reasoning that a set whose ring is ambiguous is one tap from the
+sentence: the collection screen shows it in full, and the ring carries it as its spoken label.
+
+**A plain share is said by the child's face, not by a badge.** They are a holder of the item, so
+their picture is already on the poster; a "Given" badge beside it was the same fact twice. The
+selected child sorts **first** in that row, which is load-bearing rather than tidy — the row
+collapses its overflow into a `+N`, so whoever is first is whoever survives a narrow tile.
+
+Two states keep their badge, because a face cannot express either. **Held back** is the opposite of
+what a face implies — the label is there and the server is still not showing the title. **Blocked**
+belongs to a block-list child, and a block-list child is never collected as a holder at all, so
+there is no face that could carry it.
+
+A side effect worth knowing: with no badge on a plain share the row has the whole top edge back, so
+more faces fit on a narrow tile than before.
+
+**A collection with nothing in it is not drawn at all.** There is nothing in it to give or
+withhold, its assign sheet would have no members to write to, and its share ring is already
+suppressed — so the tile could only ever be a row a parent cannot act on.
+
+It saves requests rather than only a row, in two places. The grid asks for one membership per
+*visible* collection tile; the collection index asks for one per collection **on the server**, at
+`1 + N`. An empty set's answer can only ever be "nothing", so both skip it. Measured on 10.11.11 — an
+empty `BoxSet` reports `ChildCount: 0`, the field present rather than absent, and `/Items` offers
+no server-side way to exclude them, so this is a client-side drop like hide-shared. **A missing
+count is not zero**: it means the server was not asked, and those are kept.
+
+**A refresh keeps your place.** Applying a share rebuilds the grid — the write has to be reflected,
+and the grid and the count that describes it are refreshed as one unit so they cannot disagree. That
+rebuild used to start again at the first page, which threw away every page the parent had scrolled
+to: not the scroll offset, the *rows*. Eight pages down, applying one share handed back one page,
+and scrolling could not get back to where it had been because there was nothing there yet.
+
+So the window that was open is asked for again. **The condition is that nothing else changed**: a
+different child, a different view or a different filter still comes back at page one, because that
+is a different list rather than the same list seen again. Both directions are load-bearing and both
+are tested.
+
+The window is restored in **one request** where nothing is being filtered out client-side — `/Items`
+accepts a large `limit` — and the fetch budget grows with the window asked for. That second part is
+not housekeeping: the budget is one page plus five refills, and a ten-page restore under it would
+return a third of the rows and report success, which is worse than the original bug because it is
+intermittent.
+
+**A page is 240 rows, not one screenful.** Measured on a 412dp phone at the regular poster size —
+`maxCrossAxisExtent: 175` gives three columns and about three rows on screen, so nine tiles are
+visible and a page is roughly **27 screens** of scrolling. At 24 it was under three, so the grid
+went back to the server every couple of flicks.
+
+Ten times the rows costs about 1.3 times the request: `Limit=24` answers in 26 ms and `Limit=240`
+in 34 ms, because the per-request constant dominates at the small size. It also crosses a threshold
+that has nothing to do with Jellyfin — `dio` decodes a body off the main isolate only above 50 KB,
+and a 24-row page is 11.9 KB while a 240-row page is 118.9 KB. So the larger page moves the parse
+off the thread that draws.
+
+**What that does not establish is that scrolling feels smooth.** These are request timings. Turning
+240 rows into tiles happens on the main isolate and is unmeasured, as is any of it on a real device.
+The claim here is about how often the grid must go back to the server, which is ten times less
+often; the frames are not measured.
+
+The filtering window is the same 240. It used to be four times the page — a multiple that bought a
+single round trip when a quarter of the rows survived, which was the right trade against 24. At 240
+it inverts: most of a library is not given to any one child, so survival is usually high, and asking
+for 960 to keep 240 would over-fetch fourfold on the common path to save a refill on the rare one.
+
+**A series says how many episodes it holds**, in the same bottom-right corner and the same badge
+as a collection's size — asked for on the strength of that one. It reads "5 episodes", never
+"5 titles": the noun is not interchangeable, and the number comes from `RecursiveItemCount` rather
+than `ChildCount`, which for a series counts the **seasons**. A two-season, five-episode show
+reports 2 for the latter, so the obvious reuse would have printed a count of something the tile
+never mentions.
+
+There is no share badge on a show. A series is one item to give and its label reaches every episode
+inside, so there is no partial state for a ring to describe — the collection's `3/6` exists
+precisely because a set can be half given.
+
+**A collection is outlined**, in a 2dp line in the tertiary tone, drawn over the artwork rather
+than behind it — the poster fills the whole rect, so a border in the background is a border nobody
+can see.
+
+Two earlier answers were tried and lost on a phone. Rounding separates nothing: every poster
+already clips at 8, so collections would need a *different* radius, and a few pixels of curvature
+is a difference a parent has to look for. A stack of two dimmer sheets behind the top-right corner
+replaced it, read clearly on a development machine and was reported as too subtle from a phone.
+Both failed the same way — an unsaturated difference, in one corner, on a tile that is ~83dp wide
+at four columns. The line is the whole silhouette, so no size leaves it in the part of the tile the
+eye is not on, and colour does most of the work.
+
+Gold was the other suggestion and was set aside: the palette has none, and a colour outside it for
+one marker spreads. Tertiary is already this screen's "worth a second look" tone.
+
+It does not replace the "{count} titles" badge. The line says *a set*; the badge says *how big*.
+The state badge and the faces are pinned to the tile's own corners — they carried an offset for as
+long as the poster was inset for the sheets behind it, and with the line drawn *on* the poster
+there is no inset.
+
+**A collection stands in for its members, and only when nothing narrows the grid.** With no filter
+and no child picked, a film that belongs to a `BoxSet` on the same grid is not drawn; the set is.
+Any filter, a search or a picked child switches this off — a set can fail a filter its members
+pass, most obviously a search, which matches a film's title and not the set's name. Hiding a film
+behind a set that is not on the grid would show the parent nothing for a title that exists.
+
+**A search finds a set through the film inside it, and the set comes first.** `searchTerm` matches
+substrings of an item's **own** title, so the server returns a set when its name shares the term —
+*Paddington* finds *Paddington Collection* — and misses one that does not, such as *Bear Films*
+holding *Paddington*. The app adds the missing sets from the collection index, ahead of the films,
+with *Contains a match* under the title, and never adds one the server already returned. Nothing the
+parent typed is removed — the film they searched for is still there — and the label is what stops a
+row nobody asked for reading as the app answering a different question.
+
+**Known limit: ordering.** A set sorts by its own name, so it can land on a later page than the
+films it stands for. Until that page loads those films are on no page and the set is not there
+either — the grid is short by design, briefly. Searching *through* a collection, so that a member's
+title finds the set, is a separate question and is not built.
+
+**And the order is now a setting, which widens that limit rather than creating it.** Under *date
+added* a set carries the date the collection itself was made, which can be nowhere near its films';
+under *release date* a set has no date at all, so every collection groups with the other undated
+titles — at the top ascending, at the bottom descending, alphabetically within the group. Measured,
+not assumed: a server sets a year from the file name and a collection gets none. Sets are
+deliberately **not** given a date computed from their members — an order a parent cannot see the
+rule for is worse than one they can.
+
+3. **Result line** — "N things Emma hasn't got yet", with a text button that leaves whichever
+   slice is on screen. There are **three**: what is left to give (the default, from Settings),
+   everything, and what the child can already see. The third is where a tap on a face lands and is
+   not otherwise reachable from the button, whose job there is to get back to the giving grid.
+   All three run the same query and differ only in which classified entries are kept — the grid is
+   the administrator's view in every one of them, which is what keeps "not given yet" answerable.
+
+   **It subtracts collapsed members only when the collapse is on** (above). Elsewhere it is the
+   server's own count and may read higher than the number of tiles: the collection index knows
+   membership, not which members a genre, a decade or a search would have kept, so subtracting
+   them all would report fewer titles than the grid holds.
+   Show/Hide shared text button. **N is
  `total − tagged`, both counted by the server under the active filters** — never the number of
    tiles loaded, which climbs as the parent scrolls, and never the grid's contents, which include
    already-shared titles whenever Show shared is on. A block-list child reads the other way round —
    "N things kept from Sam", the tagged count itself — and a conflicting account gets the library's
    own count with no claim about them (ground rule 3). Until the count arrives, and if it fails,
    the line says what the library holds: true either way, and better than a spinner over a number.
-4. **Poster grid** — **the poster size setting is a target width, and the column count falls out
+4. **The order** — *date added*, *release date* or *name*, ascending or descending, from Settings.
+   The default is name ascending, which is what the app did before the setting existed, so nobody's
+   grid changes until they change it. One Settings row for the field with the direction as an arrow
+   beside it; the arrow states its meaning in words through a tooltip, which is also what a screen
+   reader announces, because it is the one control in that group whose meaning is a shape.
+
+   **Both tile screens follow it** — the library grid and a collection's members, since browsing a
+   set is the library narrowed to one container. The decade menu and the collections list are not
+   tile grids and keep their own name order.
+
+   **Changing it starts the grid at the top.** A refresh restores the window that was open; a new
+   order is a different list, and restoring a window into it would hand back the first N entries of
+   a list whose start the parent has never seen.
+
+5. **Poster grid** — **the poster size setting is a target width, and the column count falls out
  of the window**: 175dp at regular, 360 at large, 112 at small. **This is the first thing
    written down here about large screens**, and the reason is that the old fixed count had no upper
    end: the same three columns were used at 412dp and at 1280dp, so a 10" tablet in landscape drew
@@ -136,8 +370,8 @@ never persisted to survive it.
    on a small phone "stamps".
 
    The width read is the one the grid is *given*, not the display, so a narrow parent inside a wide
-   window — split-screen, a folded foldable — gets the narrow answer. Collections get a
-   stacked cover and a count badge. **Both edges of a poster lay their markers out against each
+   window — split-screen, a folded foldable — gets the narrow answer. Collections get an
+   outlined poster and a count badge. **Both edges of a poster lay their markers out against each
    other rather than pinning them to opposite corners** — the state badge against the avatars at
    the top, the age hint against the collection count at the bottom. Opposite corners collide on
    anything narrower than a two-column tile, and it is a silent collision: everything stays inside
@@ -169,7 +403,7 @@ never persisted to survive it.
    a claim about a child; and it falls back to "Collection" alone when the server sent no
  `ChildCount`, rather than inventing "0 titles".
 
-5. **The assign panel**, from 840dp — the write preview beside the grid rather than a sheet over
+6. **The assign panel**, from 840dp — the write preview beside the grid rather than a sheet over
    it. "Pick a child, pick a film" is a comparison, and on a tablet there is room to keep the thing
    being compared against on screen: the tiles stay visible and stay tappable while a preview is
    open. Below 840dp the same tap opens the modal sheet, and the two are never both live — a sheet
@@ -197,7 +431,11 @@ a question they did not ask.
   code the grid uses, not a second copy of it.
 - **"Give the whole set"** is a button on this screen, not the tap. It opens exactly the sheet the
   tap used to, so nothing is lost from the old flow except that it stops happening by accident. It
-  is disabled until a child is picked, because the preview is a preview *for a child*.
+  is always enabled, with a child picked or not: the sheet asks who gets this and lists every
+  shortlisted child with a switch, so the question a gate here would ask is answered one screen
+  later and better. It was gated once, on the grounds that the preview is a preview *for a child*;
+  that was wrong about the sheet, which takes the child rows from the shortlist rather than from
+  the selection — the library grid has always opened the same sheet with nobody picked.
 - The child chips stay on screen, and the selection carries in and back out — deciding about a set
   is when a parent is most likely to want to check it against a second child.
 - Tapping a member opens the ordinary assign sheet for that member. Members arrive from
@@ -333,16 +571,125 @@ implies it will not do.
 Eight seconds is the long end of Material's 4–10s: this message names a child, a count and a
 total, and only then asks for a decision.
 
-## Kids
+## Kids — the landing screen
 
-Cards for label-controlled users: avatar, name, age, cap, **the access hours**, an
-allow-list/block-list chip, the tags, a progress bar, and "N of M things visible".
+**The app opens here**, and Kids is first in the navigation. Both moved together in 0.2.0;
+the reasoning and what it reverses are in § Library.
+
+What it already carries is most of what a welcome screen was asked for: the children's
+pictures, each child's total in their own verb, and the live sessions above them. The
+This section describes what ships today.
+
+**Nobody to look after yet.** When the server has accounts but none of them has a shortlist —
+the ordinary first run — the screen invites the parent to set one up in Jellyfin and links to
+Jellyfin's own documentation. An invitation rather than an empty state: they have a server and
+accounts, and the one step left is the one Garfin is not allowed to take for them (ground rule
+8). The link goes to Jellyfin's words because the setting names are theirs and a summary here
+would go stale the first time they moved one. It disappears as soon as there is a child.
+
+**The faces are sized to how many there are** — 36 for one or two, 30 for three or four, 24
+beyond that. Capped rather than sized to the space: measured, a user's avatar arrives at
+whatever resolution it was uploaded and Jellyfin ignores every request to resize it, so
+drawing one larger risks upscaling a picture the app has no way to know is small.
+
+**The sessions block is absent entirely when nothing is playing** — not an empty panel, and
+not a heading with nothing under it.
+
+**The faces arrive before the counts.** Listing the children is one cheap request; the
+counts beside them are the most expensive thing the app does (19 ms at one title, 8.7 s at
+six thousand, and 7.6 s for the administrator's total on the same library). So the children
+are drawn as soon as they are known and the numbers fill in underneath, rather than a
+spinner standing in for both.
+
+There is deliberately **no placeholder where the number will be** — no bar, no shimmer. A
+shape that implies a number is coming is a promise about a request that can fail, and the
+honest rendering of *not known yet* is the absence of a sentence.
+
+**A child's picture is its own tap target, and means *pick this child*.** It sets the same
+selection the Library's app-bar avatar sets and then goes there, so the grid, the rating-cap switch
+and what carries into the assign sheet are that one state rather than a second version of it — one
+meaning for a face everywhere in the app.
+
+**Arriving from the navigation shows Everyone instead.** Coming from a face means *this child*;
+coming from the navigation means *the library*. There is no remembered starting child any more —
+the stored setting is gone, because it answered a question the parent had not asked on every visit
+but the first.
+
+The target is the picture and not the row around it. This is the one place on this screen
+where a mistap takes a parent somewhere they did not ask to go, so the rest of the row is
+deliberately not a near-miss on it.
+
+**The rest of the row opens the per-library breakdown, in place.** No route and no
+navigation: one target leaves the screen, the other shows more of it, and keeping them
+apart is what makes a mistap harmless. Each library is listed with what that child can see
+in it — visibility only, since labels and visibility never share a line, and a label count
+would be a second row rather than a second number on this one.
+
+**Nothing per-library is requested until a row is opened**, and then only for that child.
+The counts query tracks the result set (19 ms at one title, 8.7 s at six thousand), so
+asking it per child per library on every open would make this the slowest screen in the
+app. The requests fan out at the house limit of four. Opening a row twice does not ask
+twice; the answer is cached per child.
+
+**The sessions block polls; nothing else does.** `/Sessions` is re-read every ten seconds
+while this screen is the one on show and the app is in front, and once immediately on
+resume so returning does not wait out an interval. Pull-to-refresh does the same thing on
+demand.
+
+It re-reads **only** the sessions. The per-child visible counts come from the same
+dependency chain and are the expensive half — that query scales worse than linearly with
+what a child can already see, 19 ms at one title against 8.7 s at six thousand — so it is
+never on the timer and no longer on the pull either. Labels change through a write, and the
+write path invalidates the counts itself.
+
+A poll is **skipped**, not queued, while a Stop or End is waiting on its read-back: those
+commands answer 204 whether or not the client obeyed, and re-read `/Sessions` a few seconds
+later to say what actually happened. A tick landing in between would ask the server before
+it can reflect the command and redraw the card as though nothing had.
+
+Cards for label-controlled users, **at rest**: the picture, the name, the age, and a way to
+sign the child in on a device. Nothing else, and a chevron saying there is more.
+
+Everything else waits behind the tap, and arrives as **two cards, not one run of lines**: what
+Jellyfin enforces on the account — the cap, **the access hours**, and the labels — under *Parental
+controls for {name}*, and what the child can see library by library, under *{name} has access to*.
+Two unrelated kinds of fact were sharing a column with a heading holding them apart; a card does
+that in the shape instead.
+
+**Both headings name the child**, because a card that opens from a face should keep saying whose
+face it was. The per-library rows are sorted **most-seen first**, so the answer to "where can they
+see the most" is the first line rather than a scan.
+
+**The labels are introduced by a sentence, not shown bare.** A row of chips under two sentences was
+a list with no verb: it never said whether carrying one of these is what lets the child see
+something or what stops them. Ground rule 3 makes those opposites, so the sentence is chosen by the
+account's mode — and a **conflicting** account gets neither, because picking a verb there is exactly
+the guess the rule forbids. The standalone mode pill is gone with it: the sentence already says
+which list this is, and the pill had been reported as a button that does not work.
+
+**There is no headline count.** "N of M things visible" is gone rather than moved. The per-library
+rows answer the same question with more resolution, and keeping both meant a total that could
+disagree with the breakdown directly beneath it — the total counts `Movie,Series` across the whole
+server, the rows count each library's own types within what the child can open. It was also the
+most expensive single thing the card computed: measured, a child's count is 19 ms at one title and
+8.7 s at six thousand. The progress bar that used to render it went earlier, for the same reason.
+
+**And the request went with it.** Once nothing drew the number, the Kids screen stopped asking for
+it: one `visibleItemCount` for the administrator plus one per child, gone from every load and every
+invalidation after a write. What is left on that path is the ratings ladder, which is a property of
+the server and is fetched once for everyone. The per-library counts are asked when a card is
+opened, and not before.
+
+The tap target is the row beside the picture, not the picture itself — the picture picks the
+child and leaves for the Library, and the two meanings stay apart.
 
 The hours are the other half of what Jellyfin enforces, and the card shows both or summarises
 neither honestly. They are **the server's hours, said so** — measured, the API exposes no offset, so
 they cannot be converted — and a child with no schedule is told they can watch at any time rather
-than being left blank, which would read as the opposite. Below, a plain list of users with no shortlist set,
-including the admin.
+than being left blank, which would read as the opposite.
+
+**Only children under a rule appear.** Accounts Garfin cannot manage are not listed, not counted
+and not named anywhere on this screen.
 
 ### Whose settings are on a kid's card, and where they live
 
@@ -358,45 +705,122 @@ the limit and the hours and never writes them, where to change them — *Dashboa
 Parental Control*, which are Jellyfin's own menu names — and what the birth year is actually for.
 
 **The mode label is a label, not a chip.** It reports which kind of list the account uses and has
-never done anything on tap; drawn as a `Chip` it imitated the library filter bar's tappable
-`FilterChip`s, and was duly reported as a button that does not work. In French the pair reads as two
+never done anything on tap; drawn as a `Chip` it imitated the tappable `FilterChip`s the library
+filter bar carried at the time, and was duly reported as a button that does not work. Those chips
+have since gone (§ Library, item 2); the reasoning stands without the comparison. In French the pair reads as two
 values of one setting — *Liste de sélection* / *Liste d'exclusion* — rather than a bare noun that is
 also a verb.
 
-### The users with no shortlist need an explanation, not just a listing
+### Accounts Garfin cannot manage are absent, not explained
 
-Garfin cannot give a child their first label. A child is only under shortlist control because
-`Policy.AllowedTags` already contains one, and adding the first one is a **policy** write, which
-ground rule 8 forbids. So this list is a boundary, not a to-do list — and without a word of
-explanation it reads as a dead end someone will file a bug about.
+The screen used to list them: a non-interactive section, with pictures and a line of copy, for
+every account with no shortlist or with both lists set. It is gone. They are not shown, not
+counted and not named.
 
-Give the section a short line of copy and leave the rows **non-interactive**. A row that looks
-tappable and does nothing is worse than one that plainly isn't.
+The reasoning that put it there was sound, and is kept here because it is what makes the absence a
+decision rather than an oversight. Garfin cannot give a child their first label — that is a policy
+write and ground rule 8 forbids it — so the section was a boundary rather than a to-do list, and it
+carried copy precisely so it would not read as a dead end.
 
-**They show their pictures.** The rows used to draw a letter and nothing else — not as a
-fallback, as the only branch — while the children above them showed avatars. This is the screen a
-parent reads to see *which* accounts Garfin treats as unmanaged, and in a household where those
-are Mum, Dad and a guest, names alone means three identical grey circles. Same widget as the kid
-cards, so the fallbacks match: the initial while loading, the initial on error. Non-interactive is
-unchanged — a greyed row with a picture is still a greyed row.
+What replaced it is the judgement that this screen is *the children under a rule*, and that the
+space belongs to them. A household's unmanaged accounts are usually the adults, so the old section
+spent the top of the landing screen listing Mum, Dad and a guest under a heading explaining that
+Garfin will not act on any of them.
 
-The copy stays plain and short — a parent does not need to know why:
+**What this costs, recorded so it is not rediscovered as a bug.** That section was the only answer
+to "why is this child not here?". The answer is now silence — and ground rule 8 means Garfin could
+not have fixed the absence anyway. The invitation shown when nobody is managed becomes the whole of
+what the screen says on the subject, which makes it load-bearing rather than decorative: it must
+keep firing in the case where the server has accounts and none of them is managed.
 
-> Set their shortlist up in Jellyfin first, then come back here.
+**They are still known, just not drawn.** The roster keeps them, because "this server has no
+accounts at all" and "it has accounts and none of them is managed" are different sentences wanting
+different screens. Dropping the data would collapse the two and take the invitation with it.
 
-The *reason* belongs in this document and in `docs/DECISIONS.md`, not on screen. Explaining
-full-object replaces to a parent would be technical detail dressed as reassurance, and the Voice
-rules exist to stop that.
+### Labels Jellyfin can read as one
 
-Once a label exists on the account, everything after it happens in Garfin — which is the split
-worth being deliberate about: the one-time setup is in Jellyfin, the repeated work of tagging
-hundreds of titles is here. That is the product's premise, not a retreat from it.
+Above everything else on the screen, when it applies: the children whose labels the server can
+fold into a single one, and what to do about it.
+
+Jellyfin does not compare a tag literally. It strips accents and folds case before matching, and
+on 12.0 it also reduces punctuation to spaces and collapses the runs — so `kids-emma`,
+`kids_emma`, `Kids Emma` and `kids--emma` are one label, and so are `kids-chloé` and
+`kids-chloe`. Two children whose labels differ only that much end up sharing one list, and
+nothing else in the picture tells the parent. **Garfin cannot prevent it** — it never invents a
+label and never writes a policy — but it already reads every managed child's policy to build this
+screen, so it is the one thing that can notice.
+
+Four things this pins down:
+
+- **It says Jellyfin *can* read the labels as one, never that it does.** The folding differs by
+  server version: a pair differing only by punctuation collides on 12.0 and on *neither* path of
+  10.11.11. Asserting the consequence outright would be false on current stable, which is the
+  class of claim this project treats as a defect. The conditional carries it — *while it does* —
+  and the advice is identical on every version, which is the half worth acting on anyway.
+- **Warning early is deliberate.** The rule applied is 12.0's, whatever the server is. It is not
+  one of two rules to choose between: 12.0's folding is 10.11.11's with a further step applied to
+  its output, so every collision the older rule finds the newer one finds too, and applying the
+  newer one alone is exactly the union of both. It can therefore never miss a clash; it can only
+  name one that a 10.11.11 server has not started making yet.
+- **Two sentences, because there are two events.** Two allow-lists folding together means what one
+  child is given reaches the other. An allow-list folding into a *block*-list is the opposite —
+  one tag doing both jobs, so giving one child a title takes it away from the other. A single
+  sentence general enough for both stops being worth reading, and one that fits either would be
+  false of the other.
+- **Sharing on purpose is not a clash.** Two children deliberately holding one identical label are
+  not warned about, nor is a single child holding two labels that fold together. The first is an
+  ordinary household setup and the second is merely redundant. A warning that fires on those
+  teaches a parent to ignore the one that matters.
+
+Renaming anybody's label stays out of scope, for the same reason Garfin never invents one: see
+`docs/DECISIONS.md`. Detect and explain; the parent chooses the fix, in Jellyfin.
+
+The diacritic folding is a dependency rather than a hand-rolled table, and it folds a few letters
+that have no Unicode decomposition. Two of those have now been measured against a running 12.0
+server: **`œ` agrees** — the case that matters most here, since `œ` is ordinary French — and **`ß`
+does not**, the server leaving it alone where the dependency folds it to a single `s`. `æ`, `ø` and
+the rest of that family are still unmeasured and are not predicted by `œ`.
+
+Where they disagree, Garfin folds *more* than the server, so it can name a pair the server keeps
+apart and cannot miss one the server folds — the same direction it already errs in above, and the
+reason the copy is conditional rather than assertive.
 
 ### Signed in now
 
 Above the cards when anyone is: who, on which device, and what they are watching with how far in.
 Absent entirely when nobody is signed in, and absent while it loads or if it fails — a sessions
 list that cannot be fetched is not news a parent can act on, and it must not displace the cards.
+
+**What is playing is named by the show, not by the episode.** Reported from family use: an
+episode's own name is frequently not something a parent can place — "Chapter 3", "The One
+Where…" — so a card carrying only that answers the question with a riddle. An episode therefore
+shows the **series** as its title, with the episode name secondary underneath; a film, which was
+always self-describing, keeps the single line it had.
+
+Beside both, the **artwork**: the show's poster for an episode, the film's own for a film. It is
+the glance-level answer where the words are a reading one, at a poster's proportions and small
+enough to sit beside a sentence rather than compete with it.
+
+Three things this pins down:
+
+- **An episode's own image is never used**, even where the server sends one. It is a still from the
+  episode — measured `PrimaryImageAspectRatio` ≈ **1.78** against a film poster's ≈ **0.67** — so
+  cropping it into a 2:3 poster box gives a parent a rectangle they can place even less than the
+  title they started with. Rejected first on reasoning, now on a number.
+
+  **Which picture is chosen follows the item's `Type`, not which fields arrived.** The series
+  fields are absent on a film rather than empty, so asking "is there a `SeriesId`?" happens to
+  give the right answer for both kinds that were measured — and that is not the same as being
+  what was measured.
+- **No artwork is a supported state, drawn as no artwork.** Not a grey box holding space, and not a
+  tagless image URL: without the version tag the picture would be asked for by name alone, and a
+  cached poster would outlive the artwork it shows. Where there is no tag there is no picture, and
+  the row is the plain sentence.
+- **The fields this reads were inferred from the item DTO and have since been measured.** Read off
+  a live server, one episode and one film; the inference held exactly, and `docs/JELLYFIN-API.md`
+  now carries the fields rather than the absence of them. They stay optional in the model all the
+  same — that is one server and one version, not a survey — so an absent field still costs the
+  artwork and nothing else.
 
 Three actions, in the order a parent reaches for them: **send a message** (which costs the child
 nothing and so needs no confirmation), **stop playback**, and **end session**. The last two are
@@ -500,8 +924,8 @@ does not survive an uninstall and does not leave the phone.
 - **Server** — host, signed-in user, sign out, refresh cache
 - **Labels** — collection prompt behaviour (ask each time / the whole set / just the one title),
   refresh metadata after write
-- **Picking** — starting child, hide shared
-- **Looks** — theme, dynamic colour, poster size
+- **Picking** — hide shared
+- **Looks** — theme, dynamic colour, poster size, library order
 - **About** — one tile, showing the version, opening the About screen below
 
 ## About
@@ -523,7 +947,8 @@ Reached from Settings → About. Top bar with a back button, centred scrolling c
   where a tap goes before taking it.
 - **Licences** — the GPL line, then Flutter's own licence page, then the non-affiliation note.
 
-The mark is not tappable. The five-tap Easter egg is a follow-up, not a stub.
+The mark takes five taps, and nothing before the fifth. It is not announced anywhere and
+carries no affordance — no ripple, no button semantics — which is the point of it.
 
 ### Three switches this list used to carry, and why they are gone
 

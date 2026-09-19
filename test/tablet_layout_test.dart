@@ -164,8 +164,6 @@ void main() {
               blockedTags: [],
             ),
           ),
-          visibleCount: 12,
-          libraryTotal: 40,
         );
 
     Future<void> pumpKids(WidgetTester tester, double width) async {

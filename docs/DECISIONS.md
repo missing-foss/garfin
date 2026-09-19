@@ -45,12 +45,18 @@ silhouette in the mark.
 
 ## Product shape
 
-**Library is the landing screen, not the user list.** The task that opens the app is "find
-something for a kid", so the app opens on the thing you act on. The Kids screen is a settings
-and overview surface, second in the nav.
+**The app opens on Kids, and Kids is first in the nav (revised 2026-09-05).** Until 0.2.0 the
+Library was the landing screen, on the reasoning that the task which opens the app is "find
+something for a kid", so the app opens on the thing you act on. Overruled by the account
+owner: the first thing a parent wants is an answer about their children — who they are, what
+each can see, and whether anyone is watching right now — and the grid is where they go once
+they have it.
+
+The initial tab and the nav order moved together. A landing screen sitting second in its own
+navigation leaves the highlighted destination somewhere other than where the app opened.
 
 **A child selector sits at the top of the Library.** Selecting a child does four things at once:
-filters the grid to what that child can't see yet, exposes their rating cap as a one-tap chip,
+filters the grid to what that child can't see yet, exposes their rating cap as a one-tap control,
 badges already-shared titles, and sorts them to the top of the assign sheet. "Everyone" clears it.
 
 **Avatars come from Jellyfin**, so the faces match what the children see on their own login
@@ -60,10 +66,28 @@ screen. This is worth the extra request.
 inventory. Cost: unsharing needs one extra tap to find the item. Accepted; the toggle is one tap
 and the default is in Settings.
 
+**A tap on a child's face lands on what that child can already see (2026-09-06).** Provisional, and
+recorded as provisional: the owner's words were *"let's start like that and test and we will see
+later on if that's a permanent behaviour or not"*, so nothing persists it and the giving grid is one
+tap away.
+
+It narrows on **both** halves of "has access to" — the labels and the rating cap — because the cap
+silently overrides a label, and a grid filtered to labels alone would show a child titles their own
+account refuses them. It is a *lens on the administrator's grid*, not a query as the child: the
+same request, the same classification, the other side of it kept. Re-querying as the child would
+have produced the same list while deleting the view every "not given yet" number is computed
+against.
+
 **Filters are one row of dropdown chips.** Each chip shows its filter name when unset and the
 chosen value when set, so state is readable without opening anything. Stacked chip rows were tried
 and ate ~120dp of poster space. The rating filter stays a plain toggle — it's binary, and burying
 a safety control inside a menu would be wrong.
+
+> **Superseded 2026-09-16.** The chips are gone and every filter is in the tune sheet, including
+> the rating toggle as a switch. The row they shared with the search field was wider than the
+> screen, and the filters were reachable twice over. What this paragraph got right is what was
+> lost with them — each filter's value at a glance — and the tune button's badge now carries only
+> the count. Asked for by the owner; see `UI-SPEC.md` § Library, item 2.
 
 **The age filter is a filter, not a recommendation engine.** It hides anything above the child's
 cap. No scoring, no suggestions. Keeps it honest about why a title appears.
@@ -97,7 +121,7 @@ offer a one-off migration instead of silently rewriting thousands of items.
 > § Settings, where the reasoning is repeated for anyone reading the spec rather than this file.
 
 **The filter bar filters the administrator's view, and says so.** Type, Genre and Decade are
-server-side parameters, and so is the rating chip — it goes out as `maxOfficialRating`, so nothing
+server-side parameters, and so is the rating toggle — it goes out as `maxOfficialRating`, so nothing
 compares a rating on the phone. But it is *not* a prediction of what the child sees: measured, an
 unrated title passes every cap in that filter while a child whose policy sets `BlockUnratedItems`
 cannot see it. Two mechanisms, one of them invisible from here. Hence "within Emma's limit" rather
@@ -138,8 +162,10 @@ policy filters the films inside. Tagging the container alone appears to work and
 > leaves it off and the half-tagged set stays in the to-do list below — which that decision asks
 > for, and now costs the grid no extra query. Full matrix in `JELLYFIN-API.md` § Collections.
 
-> **Settled 2026-08-11, from measurement. Not yet implemented; the code still does what the
-> paragraph above describes.**
+> **Settled 2026-08-11 from measurement. Ratified fresh 2026-08-26 — a predecessor identity's
+> decision is input, not precedent, so this was re-decided on its own evidence rather than
+> inherited. Scope corrected 2026-08-27: the tri-state display had already shipped for two of its
+> three surfaces, which the marker did not say. Implemented.**
 >
 > Give three films out of eight with *just this one* each time and the container is never labelled.
 > The issue calls that "the set is unreachable — browsing it answers 401", and **the second half of
@@ -186,16 +212,41 @@ policy filters the films inside. Tagging the container alone appears to work and
 > **The count is of labels, not of visibility.** "3 of 8 given", never "sees 3 of 8" — a rating cap
 > can hide a labelled film, and computing what a child can see is what ground rule 4 forbids.
 >
-> Left for the implementation: the "counts as shared only when every member is" line below stays true
-> of the **display** and stops being true of the tag; and installs already holding loose films are
-> **offered** a repair — one tap, user-initiated, idempotent — rather than silently rewritten.
+> **The tri-state's cost, corrected 2026-08-27.** This entry said it "costs nothing" because the
+> index caches every set's members. That is true of two of the three surfaces and false of the
+> third:
+>
+> ```
+> set header (collection screen)   free            members already loaded and classified
+> write preview (assign sheet)     free            the index is built there anyway
+> library grid tile                1 request/tile  the grid never touches the index
+> ```
+>
+> `collectionIndexProvider` is watched only by the assign sheet, and `CollectionRepository.index()`
+> is **1 + N** requests — one for the collections, one per collection. So the grid tile asks for its
+> own set through `collectionSetProvider`: the price is one request per **visible** collection tile,
+> paged with the grid, scaling with what is on screen rather than with the size of the library. That
+> price is accepted knowingly. The grid page already sends `Fields: 'Tags,ChildCount'`, so only the
+> numerator ever needed asking for.
+>
+> Installs already holding loose films are **offered** a repair — one tap, user-initiated,
+> idempotent, writing only the container — rather than silently rewritten. The state is detectable
+> on sight, and repairing it on sight would be the app changing what a child can reach because a
+> screen was opened.
 
-**Collections are browsable in their own right** — stacked cover, count badge, and the strictest
+**Collections are browsable in their own right** — outlined poster, count badge, and the strictest
 rating found among members.
 
-**A collection counts as shared only when every member is** — and, per the amendment above, only
-when the container carries the label too, because without it the child cannot reach the set at all.
-Half-shared sets stay in the to-do list rather than looking finished.
+**A collection is shown as fully shared only when every member is** — and that is now a statement
+about the **display**, not about the tag. The container's label means *the child can open this set*;
+it follows the films that were actually given, so a set holding three of eight carries it and reads
+as **3 of 8 given**. Half-given sets stay in the to-do list by saying so, rather than by the
+container being withheld until the set is complete.
+
+The label inverts with the mode, and both halves of that matter: a block-list child *has* the
+members that are **not** labelled, and an openable container for them is an **unlabelled** one. A
+container write that ignored either would be exactly backwards for every child in that mode, and
+nothing on screen would look wrong.
 
 **Tagging one film in a set asks once**, listing the other members and their ratings, then either
 keeps the set together or writes just the one. Default is *ask each time*, because "Jurassic Park"
@@ -507,10 +558,15 @@ meant "suitable at ten" in the first place.
 
 ## The Library grid's two filters (settled 2026-08-05)
 
-**Hide-shared filters client-side, over an enlarged fetch window.** `/Items` takes 86 parameters
-and **none of them excludes by tag** — measured on 10.11.11. So "what this child hasn't got yet"
-has no direct server query, and the grid asks for more than a screenful while hiding is on, then
-keeps fetching until the visible rows fill.
+**Hide-shared filters client-side, and keeps fetching until the page fills.** `/Items` takes 86
+parameters and **none of them excludes by tag** — measured on 10.11.11. So "what this child hasn't
+got yet" has no direct server query: the grid asks, drops the rows that are already given, and goes
+back for more until it has a page.
+
+The window it asks for used to be four times the page, so that a single request usually sufficed.
+That stopped paying when the page grew from 24 rows to 240: the window is now the same size as the
+page, and the refill loop covers the case where a lot of the rows are filtered out. See
+`docs/UI-SPEC.md` § *A page is 240 rows*.
 
 Rejected — `excludeItemIds`, the obvious server-side answer. It is a comma-delimited query string,
 so the URL grows with the *shared* set, and the shared set is precisely what grows as the app is
@@ -652,9 +708,47 @@ a prefixed tag, and a parser that only survives its own repository's convention 
 in and cannot go stale; shipping a second list means shipping a list that can disagree with the
 first.
 
-**Deferred:** the tap-the-mark Easter egg. trobar's five-tap tic-tac-toe transfers as a
-mechanism, but Garfin's mark is a fish and the game should not be a copy. It is a follow-up
-rather than a stub, because a tap counter that opens nothing is dead code no test can cover.
+**Settled 2026-09-05, and no longer deferred:** the tap-the-mark Easter egg. It was held back
+because trobar's five-tap tic-tac-toe transfers as a mechanism but Garfin's mark is a fish and
+the game should not be a copy — and because a tap counter that opens nothing is dead code no
+test can cover. Both are answered: the counter and what it opens ship together and are covered
+together.
+
+**The game is the app's own subject with the words removed.** Touch something smaller and you
+eat it and grow; touch something bigger and you bounce off and shrink. What is out of reach
+stops being out of reach as you grow. Nobody explains it, and whoever finds it later gets it in
+one second.
+
+**No fail state, and that is a constraint rather than a kindness.** The score is the size of the
+fish, so there is nothing to read. That gives the egg **zero l10n surface** — it cannot fail the
+hardcoded-string check or either translation gate, because there is no string to fail them with.
+A fail state would need a restart, a restart wants a word, and one word drags the whole
+translation apparatus into an Easter egg. A test asserts no `Text` is ever built inside it,
+which is what keeps that true as the code changes.
+
+**Sized against the fish, not against a fixed range (2026-09-05).** The first version drew a
+circle's radius from a flat 8..54 whatever the player was. Measured afterwards, that made the tank
+wrong at both ends: at the starting radius of 26 only 39% of it was edible, which is the thin
+opening a tester reported — and above radius 54 nothing that could exist was bigger than the fish,
+so the one rule quietly stopped applying and the game became a fish eating everything it touched.
+Drawing relative to the current radius keeps a roughly constant share on each side of the rule at
+every size, so both halves stay true for the whole of the play.
+
+Worth recording that the first diagnosis of this was backwards — it claimed the edible share
+*shrank* as the fish grew, inferred from the shape of the growth rule instead of counted. Counting
+took one script and reversed the answer.
+
+**The easing is a half-life, not a fraction per second.** `0.92 per second` reads as nearly
+instant and is not: it leaves 8% of the gap after a full second, which is 11% of it closed in the
+first 100ms, and it was fairly reported as the fish being hard to move. A 45ms half-life closes
+about 79% in that same 100ms. The lag is still there on purpose — a fish welded to the fingertip
+is not a fish — but the number now names the thing that is felt.
+
+**Rejected, and worth recording as rejected:** making the fish shareable, so five taps produced
+Garfin's real toast reading *"Shared with Emma"*. It was the funniest option and the only unsafe
+one. This app's ground rules rest on never reporting a state the server did not confirm, and a
+toast that lies as a joke teaches a parent that the toast can lie — on the screen where that
+matters most.
 
 ---
 
@@ -737,13 +831,21 @@ parent picked; the faces are in the spoken label whatever the width.
 than it would mean "N in total" — one glyph, two meanings, and the tile where the second one
 appears is the smallest, which is the worst place to change what a symbol means. So the last rung
 before nothing is one face and a count, and below that the row is silent. Nothing is lost: the
-spoken label carries every name at every width.
+spoken label carries every name at every width — including the selected child's, on the states
+where no badge speaks for them.
 
-**The spoken label names who *else* has it.** The selected child is dropped from that sentence
-because the badge has just spoken about them — otherwise a screen reader hears "Given. Given to
-Emma", and the held-back tile hears "the server isn't showing it to them … Given to Emma", which
-reads as a contradiction to anyone who has not internalised the given-versus-visible split. Their
-face stays in the row: the row says who has it, the sentence adds who else.
+**The spoken label names who *else* has it — when a badge has already spoken about the selected
+child.** Otherwise a screen reader hears "Given. Given to Emma", and the held-back tile hears "the
+server isn't showing it to them … Given to Emma", which reads as a contradiction to anyone who has
+not internalised the given-versus-visible split. Their face stays in the row: the row says who has
+it, the sentence adds who else.
+
+**The condition used to be silent, because it was always true** — every state that named the
+selected child had a badge. A plain share does not any more: it says so with a face, and a face is
+not spoken. Left unconditional, a tile with Emma selected and Léo also holding it said "Given to
+Léo" and nothing about Emma, which reads as *not given to Emma* — a confident wrong statement about
+a named child, and the shape ground rule 4 exists to prevent. So the rule is applied rather than
+assumed: dropped when a badge speaks about them, kept when nothing else does.
 
 **The French says "Titre donné à …", naming the noun.** A bare "Donné à" agrees with the item, and
 the grid carries *films*, *séries* and *collections* — masculine singular is right for one of the
@@ -768,8 +870,8 @@ it; "No age rating" and "7 titles" are words, and nothing stands for a word — 
 fit side by side the count takes the line below and both survive, at the cost of a little poster.
 
 Rejected — naming the children on the tile instead of showing faces. A poster is ~110dp wide on
-the 3-column grid (2 under 400dp); three names do not fit, and the faces are the same ones from the
-picker row directly above, which is what makes them readable at that size. The names are all in the
+the 3-column grid (2 under 400dp); three names do not fit, and the faces are the same ones a parent
+sees in the app bar and on the Kids screen, which is what makes them readable at that size. The names are all in the
 tile's semantic label, in full, including the ones the `+N` chip stands for.
 
 ---
@@ -913,6 +1015,33 @@ relationship in both locales.
 
 **A two-pane library was not extended to the Kids screen.** A kid card opens nothing modal, so
 there is no second pane to hold; the width cap is the whole answer there.
+
+---
+
+## The certified-device warning is once a launch, and it comes back (settled 2026-09-16)
+
+Tapping any of the warning's three buttons closes it, and two of them leave for a browser. Coming
+back to Garfin, there is no dialog and no way to reach the other link in that session. That is
+upstream's dialog behaving as built — a plain `AlertDialog` dismisses on any button, and the library
+overrides nothing — plus this app's own rule of asking at most once a launch, which exists because
+the unlock gate reopens on resume and on the idle timeout.
+
+**It is not lost.** Only `OK` records the acknowledgement, so a launch after tapping a link shows it
+again. Measured on an emulator, x86_64 Android 34, the app signed in against a throwaway server:
+
+| step | dialog |
+|---|---|
+| gate opens | `OK` `Solution` `Details` |
+| tap `Details` | browser opens; back in the app, no dialog |
+| relaunch | `OK` `Solution` `Details` — back |
+| tap `OK` | dialog closes, `versionCodeWarn=2` written to the app's default preferences |
+| relaunch | nothing — and this is the control: the same check reports both outcomes |
+
+So a parent who wants the second link relaunches the app. **Rejected: reopening it automatically on
+resume.** The app is not told which button was tapped, or that the dialog closed at all, so it
+cannot tell "came back from the Details link" from "came back from anything else" — and a dialog at
+every unlock is the failure the once-a-launch rule was written to avoid. Also rejected, for now: a
+row in the About screen that reopens it on demand. It would work; it was not wanted.
 
 ---
 

@@ -29,6 +29,14 @@ enum CollectionPrompt {
 /// How big the posters are, which is really how many fit across.
 enum PosterSize { large, regular, small }
 
+/// What the library grid is ordered by.
+///
+/// The three a parent asked for. Each maps to one server sort key and no more
+/// than one: a chained key is legal but `SortOrder` applies to every key in the
+/// chain, so descending would reverse the name tiebreak as well and the titles
+/// with no date would come back Z to A.
+enum LibrarySort { dateAdded, releaseDate, name }
+
 /// The Settings screen's state, minus Unlock, which has its own store.
 ///
 /// All preferences, no credentials — `shared_preferences` is right for every
@@ -41,11 +49,19 @@ class AppSettingsStore {
 
   static const _collectionPromptKey = 'labels_collection_prompt';
   static const _refreshAfterWriteKey = 'labels_refresh_after_write';
-  static const _startingChildKey = 'picking_starting_child';
+  // `picking_starting_child` was here. The setting is gone: the Library opens
+  // on Everyone from the navigation and on a child from that child's face, so
+  // a remembered default answered a question the parent had not asked. The key
+  // is deliberately not cleaned up on upgrade — a stray string in preferences
+  // costs nothing, and a migration that deletes a key is a write that can fail
+  // on a phone for the sake of tidiness.
   static const _hideSharedKey = 'picking_hide_shared';
+  static const _allowScreenshotsKey = 'unlock_allow_screenshots';
   static const _themeModeKey = 'looks_theme_mode';
   static const _dynamicColourKey = 'looks_dynamic_colour';
   static const _posterSizeKey = 'looks_poster_size';
+  static const _librarySortKey = 'looks_library_sort';
+  static const _librarySortDescendingKey = 'looks_library_sort_descending';
 
   CollectionPrompt get collectionPrompt => switch (
           _prefs.getString(_collectionPromptKey)) {
@@ -71,18 +87,18 @@ class AppSettingsStore {
   Future<void> setRefreshAfterWrite(bool value) =>
       _prefs.setBool(_refreshAfterWriteKey, value);
 
-  /// The child the Library opens on, or null for Everyone.
+  /// Whether the window may be captured — screenshots, screen recording and
+  /// mirroring.
   ///
-  /// A user id rather than a name: names are not unique on a Jellyfin server
-  /// and can be changed without the account changing.
-  String? get startingChildId {
-    final value = _prefs.getString(_startingChildKey);
-    return (value == null || value.isEmpty) ? null : value;
-  }
+  /// **Off by default, because the protection it lifts was measured before it
+  /// was chosen.** `FLAG_SECURE` exists for the recents thumbnail, and on
+  /// Android 12 and below turning this on gives that snapshot back. On 13 and
+  /// up the snapshot is covered separately and the cost is only that the
+  /// window can be captured while it is on screen. See `SECURITY.md`.
+  bool get allowScreenshots => _prefs.getBool(_allowScreenshotsKey) ?? false;
 
-  Future<void> setStartingChildId(String? value) => value == null
-      ? _prefs.remove(_startingChildKey)
-      : _prefs.setString(_startingChildKey, value);
+  Future<void> setAllowScreenshots(bool value) =>
+      _prefs.setBool(_allowScreenshotsKey, value);
 
   /// On by default: `docs/DECISIONS.md` § Product shape — hiding already-shared
   /// titles turns the grid into a to-do list rather than an inventory.
@@ -117,7 +133,49 @@ class AppSettingsStore {
 
   Future<void> setPosterSize(PosterSize value) =>
       _prefs.setString(_posterSizeKey, value.name);
+
+  /// Name, because that is what every install has done until now.
+  ///
+  /// The setting is additive: nobody's grid changes until they change it.
+  LibrarySort get librarySort => switch (_prefs.getString(_librarySortKey)) {
+        'dateAdded' => LibrarySort.dateAdded,
+        'releaseDate' => LibrarySort.releaseDate,
+        _ => LibrarySort.name,
+      };
+
+  Future<void> setLibrarySort(LibrarySort value) =>
+      _prefs.setString(_librarySortKey, value.name);
+
+  bool get librarySortDescending =>
+      _prefs.getBool(_librarySortDescendingKey) ?? false;
+
+  Future<void> setLibrarySortDescending({required bool value}) =>
+      _prefs.setBool(_librarySortDescendingKey, value);
 }
+
+/// The server sort key for [sort].
+///
+/// **Release date is `PremiereDate` even though a server without a metadata
+/// provider never sets one.** Measured on 12.1 with a film per case: with every
+/// premiere date absent the grid still came back in year order, and once a real
+/// premiere date was written onto one film it sorted by that date while
+/// `ProductionYear` kept the film at its year. So this key is exact where a
+/// library has dates and falls back to the year parsed out of the file name
+/// where it does not, which `ProductionYear` cannot do in the other direction.
+String librarySortBy(LibrarySort sort) => switch (sort) {
+      LibrarySort.dateAdded => 'DateCreated',
+      LibrarySort.releaseDate => 'PremiereDate',
+      LibrarySort.name => 'SortName',
+    };
+
+/// Ascending unless [descending].
+///
+/// Items with no value under the key group at the top ascending and at the
+/// bottom descending, ordered by name within the group in both directions —
+/// measured, and the reason a collection clumps with the other collections
+/// under release date rather than being given a date it does not have.
+String librarySortOrder({required bool descending}) =>
+    descending ? 'Descending' : 'Ascending';
 
 /// How wide a poster should aim to be at [size], in logical pixels.
 ///

@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_info.dart';
 import '../l10n/gen/app_localizations.dart';
 import '../models/auth_session.dart';
-import '../models/kid_summary.dart';
 import '../providers/auth_providers.dart';
 import '../providers/collection_providers.dart';
 import '../providers/kids_providers.dart';
@@ -117,7 +116,6 @@ class SettingsScreen extends ConsumerWidget {
         ),
 
         _Section(title: l10n.settingsSectionPicking),
-        _StartingChildTile(session: session),
         SwitchListTile(
           secondary: const Icon(Icons.filter_alt_outlined),
           value: settings.hideShared,
@@ -163,6 +161,38 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: controller.setPosterSize,
           ),
         ),
+        // The field as a row, the direction as a control on the same line —
+        // ruled. The arrow is the only control on this screen whose meaning is
+        // carried by a shape rather than by words, so it states its meaning
+        // through `tooltip`, which is also what a screen reader announces.
+        ListTile(
+          leading: const Icon(Icons.sort),
+          title: Text(l10n.settingsLibrarySort),
+          subtitle: Text(_sortLabel(l10n, settings.librarySort)),
+          trailing: IconButton(
+            icon: Icon(
+              settings.librarySortDescending
+                  ? Icons.arrow_downward
+                  : Icons.arrow_upward,
+            ),
+            tooltip: settings.librarySortDescending
+                ? l10n.settingsLibrarySortDescending
+                : l10n.settingsLibrarySortAscending,
+            onPressed: () => controller.setLibrarySortDescending(
+              value: !settings.librarySortDescending,
+            ),
+          ),
+          onTap: () => _pick<LibrarySort>(
+            context,
+            title: l10n.settingsLibrarySort,
+            value: settings.librarySort,
+            options: {
+              for (final option in LibrarySort.values)
+                option: _sortLabel(l10n, option),
+            },
+            onChanged: controller.setLibrarySort,
+          ),
+        ),
 
         _Section(title: l10n.settingsSectionAbout),
         // One tile where four used to be (#66). The version, the licences and
@@ -195,6 +225,13 @@ class SettingsScreen extends ConsumerWidget {
         ThemeMode.system => l10n.settingsThemeSystem,
         ThemeMode.light => l10n.settingsThemeLight,
         ThemeMode.dark => l10n.settingsThemeDark,
+      };
+
+  static String _sortLabel(AppLocalizations l10n, LibrarySort value) =>
+      switch (value) {
+        LibrarySort.dateAdded => l10n.settingsLibrarySortDateAdded,
+        LibrarySort.releaseDate => l10n.settingsLibrarySortReleaseDate,
+        LibrarySort.name => l10n.settingsLibrarySortName,
       };
 
   static String _posterLabel(AppLocalizations l10n, PosterSize value) =>
@@ -247,41 +284,6 @@ Future<void> _pick<T>(
 /// the Library's own row shows. A stored id whose account has gone reads as
 /// Everyone rather than as an error, which is what [pickedChildProvider] does
 /// with it too.
-class _StartingChildTile extends ConsumerWidget {
-  const _StartingChildTile({required this.session});
-
-  final AuthSession session;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
-    final settings = ref.watch(settingsProvider);
-    final kids = ref.watch(kidsOverviewProvider(session)).asData?.value
-            .shortlisted ??
-        const <KidSummary>[];
-
-    final options = <String?, String>{
-      null: l10n.settingsStartingChildEveryone,
-      for (final kid in kids) kid.user.id: kid.user.name,
-    };
-
-    return ListTile(
-      leading: const Icon(Icons.face_outlined),
-      title: Text(l10n.settingsStartingChild),
-      subtitle: Text(
-        options[settings.startingChildId] ?? l10n.settingsStartingChildEveryone,
-      ),
-      onTap: () => _pick<String?>(
-        context,
-        title: l10n.settingsStartingChild,
-        value: settings.startingChildId,
-        options: options,
-        onChanged: ref.read(settingsProvider.notifier).setStartingChildId,
-      ),
-    );
-  }
-}
-
 class _Section extends StatelessWidget {
   const _Section({required this.title});
 

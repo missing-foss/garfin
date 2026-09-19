@@ -220,10 +220,15 @@ localisation file if l10n has been set up.
 ## Toolchain
 
 Not part of the repo — install these wherever you keep SDKs and put them on `PATH`.
-The versions are what the project is built and tested against; `.tool-versions` is the
-source of truth and `dev/verify.sh` checks CI has not drifted from it.
+The versions are what the project is built and tested against, and `.tool-versions` is the
+source of truth in a stronger sense than a written list: **both CI workflows read the Flutter
+version out of it at run time**, so neither can drift from it and neither needs checking.
 
-- Flutter 3.44.8 stable · Dart 3.12.2
+The one toolchain value written down twice is the mirror workflow's `java-version`, which is a
+literal. `dev/verify.sh`'s last step compares that against the pin — that single value is the
+whole of what "the toolchain pin agrees with CI" covers.
+
+- Flutter 3.44.9 stable · Dart 3.12.2
 - Android SDK platform 36, build-tools 36.0.0, platform-tools (`ANDROID_HOME`)
 - JDK 17 · `minSdk 26`, `compileSdk`/`targetSdk` follow Flutter's default
 - An emulator image is optional. Without one, `flutter devices` shows desktop only; plug in a

@@ -7,11 +7,13 @@ import 'package:flutter/foundation.dart';
 
 import '../models/active_session.dart';
 import '../models/authentication_result.dart';
+import '../models/country_lookup.dart';
 import '../models/dto_json.dart';
 import '../models/jellyfin_user.dart';
 import '../models/library_filters.dart';
 import '../models/library_item.dart';
 import '../models/library_page.dart';
+import '../models/media_library.dart';
 import '../models/parental_rating.dart';
 import '../models/quick_connect.dart';
 import 'device_identity.dart';
@@ -27,6 +29,52 @@ import 'media_browser_auth.dart';
 /// Every method converts `DioException` into [JellyfinException] on the way
 /// out, so nothing above this layer has to know about dio and nothing below it
 /// can leak a URI with a `?secret=` in it into an error a caller might log.
+
+/// The search half of a library query, built once for every caller.
+///
+/// **Two queries carry these filters, and they must carry the same ones.** The
+/// grid asks `/Items` for a page; the tagged count asks `/Items` for a total
+/// that is then *subtracted* from the grid's. A filter on one side and not the
+/// other subtracts one population from a different one, and the answer looks
+/// perfectly reasonable (#81). Two literal copies of a three-branch condition
+/// is how that happens, so there is one copy.
+///
+/// Which parameter goes out depends on the scope, and each is measured on
+/// **both** 10.11.11 and 12.0.0:
+///
+/// - `searchTerm` — substring, title only, case- and accent-insensitive.
+///   **On a stock server.** A server-side search plugin (Meilisearch is one)
+///   replaces this for every client: measured on a 12.0.0 server running one,
+///   it matched words in any order, read plot summaries, and dropped trailing
+///   words to fill the page. `docs/JELLYFIN-API.md` § *A search plugin
+///   replaces all of this* has how to recognise one from outside.
+/// - `person` — **exact match**, and matches every credit: cast and crew
+///   alike. `personTypes` would narrow it to actors but is *ignored* on
+///   10.11.11 and *applied* on 12.0.0, so it is deliberately never sent and
+///   the two versions behave identically.
+/// - `studios` — exact match. Takes `|` and answers 0 to a comma, like
+///   `genres` and `tags`; only one value is ever sent here, so no delimiter
+///   reaches the wire, but the next person to add multi-select needs the pipe.
+///
+/// Both exact-match parameters take the name `/Search/Hints` resolved, never
+/// what the parent typed: `person=Tautou` returns nothing where
+/// `person=Audrey Tautou` returns the film.
+Map<String, dynamic> searchQueryParameters(LibraryFilters filters) {
+  if (!filters.hasSearch) return const {};
+  switch (filters.searchScope) {
+    case SearchScope.title:
+      // Trimmed and omitted when empty, because whitespace is not a search --
+      // the server returns the whole library for it.
+      return {'searchTerm': filters.searchTerm!.trim()};
+    case SearchScope.castAndCrew:
+      final name = filters.resolvedSearchValue;
+      return name == null || name.isEmpty ? const {} : {'person': name};
+    case SearchScope.studio:
+      final name = filters.resolvedSearchValue;
+      return name == null || name.isEmpty ? const {} : {'studios': name};
+  }
+}
+
 class JellyfinApi {
   JellyfinApi(this._dio);
 
@@ -296,6 +344,99 @@ class JellyfinApi {
         return ParentalRatingLadder.fromJson(data);
       });
 
+  /// The server's country list: the two-letter codes it recognises, and the
+  /// code for each country name it knows.
+  ///
+  /// Two uses. The item sheet turns an item's `ProductionLocations` names into
+  /// flags through it — see [CountryLookup]. And the codes are **what tells a
+  /// certification prefix from a rating rung.** An
+  /// `OfficialRating` is a bare string, and some of them name a system —
+  /// `FR-12`, `SE-BTL` — while most do not. Reading any `XX-` as a country is
+  /// wrong twice over: measured 2026-09-17 on 12.1.0, **48 of the US ladder's
+  /// 56 rungs are hyphenated** (`TV-G`, `TV-PG-D`, and `PG-13` itself), so that
+  /// rule calls them Tuvalu and Papua New Guinea, and `NR-17` would be Nauru.
+  ///
+  /// `GET /Localization/Countries` answers 140 entries and contains `FR`, `SE`,
+  /// `PT`, `US` and `DE` — and **not** `TV`, `PG` or `NR`. So the server itself
+  /// settles the question rather than a table shipped in here. See
+  /// `docs/JELLYFIN-API.md` § Which certification system a rating names.
+  Future<CountryLookup> countries() => _call(() async {
+        final response = await _dio.get<dynamic>('/Localization/Countries');
+        final data = response.data;
+        if (data is! List) {
+          throw const JellyfinException(
+            JellyfinErrorKind.server,
+            message: 'unexpected response shape',
+          );
+        }
+        return CountryLookup.fromRows(data.whereType<Map<String, dynamic>>());
+      });
+
+  /// The libraries [userId] can open.
+  ///
+  /// **Ask as the child, not once as the administrator.** Measured 2026-09-05
+  /// on 10.11.11: a library both users can open has the same name and id for
+  /// each, but the *set* differs — five libraries for the administrator, one
+  /// for a child enabled on one. Re-measured on 12.1.0: the ids still match.
+  /// See `docs/JELLYFIN-API.md` § Counting per library.
+  Future<List<MediaLibrary>> libraries({required String userId}) =>
+      _call(() async {
+        final response = await _dio.get<dynamic>(
+          '/UserViews',
+          queryParameters: <String, dynamic>{'userId': userId},
+        );
+        final items = readField(_asMap(response.data), 'Items');
+        if (items is! List) return const [];
+        return items
+            .whereType<Map<String, dynamic>>()
+            .map(MediaLibrary.fromJson)
+            .whereType<MediaLibrary>()
+            .toList(growable: false);
+      });
+
+  /// What one child can see inside one library.
+  ///
+  /// The same question [visibleItemCount] asks, narrowed by `parentId`, and it
+  /// carries the same cost warning: the work tracks the **result set**, so a
+  /// library a child can see a lot of is slower than one they can see little
+  /// of. Each of these covers a subset of what the whole-library count covers,
+  /// so an individual call is cheaper than that total while there are more of
+  /// them — which is the argument for fetching them only when asked, not a
+  /// measurement that doing so is fast.
+  ///
+  /// **`parentId` is honoured, not merely accepted** — measured 2026-09-05, a
+  /// bogus or absent id answers **400** rather than the whole library. That is
+  /// worth knowing here because `/Sessions` in this same API takes `userId` and
+  /// ignores it, so "the filter was applied" is not an assumption this codebase
+  /// gets to make for free.
+  ///
+  /// `IncludeItemTypes` matches [visibleItemCount] deliberately: the per-library
+  /// numbers are shown beside that total, and a different filter would make
+  /// them fail to add up for a reason nobody could see.
+  /// [itemTypes] is the library's own — `Movie` for a movies library, `Series`
+  /// for a tvshows one. Measured 2026-09-05 on 10.11.11: sending `Movie,Series`
+  /// at every library regardless answered **0** for a music, book or home-video
+  /// library that was not empty, because it asked each of them for something
+  /// they cannot contain.
+  Future<int> visibleItemCountIn({
+    required String userId,
+    required String libraryId,
+    required String itemTypes,
+  }) =>
+      _call(() async {
+        final response = await _dio.get<dynamic>(
+          '/Items',
+          queryParameters: <String, dynamic>{
+            'userId': userId,
+            'parentId': libraryId,
+            'Recursive': true,
+            'Limit': 0,
+            'IncludeItemTypes': itemTypes,
+          },
+        );
+        return readInt(_asMap(response.data), 'TotalRecordCount') ?? 0;
+      });
+
   /// How many items [userId] can see, **as the server counts them**.
   ///
   /// Ground rule 4: never compute visibility client-side. This asks the server
@@ -308,7 +449,7 @@ class JellyfinApi {
   /// the child can see 1 title, 214 ms at 1000, 538 ms at 2000, and the same
   /// again for the administrator, who sees everything. The cost tracks the
   /// **result set**, so it grows as a parent shares more. See
-  /// `docs/JELLYFIN-API.md` § Counting what a user can see, and #68.
+  /// `docs/JELLYFIN-API.md` § Counting what a user can see.
   ///
   /// `Recursive=true` is required or the count covers only top-level items.
   Future<int> visibleItemCount({required String userId}) => _call(() async {
@@ -345,8 +486,19 @@ class JellyfinApi {
     List<String> itemTypes = const ['Movie', 'Series', 'BoxSet'],
     LibraryFilters filters = const LibraryFilters(),
     int? maxParentalRating,
+    // The grid's order is a setting; this is the one query it governs, and the
+    // defaults are what every call sent before it existed.
+    String sortBy = 'SortName',
+    String sortOrder = 'Ascending',
   }) =>
       _call(() async {
+        // A search that resolved to nothing answers empty WITHOUT asking the
+        // server. Letting it through would send a query carrying no person or
+        // studio parameter at all -- `searchQueryParameters` has nothing to
+        // add -- and the server would return the whole library. A name nobody
+        // is credited under would then look identical to no search at all,
+        // which is the one outcome this screen exists to prevent.
+        if (filters.isImpossible) return const LibraryPage.empty();
         final response = await _dio.get<dynamic>(
           '/Items',
           queryParameters: <String, dynamic>{
@@ -356,16 +508,11 @@ class JellyfinApi {
             'Limit': limit,
             'IncludeItemTypes':
                 (filters.type == null ? itemTypes : [filters.type!]).join(','),
-            // Measured (#73): title only — not the overview, the cast, tags
-            // or genres — matching any substring, case- and
-            // accent-insensitively, and ANDing with every filter below rather
-            // than replacing them. `Recursive` above is load-bearing for it:
-            // without it the same query answers with folders, not films.
-            //
-            // Trimmed and omitted when empty, because whitespace is not a
-            // search — the server returns the whole library for it, and a
-            // request that filters nothing should not look like one that does.
-            if (filters.hasSearch) 'searchTerm': filters.searchTerm!.trim(),
+            // Title, cast-and-crew or studio, decided by the scope and built
+            // in one place so this query and the count subtracted from it
+            // cannot drift. `Recursive` above is load-bearing for the title
+            // case: without it the same query answers with folders, not films.
+            ...searchQueryParameters(filters),
             if (filters.genre != null) 'genres': filters.genre,
             if (filters.decade != null)
               'years': filters.decadeYears.join(','),
@@ -383,9 +530,28 @@ class JellyfinApi {
             // and the collection count badge `docs/UI-SPEC.md` asks for — which
             // `library_tile.dart` guards on that field being non-null — had
             // never once rendered.
-            'Fields': 'Tags,ChildCount',
-            'SortBy': 'SortName',
-            'SortOrder': 'Ascending',
+            //
+            // `RecursiveItemCount` is absent on the same terms and is asked for
+            // because `ChildCount` counts **one level down**: a two-season,
+            // five-episode show reports `ChildCount: 2`, which as a badge would
+            // read "2 titles". The recursive count is the 5. Measured to cost
+            // nothing — mean of five runs, 21.6 ms without the field and
+            // 18.9 ms with it, a difference that is noise and the wrong sign to
+            // be a cost.
+            //
+            // `ProductionLocations` joins them for the detail view, on the same
+            // terms: measured 2026-09-17 on 12.1.0, the key is **absent** from a
+            // list row until it is asked for, while `RunTimeTicks` arrives
+            // unasked whenever the item has media. So one of the two fields the
+            // detail view wants is free and the other is a name in this list.
+            //
+            // `Genres` and `Studios` join them for #160 on the same terms —
+            // measured 2026-09-18 on 12.1.0, both absent from a list row until
+            // named here — while `CommunityRating` and `CriticRating` arrive
+            // unasked.
+            'Fields': _gridFields,
+            'SortBy': sortBy,
+            'SortOrder': sortOrder,
           },
         );
         final data = _asMap(response.data);
@@ -424,6 +590,72 @@ class JellyfinApi {
             .where((name) => name.isNotEmpty)
             .toList(growable: false);
       });
+
+  /// Turns what a parent typed into the exact name `person=` / `studios=` need.
+  ///
+  /// **Both of those are exact-match, measured on 10.11.11 and 12.0.0**:
+  /// `person=Tautou` returns nothing where `person=Audrey Tautou` returns the
+  /// film. A parent types three letters, so the typed text can never go
+  /// straight to the grid query in those modes — something has to resolve it,
+  /// and this is that step.
+  ///
+  /// **`/Search/Hints` rather than `/Persons` or `/Studios`**, for two reasons
+  /// that are worth keeping:
+  ///
+  /// - It is **typed**, so one call separates a person from a studio from a
+  ///   title. The `ItemByName` routes need one call each and you must already
+  ///   know which you wanted.
+  /// - `/Persons` and `/Studios` are the `ItemByName` family, the one 12.0's
+  ///   release notes call "restricted" without defining the word. `#125` found
+  ///   no narrowing for `/Genres`, and `/Search/Hints` returned the same
+  ///   answers on both versions here — but depending on the family we have
+  ///   least confidence in, when a typed route answers the same question, is a
+  ///   choice with nothing to recommend it.
+  ///
+  /// Returns null when nothing matches. **That is not "no filter"** — the
+  /// caller must show an empty grid rather than drop the parameter, or a name
+  /// nobody is credited under returns the whole library. `LibraryFilters`
+  /// keeps those apart with `isImpossible`.
+  ///
+  /// The first hint of the right type wins. The server sorts them by its own
+  /// relevance and this is a parent finding one film, not a disambiguation UI.
+  Future<String?> resolveSearchName({
+    required String userId,
+    required String term,
+    required SearchScope scope,
+  }) {
+    final wanted = switch (scope) {
+      SearchScope.castAndCrew => 'Person',
+      SearchScope.studio => 'Studio',
+      // Title needs no resolving -- the server takes the substring itself.
+      SearchScope.title => null,
+    };
+    if (wanted == null || term.trim().isEmpty) return Future.value(null);
+    return _call(() async {
+      final response = await _dio.get<dynamic>(
+        '/Search/Hints',
+        queryParameters: <String, dynamic>{
+          'userId': userId,
+          'searchTerm': term.trim(),
+          // Asked for explicitly rather than relying on the defaults, which
+          // differ between the two versions this app supports.
+          'includePeople': scope == SearchScope.castAndCrew,
+          'includeStudios': scope == SearchScope.studio,
+          'includeMedia': false,
+          'includeGenres': false,
+          'includeArtists': false,
+        },
+      );
+      final hints = readField(_asMap(response.data), 'SearchHints');
+      if (hints is! List) return null;
+      for (final hint in hints.whereType<Map<String, dynamic>>()) {
+        if (readString(hint, 'Type') != wanted) continue;
+        final name = readString(hint, 'Name');
+        if (name != null && name.isNotEmpty) return name;
+      }
+      return null;
+    });
+  }
 
   /// The production years present, which the Decade chip groups by ten.
   Future<List<int>> years({required String userId}) => _call(() async {
@@ -528,6 +760,11 @@ class JellyfinApi {
     int? maxParentalRating,
   }) =>
       _call(() async {
+        // Same short-circuit as the grid query, and it has to be the same:
+        // this total is subtracted from that one. If the grid answers empty
+        // and this answered a full-library count, the subtraction would go
+        // negative on a search that simply found nobody.
+        if (filters.isImpossible) return 0;
         final response = await _dio.get<dynamic>(
           '/Items',
           queryParameters: <String, dynamic>{
@@ -541,7 +778,7 @@ class JellyfinApi {
             // count is subtracted from that query's total (#81). A filter on
             // one side and not the other subtracts one population from a
             // different one, and the answer looks perfectly reasonable.
-            if (filters.hasSearch) 'searchTerm': filters.searchTerm!.trim(),
+            ...searchQueryParameters(filters),
             if (filters.genre != null) 'genres': filters.genre,
             if (filters.decade != null) 'years': filters.decadeYears.join(','),
             if (filters.withinCap && maxParentalRating != null)
@@ -593,6 +830,8 @@ class JellyfinApi {
     required String userId,
     required String collectionId,
     int limit = 500,
+    String sortBy = 'SortName',
+    String sortOrder = 'Ascending',
   }) =>
       _call(() async {
         final response = await _dio.get<dynamic>(
@@ -601,7 +840,27 @@ class JellyfinApi {
             'userId': userId,
             'parentId': collectionId,
             'Limit': limit,
-            'Fields': 'Tags',
+            // **The same fields the grid asks for, because these are the same
+            // tiles.** `collection_screen.dart` renders members through
+            // `LibraryGrid`, so a member is drawn by exactly the widget the
+            // library grid uses — and a field absent here is a badge missing
+            // there, silently, on a tile that has one two taps away.
+            //
+            // `Tags` alone was enough while only per-child state was drawn.
+            // It stopped being enough the moment a count went on a tile: a
+            // series inside a set lost its episode count, and a set inside a
+            // set had been losing its "{count} titles" for longer than that.
+            //
+            // The detail head is the same lesson a third time: a film opened
+            // from inside a set is drawn by the same sheet, and without
+            // `ProductionLocations` here it said *Unknown* for a country it
+            // had. So this is the grid's list, not a copy of it.
+            'Fields': _gridFields,
+            // Same tiles, same order as the grid they came from: browsing a set
+            // is the library narrowed to one container, so a parent who chose
+            // an order chose it here too.
+            'SortBy': sortBy,
+            'SortOrder': sortOrder,
           },
         );
         return _itemsOf(response.data);
@@ -792,6 +1051,11 @@ class JellyfinApi {
       );
     }
   }
+
+  /// The fields every tile asks for, shared by the grid and a set's members
+  /// because both are drawn by the same tile and open the same sheet.
+  static const _gridFields =
+      'Tags,ChildCount,RecursiveItemCount,ProductionLocations,Genres,Studios';
 
   /// The `Items` array of a list response, as models.
   static List<LibraryItem> _itemsOf(dynamic data) {

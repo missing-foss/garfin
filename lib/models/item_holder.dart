@@ -62,13 +62,29 @@ class ItemHolder {
 List<ItemHolder> holdersOf({
   required LibraryItem item,
   required List<KidSummary> children,
-}) =>
-    <ItemHolder>[
-      for (final child in children)
-        if (child.mode == ShortlistMode.allow && item.hasAnyLabel(child.tags))
-          ItemHolder(
-            userId: child.user.id,
-            name: child.user.name,
-            avatarUrl: child.avatarUrl,
-          ),
-    ];
+  String? selectedChildId,
+}) {
+  final holders = <ItemHolder>[
+    for (final child in children)
+      if (child.mode == ShortlistMode.allow && item.hasAnyLabel(child.tags))
+        ItemHolder(
+          userId: child.user.id,
+          name: child.user.name,
+          avatarUrl: child.avatarUrl,
+        ),
+  ];
+
+  // **The selected child sorts first, and it is not a nicety.** The row draws
+  // holders in order and collapses the rest into a `+N`; at four columns it
+  // draws one face, and narrower still it draws nothing. Since the plain
+  // `given` badge was dropped in favour of the face, "the face says it" is
+  // only true if the face that survives is theirs.
+  if (selectedChildId == null) return holders;
+  final index = holders.indexWhere((h) => h.userId == selectedChildId);
+  if (index <= 0) return holders;
+  return <ItemHolder>[
+    holders[index],
+    ...holders.sublist(0, index),
+    ...holders.sublist(index + 1),
+  ];
+}

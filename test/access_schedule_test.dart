@@ -106,8 +106,6 @@ void main() {
               accessSchedules: schedules,
             ),
           ),
-          visibleCount: 12,
-          libraryTotal: 40,
         );
 
     Future<void> pump(WidgetTester tester, KidSummary summary) async {
@@ -131,6 +129,14 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
+
+      // The hours are reference, so they live behind the card's chevron now.
+      // These tests are about *what the card says* about a schedule, not about
+      // where on the card it says it, so they open it and carry on. That the
+      // hours are hidden at rest is asserted once, in
+      // `kid_card_at_rest_test.dart`, rather than twenty times here.
+      await tester.tap(find.text(summary.user.name));
       await tester.pumpAndSettle();
     }
 

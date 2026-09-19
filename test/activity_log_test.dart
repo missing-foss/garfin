@@ -368,7 +368,9 @@ void main() {
 }
 
 class _FailingActivityStore extends ActivityStore {
-  const _FailingActivityStore(super.prefs);
+  // Not `const`: [ActivityStore] is a `ChangeNotifier` now, because the log
+  // announces its own writes rather than leaving the screen to guess.
+  _FailingActivityStore(super.prefs);
 
   @override
   Future<void> add(ActivityEntry entry) async => throw StateError('disk full');

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
+import '../models/library_filters.dart';
 import '../providers/library_providers.dart';
 
 /// Finding one film by name (#73).
@@ -76,43 +77,97 @@ class _LibrarySearchFieldState extends ConsumerState<LibrarySearchField> {
     ref.read(libraryFiltersProvider.notifier).setSearch('');
   }
 
+  /// The placeholder for the scope in force.
+  ///
+  /// Three strings rather than one neutral "Search", because the field is the
+  /// only place the scope is visible once the menu closes, and a parent who
+  /// typed a name and got nothing needs to see *what was searched* to know the
+  /// menu is the answer.
+  String _hint(AppLocalizations l10n, SearchScope scope) => switch (scope) {
+    SearchScope.title => l10n.librarySearchHint,
+    SearchScope.castAndCrew => l10n.librarySearchHintCastAndCrew,
+    SearchScope.studio => l10n.librarySearchHintStudio,
+  };
+
+  String _scopeLabel(AppLocalizations l10n, SearchScope scope) =>
+      switch (scope) {
+        SearchScope.title => l10n.librarySearchScopeTitle,
+        SearchScope.castAndCrew => l10n.librarySearchScopeCastAndCrew,
+        SearchScope.studio => l10n.librarySearchScopeStudio,
+      };
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final hasText = _controller.text.trim().isNotEmpty;
+    final scope = ref.watch(
+      libraryFiltersProvider.select((filters) => filters.searchScope),
+    );
 
-    return SizedBox(
-      width: 220,
-      child: TextField(
-        controller: _controller,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          isDense: true,
-          hintText: l10n.librarySearchHint,
-          prefixIcon: const Icon(Icons.search, size: 20),
-          suffixIcon: hasText
-              ? IconButton(
-                  icon: const Icon(Icons.clear, size: 18),
-                  tooltip: l10n.librarySearchClear,
-                  onPressed: _clear,
-                )
-              : null,
-          border: const OutlineInputBorder(),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+    // No width of its own: the filter bar gives it everything the tune button
+    // does not take. It was a fixed 300dp when a scrolling row of filter chips
+    // followed it.
+    return TextField(
+      controller: _controller,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: _hint(l10n, scope),
+        // The scope sits *inside* the field rather than beside it, so the
+        // control and the thing it governs cannot be read apart. It replaces
+        // the magnifying glass: an icon that says nothing, where a word says
+        // which of three questions is about to be asked.
+        prefixIcon: PopupMenuButton<SearchScope>(
+          tooltip: l10n.librarySearchScope,
+          initialValue: scope,
+          onSelected: ref.read(libraryFiltersProvider.notifier).setScope,
+          itemBuilder: (context) => [
+            for (final option in SearchScope.values)
+              PopupMenuItem<SearchScope>(
+                value: option,
+                child: Text(_scopeLabel(l10n, option)),
+              ),
+          ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    _scopeLabel(l10n, scope),
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down, size: 18),
+              ],
+            ),
+          ),
         ),
-        onChanged: (value) {
-          // A rebuild for the clear button, which depends on emptiness rather
-          // than on the debounced value.
-          setState(() {});
-          _onChanged(value);
-        },
-        // Enter applies immediately: waiting out a debounce after a deliberate
-        // submit reads as the app ignoring you.
-        onSubmitted: (value) {
-          _debounce?.cancel();
-          ref.read(libraryFiltersProvider.notifier).setSearch(value);
-        },
+        prefixIconConstraints: const BoxConstraints(minWidth: 0, maxWidth: 132),
+        suffixIcon: hasText
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                tooltip: l10n.librarySearchClear,
+                onPressed: _clear,
+              )
+            : null,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
       ),
+      onChanged: (value) {
+        // A rebuild for the clear button, which depends on emptiness rather
+        // than on the debounced value.
+        setState(() {});
+        _onChanged(value);
+      },
+      // Enter applies immediately: waiting out a debounce after a deliberate
+      // submit reads as the app ignoring you.
+      onSubmitted: (value) {
+        _debounce?.cancel();
+        ref.read(libraryFiltersProvider.notifier).setSearch(value);
+      },
     );
   }
 }

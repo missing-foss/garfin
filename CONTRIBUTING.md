@@ -29,18 +29,37 @@ proposing something that was ruled out for a reason that still holds.
 dev/verify.sh
 ```
 
-It runs `flutter analyze`, `flutter test`, debug **and** release APK builds,
-FR translation parity, the hardcoded-string check, the copy rules, the
-no-`print` check, the leak scan, gitleaks, REUSE lint, a tracker-reference
-check and a toolchain-pin check.
+It runs fourteen steps: `flutter analyze`, `flutter test`, debug **and**
+release APK builds, FR translation parity, the hardcoded-string check, the copy
+rules, the no-`print` check, the leak scan, gitleaks, REUSE lint, the
+vendored-guard version check, a tracker-reference check and a toolchain-pin
+check.
 
-CI runs most of those, but **not** the hardcoded-string check, the leak scan,
-the tracker-reference check or the toolchain-pin check — those exist only
-here. So a green `verify.sh` covers everything CI will run, and four things
-it won't.
+**There are two CIs and they are not the same gate.** A repository carrying
+`.forgejo/workflows/` is served by that directory alone, so the development
+forge runs `.forgejo/workflows/ci.yml` and the published mirror runs
+`.github/workflows/ci.yml`. Both run analyze, the tests, both APK builds, FR
+parity, the copy rules, the no-`print` check, gitleaks and REUSE. The forge
+**also** runs the hardcoded-string check, the tracker-reference check and the
+vendored-guard check; the mirror runs none of those three.
 
-`gitleaks` and `reuse` are skipped locally if not installed — CI still runs
-them, so install them if you'd rather not find out on the PR:
+Neither runs the leak scan — it needs a pattern list that exists only on a
+development machine, and CI says so rather than passing silently — and neither
+runs the toolchain-pin check. So a green `verify.sh` covers every gate either
+CI will run, plus **two** things neither does.
+
+It is not a superset, though, and the difference is deliberate. CI additionally
+confirms the runner's toolchain is the pinned one, which a local run cannot do,
+and it **fails a release APK that is signed** — the signing key must never exist
+in CI. `verify.sh` reports the artifact's signing state without failing on it,
+because a maintainer holding the keystore should get a signed build and must not
+be told that is wrong.
+
+The two of these that come from outside the repo behave **differently** when
+they are missing, and the difference is deliberate. `gitleaks` is skipped with
+a note — a local run would not have matched what CI matches anyway. `reuse` is
+not skipped: it **fails** the run, because an unlicensed file is something a
+local run can and should catch before it reaches a PR. Install both:
 
 ```bash
 pipx install reuse
@@ -81,9 +100,14 @@ Releases are tagged `vX.Y.Z`.
 git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
-The tag triggers `release.yml`, which checks the tag matches `pubspec.yaml`,
-runs the same ten gates a PR runs, and opens a **draft** release. It attaches
-no artifact, deliberately.
+Tagging on the published mirror triggers `release.yml`, which checks the tag
+matches `pubspec.yaml`, calls the mirror's own `ci.yml` so a release runs the
+same ten gates a mirror pull request runs, and opens a **draft** release. It
+attaches no artifact, deliberately.
+
+The development forge does not run it, by the same rule that gives the two CIs
+different contents: `release.yml` lives in `.github/workflows/`, so the release
+path exists on the mirror and nowhere else.
 
 Then build and sign locally — the signing key never exists in CI:
 

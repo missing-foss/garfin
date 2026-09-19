@@ -223,6 +223,147 @@ void main() {
           reason: 'the grid never asked the server for the search');
     });
 
+    test('Cast & crew sends person=, resolved, and never the typed text',
+        () async {
+      // The whole of #131 in one assertion. `person=` is **exact-match** on
+      // both server versions -- measured: `person=Tautou` returns nothing
+      // where `person=Audrey Tautou` returns the film -- so the typed
+      // substring must never reach the grid query, and what does reach it must
+      // be the name `/Search/Hints` resolved.
+      final (container, server) = await build();
+      addTearDown(container.dispose);
+      server.onQuery('/Search/Hints', (q) => true, json: {
+        'SearchHints': [
+          {'Name': 'Audrey Tautou', 'Type': 'Person'},
+        ],
+      });
+      final sub = container.listen(libraryControllerProvider(session), (_, _) {});
+      addTearDown(sub.close);
+      await container.read(libraryControllerProvider(session).future);
+      final before = server.requests.length;
+
+      container.read(libraryFiltersProvider.notifier)
+        ..setScope(SearchScope.castAndCrew)
+        ..setSearch('tauto');
+      await container.read(libraryControllerProvider(session).future);
+
+      final items = server.requests
+          .skip(before)
+          .where((r) => r.path == '/Items')
+          .toList();
+      expect(items, isNotEmpty, reason: 'the grid never asked at all');
+      expect(
+        items.where((r) => r.queryParameters['person'] == 'Audrey Tautou'),
+        isNotEmpty,
+        reason: 'the resolved name did not reach the grid query',
+      );
+      // The negative half, and the one that matters: a query carrying the
+      // typed substring would return nothing on a real server, silently.
+      expect(
+        items.where((r) => r.queryParameters['person'] == 'tauto'),
+        isEmpty,
+        reason: 'the typed substring was sent instead of the resolved name',
+      );
+      expect(
+        items.where((r) => r.queryParameters.containsKey('searchTerm')),
+        isEmpty,
+        reason: 'Cast & crew must not also send a title search',
+      );
+    });
+
+    test('Studio sends studios=, not searchTerm', () async {
+      final (container, server) = await build();
+      addTearDown(container.dispose);
+      server.onQuery('/Search/Hints', (q) => true, json: {
+        'SearchHints': [
+          {'Name': 'Studio Ghibli', 'Type': 'Studio'},
+        ],
+      });
+      final sub = container.listen(libraryControllerProvider(session), (_, _) {});
+      addTearDown(sub.close);
+      await container.read(libraryControllerProvider(session).future);
+      final before = server.requests.length;
+
+      container.read(libraryFiltersProvider.notifier)
+        ..setScope(SearchScope.studio)
+        ..setSearch('ghib');
+      await container.read(libraryControllerProvider(session).future);
+
+      final items = server.requests
+          .skip(before)
+          .where((r) => r.path == '/Items')
+          .toList();
+      expect(
+        items.where((r) => r.queryParameters['studios'] == 'Studio Ghibli'),
+        isNotEmpty,
+      );
+      expect(
+        items.where((r) => r.queryParameters.containsKey('searchTerm')),
+        isEmpty,
+      );
+    });
+
+    test('a name nobody is credited under shows nothing, not everything',
+        () async {
+      // **The dangerous case.** With no resolved name there is no `person=` to
+      // send, so a query built by dropping the parameter is a query with no
+      // search in it at all -- and the server answers it with the whole
+      // library. A parent searching a name that is not there would get every
+      // film, which reads as "search is broken" at best and as "they are all
+      // by this person" at worst.
+      final (container, server) = await build();
+      addTearDown(container.dispose);
+      server.onQuery('/Search/Hints', (q) => true,
+          json: {'SearchHints': <Object>[]});
+      final sub = container.listen(libraryControllerProvider(session), (_, _) {});
+      addTearDown(sub.close);
+      await container.read(libraryControllerProvider(session).future);
+      final before = server.requests.length;
+
+      container.read(libraryFiltersProvider.notifier)
+        ..setScope(SearchScope.castAndCrew)
+        ..setSearch('nobody at all');
+      final feed = await container.read(libraryControllerProvider(session).future);
+
+      expect(feed.entries, isEmpty);
+      expect(
+        server.requests.skip(before).where((r) => r.path == '/Items'),
+        isEmpty,
+        reason: 'an unresolvable search must not reach /Items unfiltered -- '
+            'that query returns the entire library',
+      );
+    });
+
+    test('switching scope alone asks again, with the text unchanged', () async {
+      // `searchScope` in `==`, the same trap `searchTerm` fell into: the typed
+      // text does not change when a parent switches Title -> Cast & crew, so
+      // an equality that ignored the scope would compare the two filters equal
+      // and notify nobody. The control would be inert while looking right.
+      final (container, server) = await build();
+      addTearDown(container.dispose);
+      server.onQuery('/Search/Hints', (q) => true, json: {
+        'SearchHints': [
+          {'Name': 'Audrey Tautou', 'Type': 'Person'},
+        ],
+      });
+      final sub = container.listen(libraryControllerProvider(session), (_, _) {});
+      addTearDown(sub.close);
+      container.read(libraryFiltersProvider.notifier).setSearch('tauto');
+      await container.read(libraryControllerProvider(session).future);
+      final before = server.requests.length;
+
+      container.read(libraryFiltersProvider.notifier)
+          .setScope(SearchScope.castAndCrew);
+      await container.read(libraryControllerProvider(session).future);
+
+      expect(
+        server.requests.skip(before).where(
+            (r) => r.path == '/Items' && r.queryParameters['person'] != null),
+        isNotEmpty,
+        reason: 'changing only the scope did not re-ask the server',
+      );
+    });
+
     test('and changing it asks again, rather than keeping the first answer',
         () async {
       // The second half, and the one a hashCode-only fix would miss: 'bear'

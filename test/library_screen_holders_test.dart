@@ -7,10 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
+import 'package:garfin/models/collection_set.dart';
 import 'package:garfin/models/jellyfin_user.dart';
 import 'package:garfin/models/kid_summary.dart';
 import 'package:garfin/models/parental_rating.dart';
 import 'package:garfin/providers/app_providers.dart';
+import 'package:garfin/providers/collection_providers.dart';
 import 'package:garfin/providers/kids_providers.dart';
 import 'package:garfin/providers/library_providers.dart';
 import 'package:garfin/repositories/device_identity.dart';
@@ -55,8 +57,6 @@ void main() {
             blockedTags: blocked,
           ),
         ),
-        visibleCount: 0,
-        libraryTotal: 0,
       );
 
   late FakeJellyfinServer server;
@@ -86,6 +86,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          // The collection index is an artefact here: this fake answers every
+          // /Items with the queued page, so the index would read the films as
+          // members of a set and the grid would collapse them away (#144).
+          // These tests have no collections; say so.
+          collectionIndexProvider(session)
+              .overrideWith((ref) async => const CollectionIndex.empty()),
           sharedPreferencesProvider.overrideWithValue(prefs),
           deviceIdentityProvider.overrideWithValue(
             const DeviceIdentity(deviceId: 'd', deviceName: 't'),

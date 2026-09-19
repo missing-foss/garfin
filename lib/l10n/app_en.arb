@@ -216,6 +216,18 @@
   "@settingsUnlockRequireSubtitle": {
     "description": "Why the switch is on by default. States a fact rather than making a promise."
   },
+  "settingsAllowScreenshots": "Allow screenshots",
+  "@settingsAllowScreenshots": {
+    "description": "Switch letting the window be captured."
+  },
+  "settingsAllowScreenshotsSubtitle": "Off by default: screenshots, screen recording and mirroring are all blocked.",
+  "@settingsAllowScreenshotsSubtitle": {
+    "description": "What the switch costs, in a parent's terms."
+  },
+  "settingsAllowScreenshotsCost": "On this version of Android, turning this on also lets the recent-apps preview keep a picture of the screen after Garfin locks.",
+  "@settingsAllowScreenshotsCost": {
+    "description": "Shown below Android 13, where allowing capture also uncovers the recents thumbnail."
+  },
   "settingsUnlockTimeout": "Ask again after",
   "@settingsUnlockTimeout": {
     "description": "Heading for the idle-timeout choices."
@@ -242,37 +254,45 @@
   "@kidsTitle": {
     "description": "Title of the Kids screen, which lists children and their shortlists."
   },
-  "kidsNoShortlistHeading": "No shortlist yet",
-  "@kidsNoShortlistHeading": {
-    "description": "Heading above the list of accounts that have no shortlist tags set."
+  "kidsWelcomeNoneHeading": "Nobody to look after yet",
+  "@kidsWelcomeNoneHeading": {
+    "description": "Shown on the landing screen when the server has accounts but none of them has a shortlist, which is the ordinary first run. Not an error and not a to-do list Garfin can finish -- ground rule 8 means it cannot give a child their first label."
   },
-  "kidsNoShortlistExplanation": "Set their shortlist up in Jellyfin first, then come back here.",
-  "@kidsNoShortlistExplanation": {
-    "description": "Explains why these accounts are listed but cannot be acted on. Garfin cannot give a child their first label; that is a policy write. Deliberately says nothing about why, per docs/UI-SPEC.md."
+  "kidsWelcomeNoneBody": "Garfin looks after children who already have a shortlist on your Jellyfin server. Set one up for a child's account there, and they will appear here.",
+  "@kidsWelcomeNoneBody": {
+    "description": "Says where the work happens and why it is not here. Deliberately not an instruction Garfin could carry out itself."
   },
-  "kidsVisibleOfTotal": "{visible} of {total} things visible",
-  "@kidsVisibleOfTotal": {
-    "description": "Count on a child's card. Both numbers come from the server, never computed here.",
+  "kidsWelcomeNoneLink": "How parental controls work in Jellyfin",
+  "@kidsWelcomeNoneLink": {
+    "description": "Opens Jellyfin's own documentation. Their words rather than a summary here, because the setting names and the screens are theirs and would go stale if restated."
+  },
+  "kidsLabelClashHeading": "Labels worth changing",
+  "@kidsLabelClashHeading": {
+    "description": "Heading over the label-clash notice on the Kids screen. Shown only when there is at least one clash. Not alarming: nothing is broken today on every server version, and the parent is being told early."
+  },
+  "kidsLabelClashSame": "{names} have labels Jellyfin can read as the same one: {labels}. While it does, what you give one of them reaches the others. Labels that differ by more than punctuation or an accent keep their lists apart.",
+  "@kidsLabelClashSame": {
+    "description": "Children under the same verb whose labels fold together. Says Jellyfin CAN read them as one rather than that it DOES, and that is not hedging: the folding rule differs by server version, and a pair differing only by punctuation collides on 12.0 but on neither path of 10.11.11. Asserting the consequence outright would be false on current stable. The conditional 'while it does' then carries it. Never says they see each other's films for the same reason.",
     "placeholders": {
-      "visible": {
-        "type": "int"
+      "names": {
+        "type": "String"
       },
-      "total": {
-        "type": "int"
+      "labels": {
+        "type": "String"
       }
     }
   },
-  "kidsModeAllowList": "Shortlist",
-  "@kidsModeAllowList": {
-    "description": "Chip on a card whose account uses AllowedTags: the child sees only what is tagged."
-  },
-  "kidsModeBlockList": "Blocklist",
-  "@kidsModeBlockList": {
-    "description": "Chip on a card whose account uses BlockedTags: the child sees everything except what is tagged."
-  },
-  "kidsModeConflicting": "Both lists are set",
-  "@kidsModeConflicting": {
-    "description": "Shown when a Jellyfin account has both AllowedTags and BlockedTags populated. Garfin refuses to guess which applies."
+  "kidsLabelClashCrossing": "{names} have labels Jellyfin can read as the same one: {labels}. One list hands titles out and the other holds them back, so while it does, giving one child a film hides it from the other. Labels that differ by more than punctuation or an accent keep them apart.",
+  "@kidsLabelClashCrossing": {
+    "description": "The same clash across opposite verbs \u2014 one child's allow-list against another's block-list. A separate sentence rather than a stronger one, because the consequence inverts: here giving a title TAKES IT AWAY from the other child. One sentence cannot be true of both cases, which is why there are two.",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      },
+      "labels": {
+        "type": "String"
+      }
+    }
   },
   "kidsModeConflictingDetail": "This account has a shortlist and a blocklist at the same time. Sort it out in Jellyfin — Garfin can't tell which one you meant.",
   "@kidsModeConflictingDetail": {
@@ -302,9 +322,21 @@
   },
   "kidsRatingCapValue": "Rating limit {value}",
   "@kidsRatingCapValue": {
-    "description": "Fallback when the server's rating list has no entry for the child's cap. Shows the raw number rather than guessing a nearby name.",
+    "description": "Fallback when the server's rating list has no entry for the child's cap, and the cap's sub-level is 0 or absent -- the cases where the score alone genuinely is the cap. Shows the raw number rather than guessing a nearby name. See kidsRatingCapPair for the other half.",
     "placeholders": {
       "value": {
+        "type": "int"
+      }
+    }
+  },
+  "kidsRatingCapPair": "Rating limit {value}/{sub}",
+  "@kidsRatingCapPair": {
+    "description": "The same fallback when the cap carries a non-zero sub-level. The cap is a pair and the server enforces both halves, so 10/0 and 10/1 are different caps -- printing the score alone would render them identically. The second number appears only when it changes what the child can watch; an absent sub-level behaves as 0. See UserPolicy.maxParentalSubRating for the measurement.",
+    "placeholders": {
+      "value": {
+        "type": "int"
+      },
+      "sub": {
         "type": "int"
       }
     }
@@ -313,8 +345,22 @@
   "@kidsRatingCapNone": {
     "description": "Shown when a child's account has no parental rating cap set."
   },
-  "kidsServerSection": "Set in Jellyfin",
+  "kidsLibrariesSection": "{name} has access to",
+  "@kidsLibrariesSection": {
+    "description": "Heading on the card listing what a child can see in each library.",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "kidsLabelsAllow": "Shortlist based on these labels:",
+  "@kidsLabelsAllow": {
+    "description": "Introduces the labels an allow-list child's access is built from."
+  },
+  "kidsLabelsBlock": "Blocklist based on these labels:",
+  "@kidsLabelsBlock": {
+    "description": "The opposite verb, for a block-list account. Ground rule 3."
+  },
+  "kidsServerSection": "Parental controls for {name}",
   "@kidsServerSection": {
+    "placeholders": { "name": { "type": "String" } },
     "description": "Heading above the two lines on a kid's card that come from the child's Jellyfin account rather than from Garfin — the rating limit and the access hours. It exists because those sit directly under the birth year, which IS editable here and is stored on this phone, and nothing said the three came from three different places."
   },
   "kidsServerExplainAction": "What is set in Jellyfin?",
@@ -371,6 +417,11 @@
   "@kidsBirthYearClear": {
     "description": "Button that forgets a stored birth year."
   },
+  "kidsPickThisChild": "Pick {name} and open the library",
+  "@kidsPickThisChild": {
+    "description": "Screen-reader label for the child's picture on the landing screen. The picture is its own tap target and means *pick this child*: it sets the same selection the Library's own \"Picking for\" row sets, then goes there. Says what happens rather than what it is, because a picture that navigates is not announced by its image.",
+    "placeholders": { "name": { "type": "String" } }
+  },
   "kidsEmpty": "No accounts on this server yet.",
   "@kidsEmpty": {
     "description": "Shown when the server reports no users at all."
@@ -390,6 +441,11 @@
   "libraryTitle": "Library",
   "@libraryTitle": {
     "description": "Title of the library grid screen."
+  },
+  "libraryPickingForName": "Picking for {name}",
+  "@libraryPickingForName": {
+    "description": "The app bar avatar's label and tooltip when a child is selected.",
+    "placeholders": { "name": { "type": "String" } }
   },
   "libraryPickingFor": "Picking for",
   "@libraryPickingFor": {
@@ -423,6 +479,11 @@
       }
     }
   },
+  "libraryResultByRelevance": "{line} · sorted by relevance",
+  "@libraryResultByRelevance": {
+    "description": "The result line while a search is active. The server orders a search by its own relevance and ignores the sort chosen in Settings, so the line says so. {line} is the ordinary result line, e.g. '12 things'.",
+    "placeholders": { "line": { "type": "String" } }
+  },
   "libraryItemCount": "{count} things",
   "@libraryItemCount": {
     "description": "Result line when no child is selected.",
@@ -431,6 +492,15 @@
         "type": "int"
       }
     }
+  },
+  "libraryShowToGive": "Show what's left to give",
+  "@libraryShowToGive": {
+    "description": "Leaves the what-a-child-can-see view for the giving grid."
+  },
+  "libraryNothingGiven": "{name} can't see anything here yet.",
+  "@libraryNothingGiven": {
+    "description": "Empty state when showing what a child can see and there is none of it.",
+    "placeholders": { "name": { "type": "String" } }
   },
   "libraryShowShared": "Show shared",
   "@libraryShowShared": {
@@ -482,6 +552,28 @@
         "type": "int"
       }
     }
+  },
+  "libraryEpisodeCount": "{count} episodes",
+  "@libraryEpisodeCount": {
+    "description": "Badge on a series tile saying how many episodes it holds. A separate string from libraryCollectionCount because the noun is not interchangeable: a collection holds titles, a series holds episodes, and 'titles' on a show reads as a count of something else. Measured on 10.11.11: this is RecursiveItemCount, the episodes, NOT ChildCount, which for a series is the seasons — a two-season five-episode show reports ChildCount 2.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "librarySemanticSeries": "Series, {count} episodes",
+  "@librarySemanticSeries": {
+    "description": "Spoken by a screen reader for a series tile, so a show is distinguishable from a film. Says the NOUN as well as the number, for the same reason librarySemanticCollection does: the bare count is what the visual badge already is. Only spoken when the server sent a recursive count — see librarySemanticSeriesAlone for when it did not.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "librarySemanticSeriesAlone": "Series",
+  "@librarySemanticSeriesAlone": {
+    "description": "The same, for a series whose episode count the server did not send. RecursiveItemCount is absent unless Fields asks for it, and a tile in that state renders no badge either, so the spoken label degrades the same way rather than saying 'nought episodes'."
   },
   "librarySemanticCollection": "Collection, {count} titles",
   "@librarySemanticCollection": {
@@ -550,6 +642,41 @@
   "libraryHintUnknownAge": "No age rating",
   "@libraryHintUnknownAge": {
     "description": "Shown when Garfin cannot tell whether a title suits the child: the item has no rating, its rating is not on the server's list, no birth year is set, or the value is not an age. Must read as 'not known', never as 'fine'."
+  },
+  "detailCountry": "Country",
+  "@detailCountry": {
+    "description": "Label for where the item was made, in the assign sheet's detail card."
+  },
+  "librarySearchInCollection": "Contains a match",
+  "@librarySearchInCollection": {
+    "description": "Under a collection's title in search results, when the collection is there because one of the films inside it matched what was typed."
+  },
+  "detailRating": "Rating",
+  "@detailRating": {
+    "description": "Label for the item's age rating in the assign sheet's detail card."
+  },
+  "detailRatingWithCountry": "{rating} ({country})",
+  "@detailRatingWithCountry": {
+    "description": "An age rating that names the certification system it belongs to, e.g. 12 (FR). The country is only shown when the rating itself names one.",
+    "placeholders": { "rating": { "type": "String" }, "country": { "type": "String" } }
+  },
+  "detailAudience": "Audience",
+  "@detailAudience": {
+    "description": "Label for the audience score out of ten, e.g. 8.3/10, in the item sheet's detail card. No word like 'score' is added: the value explains itself."
+  },
+  "detailCritics": "Critics",
+  "@detailCritics": {
+    "description": "Label for the critics score as a percentage, e.g. 89%, in the item sheet's detail card."
+  },
+  "detailGenres": "{count, plural, =1{Genre} other{Genres}}",
+  "@detailGenres": {
+    "description": "Label for the item's genres in the detail card; the value is the genre names joined with commas.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "detailStudios": "{count, plural, =1{Studio} other{Studios}}",
+  "@detailStudios": {
+    "description": "Label for the item's studios in the detail card; the value is the studio names joined with commas, never cut.",
+    "placeholders": { "count": { "type": "int" } }
   },
   "assignTitle": "Who gets this?",
   "@assignTitle": {
@@ -676,6 +803,11 @@
         "type": "String"
       }
     }
+  },
+  "assignSetTogetherSetAppears": "Either way {name} appears in their library, holding what you have given from it.",
+  "@assignSetTogetherSetAppears": {
+    "description": "Stated, never asked. Answering 'just this one' also labels the collection itself, because a set the child has no label for is invisible to them and the film would arrive loose. The prompt says so rather than offering a second permission question the parent did not ask for.",
+    "placeholders": { "name": { "type": "String" } }
   },
   "assignSetTogetherJustThis": "Just this one",
   "@assignSetTogetherJustThis": {
@@ -806,14 +938,6 @@
   "@settingsRefreshAfterWriteSubtitle": {
     "description": "The cost of the setting above, stated plainly. One extra server round-trip per title."
   },
-  "settingsStartingChild": "Open the Library on",
-  "@settingsStartingChild": {
-    "description": "Which child is picked when the app starts."
-  },
-  "settingsStartingChildEveryone": "Everyone",
-  "@settingsStartingChildEveryone": {
-    "description": "No child picked at startup. Matches the Everyone chip on the Library."
-  },
   "settingsHideShared": "Hide what a child already has",
   "@settingsHideShared": {
     "description": "The stored default for the Library's Show/Hide shared button, which turns the grid into a to-do list."
@@ -854,6 +978,30 @@
   "@settingsPosterSmall": {
     "description": "Poster size option: most per row."
   },
+  "settingsLibrarySort": "Sort library by",
+  "@settingsLibrarySort": {
+    "description": "The library grid's order: the setting's own row label."
+  },
+  "settingsLibrarySortDateAdded": "Date added",
+  "@settingsLibrarySortDateAdded": {
+    "description": "Sort option: when the title arrived in the library."
+  },
+  "settingsLibrarySortReleaseDate": "Release date",
+  "@settingsLibrarySortReleaseDate": {
+    "description": "Sort option: when the title came out."
+  },
+  "settingsLibrarySortName": "Name",
+  "@settingsLibrarySortName": {
+    "description": "Sort option: alphabetical, and what the app did before this setting existed."
+  },
+  "settingsLibrarySortAscending": "Oldest and A first",
+  "@settingsLibrarySortAscending": {
+    "description": "Spoken and shown for the direction arrow when the order is ascending."
+  },
+  "settingsLibrarySortDescending": "Newest and Z first",
+  "@settingsLibrarySortDescending": {
+    "description": "Spoken and shown for the direction arrow when the order is descending."
+  },
   "settingsVersion": "Version {version}",
   "@settingsVersion": {
     "description": "The app version, on the About section.",
@@ -874,6 +1022,15 @@
   "settingsSource": "Source code",
   "@settingsSource": {
     "description": "Label for the repository address."
+  },
+  "aboutOurPackages": "Packages Garfin uses",
+  "@aboutOurPackages": {
+    "description": "Opens the short list: the packages this app chose to depend on, read from pubspec rather than guessed. The full built-in list stays one row below and is still the authoritative one."
+  },
+  "aboutOurPackagesCount": "{count} chosen here \u2014 the rest come with Flutter",
+  "@aboutOurPackagesCount": {
+    "description": "Subtitle under the short list. Measured on the 0.2.0 release build: the full page lists 201 packages, almost all of it the Flutter engine's vendored C++. This says which of those were decisions anyone made.",
+    "placeholders": { "count": { "type": "int" } }
   },
   "settingsLicences": "Open-source licences",
   "@settingsLicences": {
@@ -957,7 +1114,7 @@
   },
   "activityScope": "This is what Garfin did on this phone. Changes made in Jellyfin, or from another phone, aren't here.",
   "@activityScope": {
-    "description": "The honesty note. Measured for #57: Jellyfin records nothing for a metadata edit, so there is no history to read back — a log that looked complete would be worse than no log."
+    "description": "The honesty note. Measured: Jellyfin records nothing for a metadata edit, so there is no history to read back — a log that looked complete would be worse than no log."
   },
   "activityHandedTo": "Handed to {name}",
   "@activityHandedTo": {
@@ -1094,7 +1251,7 @@
   },
   "kidsScheduleServerTime": "{windows} — the server's hours",
   "@kidsScheduleServerTime": {
-    "description": "Wraps the windows with whose clock they are on. Measured for #49: the API exposes the server's UTC instant and nothing about its offset, so Garfin cannot convert these into the phone's time and must not imply it has.",
+    "description": "Wraps the windows with whose clock they are on. Measured: the API exposes the server's UTC instant and nothing about its offset, so Garfin cannot convert these into the phone's time and must not imply it has.",
     "placeholders": {
       "windows": {
         "type": "String"
@@ -1130,7 +1287,7 @@
   },
   "deviceSignInOutsideHours": "{name} has set hours. Approving outside them works, but their device won't until their hours start.",
   "@deviceSignInOutsideHours": {
-    "description": "Measured for #49: outside the window the approval and the exchange both succeed, and the session then answers 403 on every request until the hours begin. Garfin cannot tell whether now is inside the window — the server's offset is not exposed — so this says what happens rather than predicting which case applies.",
+    "description": "Measured: outside the window the approval and the exchange both succeed, and the session then answers 403 on every request until the hours begin. Garfin cannot tell whether now is inside the window — the server's offset is not exposed — so this says what happens rather than predicting which case applies.",
     "placeholders": {
       "name": {
         "type": "String"
@@ -1244,9 +1401,13 @@
       }
     }
   },
-  "sessionsEndExplain": "They'll need you to approve a new code to sign in again.",
+  "sessionsEndExplain": "Garfin asks the device to stop playing, then signs it out. A device that ignores the request keeps playing, and one that kept its sign-in details can sign itself back in.",
   "@sessionsEndExplain": {
-    "description": "What ending a session costs, stated in the confirmation. With #40 the way back is approving a code, which is cheap — that is what makes ending one reasonable."
+    "description": "What ending a session does, in the order it does it: the stop command first, then the revoke. Both limits are measured and neither is softened into 'may' -- a client that does not honour remote commands keeps playing, and the media path is not token-gated so the revoke cannot interrupt it; and a client holding saved credentials re-authenticates on its own. See docs/JELLYFIN-API.md."
+  },
+  "sessionsEndExplainUncontrollable": "This device doesn't accept remote commands, so signing it out will not stop the film. It keeps playing, and a device that kept its sign-in details can sign itself back in.",
+  "@sessionsEndExplainUncontrollable": {
+    "description": "The confirmation body when SupportsRemoteControl is false. End is still offered because the revoke genuinely works, but it must not promise the film stops -- the stop command would not be honoured and the stream is not token-gated."
   },
   "sessionsEnded": "{device} is signed out.",
   "@sessionsEnded": {
@@ -1266,13 +1427,57 @@
       }
     }
   },
-  "sessionsUncontrollable": "This device doesn't accept remote commands. Ending the session still works.",
+  "sessionsEndStoppedAndOut": "{device} stopped playing and is signed out.",
+  "@sessionsEndStoppedAndOut": {
+    "description": "Both halves of what End is for, confirmed by two read-backs. Only said when the stop was verified, never inferred from the command being accepted.",
+    "placeholders": { "device": { "type": "String" } }
+  },
+  "sessionsEndOutStillPlaying": "{device} is signed out, but it's still playing.",
+  "@sessionsEndOutStillPlaying": {
+    "description": "The revoke held and the client ignored the stop. The important one: without it the parent reads a vanished card as a stopped film.",
+    "placeholders": { "device": { "type": "String" } }
+  },
+  "sessionsEndStoppedThenReturned": "{device} stopped playing, then signed straight back in.",
+  "@sessionsEndStoppedThenReturned": {
+    "description": "The stop was honoured but the device re-authenticated with saved credentials, so the Quick Connect requirement did not hold.",
+    "placeholders": { "device": { "type": "String" } }
+  },
+  "sessionsEndReturnedStillPlaying": "{device} signed straight back in, and it's still playing.",
+  "@sessionsEndReturnedStillPlaying": {
+    "description": "Neither half achieved. Said plainly rather than left to the parent to notice from a card that looks unchanged.",
+    "placeholders": { "device": { "type": "String" } }
+  },
+  "sessionsUncontrollable": "This device doesn't accept remote commands. Signing it out won't stop what's playing.",
   "@sessionsUncontrollable": {
-    "description": "Shown when SupportsRemoteControl is false. Measured: the message and stop commands answer 204 anyway, so without this the parent would be told something was sent to a device that cannot receive it."
+    "description": "Shown when SupportsRemoteControl is false. Measured: the message and stop commands answer 204 anyway, so without this the parent would be told something was sent to a device that cannot receive it. It no longer offers End as the way round, because the revoke does not stop playback either."
   },
   "librarySearchHint": "Search titles",
   "@librarySearchHint": {
     "description": "Placeholder in the library search field (#73). 'Titles' rather than 'library', because the server matches the title and nothing else \u2014 measured: not the overview, the cast, tags or genres."
+  },
+  "librarySearchScope": "What to search",
+  "@librarySearchScope": {
+    "description": "Tooltip on the selector at the left of the library search field, which chooses which field the typed term is matched against."
+  },
+  "librarySearchScopeTitle": "Title",
+  "@librarySearchScopeTitle": {
+    "description": "Search-scope option: match the film's title. The default, so a parent who never opens this menu gets the behaviour that existed before the menu did."
+  },
+  "librarySearchScopeCastAndCrew": "Cast & crew",
+  "@librarySearchScopeCastAndCrew": {
+    "description": "Search-scope option: match anyone credited. Named for what the server does rather than what a parent hoped for \u2014 bare person= matches every credit, and narrowing it to actors works only on Jellyfin 12.0.0, so 'Actor' would mean two different things depending on the server."
+  },
+  "librarySearchScopeStudio": "Studio",
+  "@librarySearchScopeStudio": {
+    "description": "Search-scope option: match the production studio."
+  },
+  "librarySearchHintCastAndCrew": "Search cast & crew",
+  "@librarySearchHintCastAndCrew": {
+    "description": "Placeholder in the library search field while the Cast & crew scope is selected."
+  },
+  "librarySearchHintStudio": "Search studios",
+  "@librarySearchHintStudio": {
+    "description": "Placeholder in the library search field while the Studio scope is selected."
   },
   "librarySearchClear": "Clear search",
   "@librarySearchClear": {
@@ -1377,6 +1582,15 @@
   "assignPanelEmpty": "Pick a title, and what giving it would change appears here.",
   "@assignPanelEmpty": {
     "description": "The two-pane library's panel before anything is picked (#95). The panel is always on screen at tablet widths so that picking a title does not re-flow the grid, which means it needs something to say when it is empty. Describes what the space is for rather than instructing \u2014 and says 'would change', because ground rule 1 means nothing is written until Apply."
+  },
+  "collectionRepairLoose": "{name} has titles from this collection, but not the collection itself — so it does not appear in their library and those titles arrive loose.",
+  "@collectionRepairLoose": {
+    "description": "Shown when a set holds given members while the container is not in the openable state. Offered, never applied automatically: it is a write, and ground rule 5 says a write is the parent's to make.",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "collectionRepairAction": "Show them the collection",
+  "@collectionRepairAction": {
+    "description": "One tap, idempotent. Writes only the container, never the members."
   },
   "collectionGivenNone": "Nothing here is {name}'s yet",
   "@collectionGivenNone": {

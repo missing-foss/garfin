@@ -386,6 +386,24 @@ abstract class AppLocalizations {
   /// **'Garfin holds an admin sign-in to your Jellyfin server.'**
   String get settingsUnlockRequireSubtitle;
 
+  /// Switch letting the window be captured.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow screenshots'**
+  String get settingsAllowScreenshots;
+
+  /// What the switch costs, in a parent's terms.
+  ///
+  /// In en, this message translates to:
+  /// **'Off by default: screenshots, screen recording and mirroring are all blocked.'**
+  String get settingsAllowScreenshotsSubtitle;
+
+  /// Shown below Android 13, where allowing capture also uncovers the recents thumbnail.
+  ///
+  /// In en, this message translates to:
+  /// **'On this version of Android, turning this on also lets the recent-apps preview keep a picture of the screen after Garfin locks.'**
+  String get settingsAllowScreenshotsCost;
+
   /// Heading for the idle-timeout choices.
   ///
   /// In en, this message translates to:
@@ -416,41 +434,41 @@ abstract class AppLocalizations {
   /// **'Kids'**
   String get kidsTitle;
 
-  /// Heading above the list of accounts that have no shortlist tags set.
+  /// Shown on the landing screen when the server has accounts but none of them has a shortlist, which is the ordinary first run. Not an error and not a to-do list Garfin can finish -- ground rule 8 means it cannot give a child their first label.
   ///
   /// In en, this message translates to:
-  /// **'No shortlist yet'**
-  String get kidsNoShortlistHeading;
+  /// **'Nobody to look after yet'**
+  String get kidsWelcomeNoneHeading;
 
-  /// Explains why these accounts are listed but cannot be acted on. Garfin cannot give a child their first label; that is a policy write. Deliberately says nothing about why, per docs/UI-SPEC.md.
+  /// Says where the work happens and why it is not here. Deliberately not an instruction Garfin could carry out itself.
   ///
   /// In en, this message translates to:
-  /// **'Set their shortlist up in Jellyfin first, then come back here.'**
-  String get kidsNoShortlistExplanation;
+  /// **'Garfin looks after children who already have a shortlist on your Jellyfin server. Set one up for a child\'s account there, and they will appear here.'**
+  String get kidsWelcomeNoneBody;
 
-  /// Count on a child's card. Both numbers come from the server, never computed here.
+  /// Opens Jellyfin's own documentation. Their words rather than a summary here, because the setting names and the screens are theirs and would go stale if restated.
   ///
   /// In en, this message translates to:
-  /// **'{visible} of {total} things visible'**
-  String kidsVisibleOfTotal(int visible, int total);
+  /// **'How parental controls work in Jellyfin'**
+  String get kidsWelcomeNoneLink;
 
-  /// Chip on a card whose account uses AllowedTags: the child sees only what is tagged.
+  /// Heading over the label-clash notice on the Kids screen. Shown only when there is at least one clash. Not alarming: nothing is broken today on every server version, and the parent is being told early.
   ///
   /// In en, this message translates to:
-  /// **'Shortlist'**
-  String get kidsModeAllowList;
+  /// **'Labels worth changing'**
+  String get kidsLabelClashHeading;
 
-  /// Chip on a card whose account uses BlockedTags: the child sees everything except what is tagged.
+  /// Children under the same verb whose labels fold together. Says Jellyfin CAN read them as one rather than that it DOES, and that is not hedging: the folding rule differs by server version, and a pair differing only by punctuation collides on 12.0 but on neither path of 10.11.11. Asserting the consequence outright would be false on current stable. The conditional 'while it does' then carries it. Never says they see each other's films for the same reason.
   ///
   /// In en, this message translates to:
-  /// **'Blocklist'**
-  String get kidsModeBlockList;
+  /// **'{names} have labels Jellyfin can read as the same one: {labels}. While it does, what you give one of them reaches the others. Labels that differ by more than punctuation or an accent keep their lists apart.'**
+  String kidsLabelClashSame(String names, String labels);
 
-  /// Shown when a Jellyfin account has both AllowedTags and BlockedTags populated. Garfin refuses to guess which applies.
+  /// The same clash across opposite verbs — one child's allow-list against another's block-list. A separate sentence rather than a stronger one, because the consequence inverts: here giving a title TAKES IT AWAY from the other child. One sentence cannot be true of both cases, which is why there are two.
   ///
   /// In en, this message translates to:
-  /// **'Both lists are set'**
-  String get kidsModeConflicting;
+  /// **'{names} have labels Jellyfin can read as the same one: {labels}. One list hands titles out and the other holds them back, so while it does, giving one child a film hides it from the other. Labels that differ by more than punctuation or an accent keep them apart.'**
+  String kidsLabelClashCrossing(String names, String labels);
 
   /// Explains the conflicting-lists state and what to do about it.
   ///
@@ -476,11 +494,17 @@ abstract class AppLocalizations {
   /// **'Up to {rating}'**
   String kidsRatingCap(String rating);
 
-  /// Fallback when the server's rating list has no entry for the child's cap. Shows the raw number rather than guessing a nearby name.
+  /// Fallback when the server's rating list has no entry for the child's cap, and the cap's sub-level is 0 or absent -- the cases where the score alone genuinely is the cap. Shows the raw number rather than guessing a nearby name. See kidsRatingCapPair for the other half.
   ///
   /// In en, this message translates to:
   /// **'Rating limit {value}'**
   String kidsRatingCapValue(int value);
+
+  /// The same fallback when the cap carries a non-zero sub-level. The cap is a pair and the server enforces both halves, so 10/0 and 10/1 are different caps -- printing the score alone would render them identically. The second number appears only when it changes what the child can watch; an absent sub-level behaves as 0. See UserPolicy.maxParentalSubRating for the measurement.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating limit {value}/{sub}'**
+  String kidsRatingCapPair(int value, int sub);
 
   /// Shown when a child's account has no parental rating cap set.
   ///
@@ -488,11 +512,29 @@ abstract class AppLocalizations {
   /// **'No rating limit'**
   String get kidsRatingCapNone;
 
+  /// Heading on the card listing what a child can see in each library.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} has access to'**
+  String kidsLibrariesSection(String name);
+
+  /// Introduces the labels an allow-list child's access is built from.
+  ///
+  /// In en, this message translates to:
+  /// **'Shortlist based on these labels:'**
+  String get kidsLabelsAllow;
+
+  /// The opposite verb, for a block-list account. Ground rule 3.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocklist based on these labels:'**
+  String get kidsLabelsBlock;
+
   /// Heading above the two lines on a kid's card that come from the child's Jellyfin account rather than from Garfin — the rating limit and the access hours. It exists because those sit directly under the birth year, which IS editable here and is stored on this phone, and nothing said the three came from three different places.
   ///
   /// In en, this message translates to:
-  /// **'Set in Jellyfin'**
-  String get kidsServerSection;
+  /// **'Parental controls for {name}'**
+  String kidsServerSection(String name);
 
   /// Tooltip and screen-reader label for the button beside that heading, which opens the explanation.
   ///
@@ -548,6 +590,12 @@ abstract class AppLocalizations {
   /// **'Remove'**
   String get kidsBirthYearClear;
 
+  /// Screen-reader label for the child's picture on the landing screen. The picture is its own tap target and means *pick this child*: it sets the same selection the Library's own "Picking for" row sets, then goes there. Says what happens rather than what it is, because a picture that navigates is not announced by its image.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick {name} and open the library'**
+  String kidsPickThisChild(String name);
+
   /// Shown when the server reports no users at all.
   ///
   /// In en, this message translates to:
@@ -578,6 +626,12 @@ abstract class AppLocalizations {
   /// **'Library'**
   String get libraryTitle;
 
+  /// The app bar avatar's label and tooltip when a child is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Picking for {name}'**
+  String libraryPickingForName(String name);
+
   /// Label above the row of child avatars at the top of the library.
   ///
   /// In en, this message translates to:
@@ -602,11 +656,29 @@ abstract class AppLocalizations {
   /// **'{count} things kept from {name}'**
   String libraryWithheld(int count, String name);
 
+  /// The result line while a search is active. The server orders a search by its own relevance and ignores the sort chosen in Settings, so the line says so. {line} is the ordinary result line, e.g. '12 things'.
+  ///
+  /// In en, this message translates to:
+  /// **'{line} · sorted by relevance'**
+  String libraryResultByRelevance(String line);
+
   /// Result line when no child is selected.
   ///
   /// In en, this message translates to:
   /// **'{count} things'**
   String libraryItemCount(int count);
+
+  /// Leaves the what-a-child-can-see view for the giving grid.
+  ///
+  /// In en, this message translates to:
+  /// **'Show what\'s left to give'**
+  String get libraryShowToGive;
+
+  /// Empty state when showing what a child can see and there is none of it.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} can\'t see anything here yet.'**
+  String libraryNothingGiven(String name);
 
   /// Button revealing items already given to the selected child.
   ///
@@ -661,6 +733,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} titles'**
   String libraryCollectionCount(int count);
+
+  /// Badge on a series tile saying how many episodes it holds. A separate string from libraryCollectionCount because the noun is not interchangeable: a collection holds titles, a series holds episodes, and 'titles' on a show reads as a count of something else. Measured on 10.11.11: this is RecursiveItemCount, the episodes, NOT ChildCount, which for a series is the seasons — a two-season five-episode show reports ChildCount 2.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} episodes'**
+  String libraryEpisodeCount(int count);
+
+  /// Spoken by a screen reader for a series tile, so a show is distinguishable from a film. Says the NOUN as well as the number, for the same reason librarySemanticCollection does: the bare count is what the visual badge already is. Only spoken when the server sent a recursive count — see librarySemanticSeriesAlone for when it did not.
+  ///
+  /// In en, this message translates to:
+  /// **'Series, {count} episodes'**
+  String librarySemanticSeries(int count);
+
+  /// The same, for a series whose episode count the server did not send. RecursiveItemCount is absent unless Fields asks for it, and a tile in that state renders no badge either, so the spoken label degrades the same way rather than saying 'nought episodes'.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get librarySemanticSeriesAlone;
 
   /// Spoken by a screen reader for a collection tile, so a box set is distinguishable from a film. Says the NOUN as well as the number: the bare count is what the visual badge already is, and 'seven titles' alone does not tell you what the thing is. Only spoken when the server sent a count — see librarySemanticCollectionAlone for when it did not. Unlike the state badge this is not a claim about any child, so it is spoken whatever the selection is.
   ///
@@ -721,6 +811,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No age rating'**
   String get libraryHintUnknownAge;
+
+  /// Label for where the item was made, in the assign sheet's detail card.
+  ///
+  /// In en, this message translates to:
+  /// **'Country'**
+  String get detailCountry;
+
+  /// Under a collection's title in search results, when the collection is there because one of the films inside it matched what was typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Contains a match'**
+  String get librarySearchInCollection;
+
+  /// Label for the item's age rating in the assign sheet's detail card.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating'**
+  String get detailRating;
+
+  /// An age rating that names the certification system it belongs to, e.g. 12 (FR). The country is only shown when the rating itself names one.
+  ///
+  /// In en, this message translates to:
+  /// **'{rating} ({country})'**
+  String detailRatingWithCountry(String rating, String country);
+
+  /// Label for the audience score out of ten, e.g. 8.3/10, in the item sheet's detail card. No word like 'score' is added: the value explains itself.
+  ///
+  /// In en, this message translates to:
+  /// **'Audience'**
+  String get detailAudience;
+
+  /// Label for the critics score as a percentage, e.g. 89%, in the item sheet's detail card.
+  ///
+  /// In en, this message translates to:
+  /// **'Critics'**
+  String get detailCritics;
+
+  /// Label for the item's genres in the detail card; the value is the genre names joined with commas.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Genre} other{Genres}}'**
+  String detailGenres(int count);
+
+  /// Label for the item's studios in the detail card; the value is the studio names joined with commas, never cut.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Studio} other{Studios}}'**
+  String detailStudios(int count);
 
   /// Title of the assign sheet, opened by tapping a title in the library.
   ///
@@ -823,6 +961,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{title} is part of {name}. The rest of the set can go at the same time.'**
   String assignSetTogetherBody(String title, String name);
+
+  /// Stated, never asked. Answering 'just this one' also labels the collection itself, because a set the child has no label for is invisible to them and the film would arrive loose. The prompt says so rather than offering a second permission question the parent did not ask for.
+  ///
+  /// In en, this message translates to:
+  /// **'Either way {name} appears in their library, holding what you have given from it.'**
+  String assignSetTogetherSetAppears(String name);
 
   /// Declines the cascade: write the single film only.
   ///
@@ -968,18 +1112,6 @@ abstract class AppLocalizations {
   /// **'Slower. Makes the change show up in Jellyfin straight away.'**
   String get settingsRefreshAfterWriteSubtitle;
 
-  /// Which child is picked when the app starts.
-  ///
-  /// In en, this message translates to:
-  /// **'Open the Library on'**
-  String get settingsStartingChild;
-
-  /// No child picked at startup. Matches the Everyone chip on the Library.
-  ///
-  /// In en, this message translates to:
-  /// **'Everyone'**
-  String get settingsStartingChildEveryone;
-
   /// The stored default for the Library's Show/Hide shared button, which turns the grid into a to-do list.
   ///
   /// In en, this message translates to:
@@ -1040,6 +1172,42 @@ abstract class AppLocalizations {
   /// **'Small'**
   String get settingsPosterSmall;
 
+  /// The library grid's order: the setting's own row label.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort library by'**
+  String get settingsLibrarySort;
+
+  /// Sort option: when the title arrived in the library.
+  ///
+  /// In en, this message translates to:
+  /// **'Date added'**
+  String get settingsLibrarySortDateAdded;
+
+  /// Sort option: when the title came out.
+  ///
+  /// In en, this message translates to:
+  /// **'Release date'**
+  String get settingsLibrarySortReleaseDate;
+
+  /// Sort option: alphabetical, and what the app did before this setting existed.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get settingsLibrarySortName;
+
+  /// Spoken and shown for the direction arrow when the order is ascending.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest and A first'**
+  String get settingsLibrarySortAscending;
+
+  /// Spoken and shown for the direction arrow when the order is descending.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest and Z first'**
+  String get settingsLibrarySortDescending;
+
   /// The app version, on the About section.
   ///
   /// In en, this message translates to:
@@ -1063,6 +1231,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Source code'**
   String get settingsSource;
+
+  /// Opens the short list: the packages this app chose to depend on, read from pubspec rather than guessed. The full built-in list stays one row below and is still the authoritative one.
+  ///
+  /// In en, this message translates to:
+  /// **'Packages Garfin uses'**
+  String get aboutOurPackages;
+
+  /// Subtitle under the short list. Measured on the 0.2.0 release build: the full page lists 201 packages, almost all of it the Flutter engine's vendored C++. This says which of those were decisions anyone made.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} chosen here — the rest come with Flutter'**
+  String aboutOurPackagesCount(int count);
 
   /// Opens Flutter's licence page, which lists every bundled package.
   ///
@@ -1418,11 +1598,17 @@ abstract class AppLocalizations {
   /// **'Sign {name} out of {device}?'**
   String sessionsEndConfirm(String name, String device);
 
-  /// What ending a session costs, stated in the confirmation. With #40 the way back is approving a code, which is cheap — that is what makes ending one reasonable.
+  /// What ending a session does, in the order it does it: the stop command first, then the revoke. Both limits are measured and neither is softened into 'may' -- a client that does not honour remote commands keeps playing, and the media path is not token-gated so the revoke cannot interrupt it; and a client holding saved credentials re-authenticates on its own. See docs/JELLYFIN-API.md.
   ///
   /// In en, this message translates to:
-  /// **'They\'ll need you to approve a new code to sign in again.'**
+  /// **'Garfin asks the device to stop playing, then signs it out. A device that ignores the request keeps playing, and one that kept its sign-in details can sign itself back in.'**
   String get sessionsEndExplain;
+
+  /// The confirmation body when SupportsRemoteControl is false. End is still offered because the revoke genuinely works, but it must not promise the film stops -- the stop command would not be honoured and the stream is not token-gated.
+  ///
+  /// In en, this message translates to:
+  /// **'This device doesn\'t accept remote commands, so signing it out will not stop the film. It keeps playing, and a device that kept its sign-in details can sign itself back in.'**
+  String get sessionsEndExplainUncontrollable;
 
   /// Confirms the revoke, which unlike the other two commands the server really did do — the token stops working. Since #70 it is also the sentence that stays when the read-back finds no session for that device, which is the ordinary case.
   ///
@@ -1436,10 +1622,34 @@ abstract class AppLocalizations {
   /// **'{device} signed out, then signed straight back in.'**
   String sessionsEndReturned(String device);
 
-  /// Shown when SupportsRemoteControl is false. Measured: the message and stop commands answer 204 anyway, so without this the parent would be told something was sent to a device that cannot receive it.
+  /// Both halves of what End is for, confirmed by two read-backs. Only said when the stop was verified, never inferred from the command being accepted.
   ///
   /// In en, this message translates to:
-  /// **'This device doesn\'t accept remote commands. Ending the session still works.'**
+  /// **'{device} stopped playing and is signed out.'**
+  String sessionsEndStoppedAndOut(String device);
+
+  /// The revoke held and the client ignored the stop. The important one: without it the parent reads a vanished card as a stopped film.
+  ///
+  /// In en, this message translates to:
+  /// **'{device} is signed out, but it\'s still playing.'**
+  String sessionsEndOutStillPlaying(String device);
+
+  /// The stop was honoured but the device re-authenticated with saved credentials, so the Quick Connect requirement did not hold.
+  ///
+  /// In en, this message translates to:
+  /// **'{device} stopped playing, then signed straight back in.'**
+  String sessionsEndStoppedThenReturned(String device);
+
+  /// Neither half achieved. Said plainly rather than left to the parent to notice from a card that looks unchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'{device} signed straight back in, and it\'s still playing.'**
+  String sessionsEndReturnedStillPlaying(String device);
+
+  /// Shown when SupportsRemoteControl is false. Measured: the message and stop commands answer 204 anyway, so without this the parent would be told something was sent to a device that cannot receive it. It no longer offers End as the way round, because the revoke does not stop playback either.
+  ///
+  /// In en, this message translates to:
+  /// **'This device doesn\'t accept remote commands. Signing it out won\'t stop what\'s playing.'**
   String get sessionsUncontrollable;
 
   /// Placeholder in the library search field (#73). 'Titles' rather than 'library', because the server matches the title and nothing else — measured: not the overview, the cast, tags or genres.
@@ -1447,6 +1657,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Search titles'**
   String get librarySearchHint;
+
+  /// Tooltip on the selector at the left of the library search field, which chooses which field the typed term is matched against.
+  ///
+  /// In en, this message translates to:
+  /// **'What to search'**
+  String get librarySearchScope;
+
+  /// Search-scope option: match the film's title. The default, so a parent who never opens this menu gets the behaviour that existed before the menu did.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get librarySearchScopeTitle;
+
+  /// Search-scope option: match anyone credited. Named for what the server does rather than what a parent hoped for — bare person= matches every credit, and narrowing it to actors works only on Jellyfin 12.0.0, so 'Actor' would mean two different things depending on the server.
+  ///
+  /// In en, this message translates to:
+  /// **'Cast & crew'**
+  String get librarySearchScopeCastAndCrew;
+
+  /// Search-scope option: match the production studio.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio'**
+  String get librarySearchScopeStudio;
+
+  /// Placeholder in the library search field while the Cast & crew scope is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Search cast & crew'**
+  String get librarySearchHintCastAndCrew;
+
+  /// Placeholder in the library search field while the Studio scope is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Search studios'**
+  String get librarySearchHintStudio;
 
   /// Tooltip on the x inside the search field.
   ///
@@ -1603,6 +1849,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pick a title, and what giving it would change appears here.'**
   String get assignPanelEmpty;
+
+  /// Shown when a set holds given members while the container is not in the openable state. Offered, never applied automatically: it is a write, and ground rule 5 says a write is the parent's to make.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} has titles from this collection, but not the collection itself — so it does not appear in their library and those titles arrive loose.'**
+  String collectionRepairLoose(String name);
+
+  /// One tap, idempotent. Writes only the container, never the members.
+  ///
+  /// In en, this message translates to:
+  /// **'Show them the collection'**
+  String get collectionRepairAction;
 
   /// A set's state for an allow-list child, on the collection screen and on each row of a set's write preview (#107). Says the set is untouched for them without claiming anything about what they can see — that is the server's answer, and ground rule 4 forbids computing it here.
   ///
