@@ -205,14 +205,66 @@ void main() {
     );
     unawaited(_settle(session.run()));
 
-    await Future<void>.delayed(const Duration(milliseconds: 30));
-    expect(server.callsTo('/QuickConnect/Connect'), 1);
+    // Waited for rather than given a fixed 30 ms: under load the first poll
+    // can take longer than that, and the test is about what the poke does, not
+    // how fast the box is. Waited for until the session is asleep, too: the
+    // server counts a poll when it arrives, and a poke that lands while that
+    // poll is still in flight has no wait to cut. The bound only has to sit
+    // well inside the 5 s interval for a missing poke to show.
+    int connects() => server.callsTo('/QuickConnect/Connect');
+    await _until(() => session.isWaiting);
+    expect(connects(), 1);
 
     // The app came back to the foreground — the user has probably just approved
     // the code, so ask now rather than in five seconds.
     session.poke();
-    await Future<void>.delayed(const Duration(milliseconds: 30));
-    expect(server.callsTo('/QuickConnect/Connect'), greaterThan(1));
+    await _until(() => connects() > 1);
+    expect(connects(), 2);
+
+    // A poke that cut a wait leaves nothing behind: the poll after it waits
+    // the interval again.
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(connects(), 2);
+
+    session.dispose();
+  });
+
+  test('a poke during a poll is not lost: the next poll follows the answer',
+      () async {
+    // Every poll takes 100 ms to answer, so there is a window in which the
+    // poll is in flight and the session has no wait to cut.
+    final server = FakeJellyfinServer()
+      ..on('/QuickConnect/Initiate',
+          json: {'Code': '123456', 'Secret': secret})
+      ..fallback(
+        json: {'Authenticated': false},
+        delay: const Duration(milliseconds: 100),
+      );
+
+    final session = QuickConnectSession(
+      api: apiFor(server),
+      timeout: const Duration(seconds: 30),
+      initialInterval: const Duration(seconds: 5),
+      maxInterval: const Duration(seconds: 5),
+    );
+    unawaited(_settle(session.run()));
+
+    // The server counts a poll when it arrives, so this is the first poll
+    // in flight, before the session has gone to sleep.
+    int connects() => server.callsTo('/QuickConnect/Connect');
+    await _until(() => connects() == 1);
+    expect(session.isWaiting, isFalse, reason: 'the poke must land mid-poll');
+
+    session.poke();
+    // Without the poke the second poll comes after the 5 s interval; the
+    // bound sits well inside it.
+    await _until(() => connects() > 1);
+    expect(connects(), 2);
+
+    // One extra poll, not a loop without waits: the poll after it waits the
+    // interval again. Three 100 ms polls fit in this pause if it does not.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    expect(connects(), 2);
 
     session.dispose();
   });
@@ -308,5 +360,17 @@ Future<void> _settle(Future<Object?> future) async {
     await future;
   } on JellyfinException {
     // Expected: these pairings are meant to end without an access token.
+  }
+}
+
+/// Waits until [done] holds, checking every few milliseconds, and gives up
+/// after [within] so a failure is an expectation rather than a hung test.
+Future<void> _until(
+  bool Function() done, {
+  Duration within = const Duration(seconds: 2),
+}) async {
+  final deadline = DateTime.now().add(within);
+  while (!done() && DateTime.now().isBefore(deadline)) {
+    await Future<void>.delayed(const Duration(milliseconds: 5));
   }
 }

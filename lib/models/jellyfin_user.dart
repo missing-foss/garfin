@@ -65,8 +65,8 @@ class UserPolicy {
   /// Flagged because a field with no consumer is how a field ends up wrong
   /// without anyone noticing, so its parsing is asserted in
   /// `test/kids_repository_test.dart` even though nothing reads it. Revisit
-  /// when the Kid detail screen lands and has room to say "disabled in
-  /// Jellyfin" rather than merely behave differently.
+  /// if the kid card is ever to say "disabled in Jellyfin" rather than merely
+  /// behave differently.
   final bool isDisabled;
 
   /// The child sees *only* items carrying one of these. Ground rule 3.
@@ -158,6 +158,34 @@ class UserPolicy {
         enableAllFolders: readBool(json, 'EnableAllFolders'),
         enabledFolders: readStringList(json, 'EnabledFolders'),
       );
+
+  // Value equality, so a re-fetched policy that has not changed is equal to
+  // the old one and does not notify everything derived from it.
+  @override
+  bool operator ==(Object other) =>
+      other is UserPolicy &&
+      other.isAdministrator == isAdministrator &&
+      other.isDisabled == isDisabled &&
+      _sameList(other.allowedTags, allowedTags) &&
+      _sameList(other.blockedTags, blockedTags) &&
+      other.maxParentalRating == maxParentalRating &&
+      other.maxParentalSubRating == maxParentalSubRating &&
+      other.enableAllFolders == enableAllFolders &&
+      _sameList(other.enabledFolders, enabledFolders) &&
+      _sameList(other.accessSchedules, accessSchedules);
+
+  @override
+  int get hashCode => Object.hash(
+        isAdministrator,
+        isDisabled,
+        Object.hashAll(allowedTags),
+        Object.hashAll(blockedTags),
+        maxParentalRating,
+        maxParentalSubRating,
+        enableAllFolders,
+        Object.hashAll(enabledFolders),
+        Object.hashAll(accessSchedules),
+      );
 }
 
 class JellyfinUser {
@@ -196,6 +224,27 @@ class JellyfinUser {
           : UserPolicy.fromJson(policy),
     );
   }
+
+  // Value equality: the same account, read again, is the same user.
+  @override
+  bool operator ==(Object other) =>
+      other is JellyfinUser &&
+      other.id == id &&
+      other.name == name &&
+      other.policy == policy &&
+      other.primaryImageTag == primaryImageTag;
+
+  @override
+  int get hashCode => Object.hash(id, name, policy, primaryImageTag);
+}
+
+bool _sameList<T>(List<T> a, List<T> b) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 /// One window in which an account may be used.

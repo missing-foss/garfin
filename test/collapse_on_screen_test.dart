@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/models/collection_set.dart';
@@ -108,7 +109,7 @@ void main() {
               .overrideWith((ref) async => const ParentalRatingLadder.empty()),
         ],
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: const Scaffold(body: LibraryScreen(session: session)),
         ),
@@ -258,5 +259,110 @@ void main() {
     );
 
     expect(find.text('Paddington'), findsOneWidget);
+  });
+
+  testWidgets('a page collapsed to less than the window asks for the next one',
+      (tester) async {
+    // The first page is a set and 239 of its films: collapsed, one tile, and
+    // nothing to scroll. The next page used to wait for a scroll that could
+    // not happen.
+    final members = [for (var i = 0; i < 239; i++) film('m$i', 'Member $i')];
+    final index = CollectionIndex([
+      CollectionSet(
+        collection: LibraryItem(
+          id: 'set-1',
+          name: 'Big Collection',
+          type: 'BoxSet',
+          tags: const [],
+        ),
+        members: members,
+      ),
+    ]);
+    server
+      ..onQuery(
+        '/Items',
+        (q) => (q['StartIndex'] ?? 0) == 0 && q['Limit'] != 0,
+        json: <String, dynamic>{
+          'TotalRecordCount': 480,
+          'Items': [
+            <String, dynamic>{
+              'Id': 'set-1',
+              'Name': 'Big Collection',
+              'Type': 'BoxSet',
+              'ChildCount': 239,
+            },
+            for (final m in members)
+              <String, dynamic>{'Id': m.id, 'Name': m.name, 'Type': 'Movie'},
+          ],
+        },
+      )
+      ..onQuery(
+        '/Items',
+        (q) => q['StartIndex'] == 240,
+        json: <String, dynamic>{
+          'TotalRecordCount': 480,
+          'Items': [
+            for (var i = 0; i < 240; i++)
+              <String, dynamic>{'Id': 'loose-$i', 'Name': 'Loose $i', 'Type': 'Movie'},
+          ],
+        },
+      );
+
+    await pumpScreen(tester, index: index, items: const []);
+
+    expect(
+      server.requests.where((r) =>
+          r.path == '/Items' && r.queryParameters['StartIndex'] == 240),
+      isNotEmpty,
+      reason: 'the second page is asked for without any scroll',
+    );
+    expect(find.text('Loose 0'), findsOneWidget,
+        reason: 'and the grid fills from it');
+  });
+
+  testWidgets('a full page does not ask for the next until it is scrolled to',
+      (tester) async {
+    // The other side of the check above: the grid's size triggers a page only
+    // within 600px of the end. Without that threshold, the size listener would
+    // page through the whole library the moment page one landed — fetching
+    // pages nobody has scrolled to.
+    await tester.binding.setSurfaceSize(const Size(412, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    server
+      ..onQuery(
+        '/Items',
+        (q) => (q['StartIndex'] ?? 0) == 0 && q['Limit'] != 0,
+        json: <String, dynamic>{
+          'TotalRecordCount': 480,
+          'Items': [
+            for (var i = 0; i < 240; i++)
+              <String, dynamic>{'Id': 'a$i', 'Name': 'Film $i', 'Type': 'Movie'},
+          ],
+        },
+      )
+      ..onQuery(
+        '/Items',
+        (q) => q['StartIndex'] == 240,
+        json: <String, dynamic>{
+          'TotalRecordCount': 480,
+          'Items': [
+            for (var i = 0; i < 240; i++)
+              <String, dynamic>{'Id': 'b$i', 'Name': 'More $i', 'Type': 'Movie'},
+          ],
+        },
+      );
+    bool askedForPageTwo() => server.requests.any(
+        (r) => r.path == '/Items' && r.queryParameters['StartIndex'] == 240);
+
+    await pumpScreen(tester, index: const CollectionIndex([]), items: const []);
+
+    expect(askedForPageTwo(), isFalse,
+        reason: 'a full page, nowhere near its end');
+
+    // And scrolled to the end, it does — so the check above could have
+    // reported a request.
+    await tester.fling(find.byType(Scrollable).last, const Offset(0, -60000), 8000);
+    await tester.pumpAndSettle();
+    expect(askedForPageTwo(), isTrue);
   });
 }

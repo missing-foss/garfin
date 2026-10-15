@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_providers.dart';
+import '../providers/session_release.dart';
 import '../providers/unlock_providers.dart';
 import '../widgets/unlock_gate.dart';
 import 'home_screen.dart';
@@ -30,6 +31,8 @@ class AppRoot extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Kept alive here so that a session's caches are released when it ends.
+    ref.watch(sessionReleaseProvider);
     final auth = ref.watch(authControllerProvider);
 
     return switch (auth) {

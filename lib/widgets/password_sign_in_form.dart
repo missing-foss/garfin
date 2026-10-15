@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../l10n/gen/app_localizations.dart';
 
@@ -68,6 +68,9 @@ class _PasswordSignInFormState extends State<PasswordSignInForm> {
             labelText: l10n.passwordLabel,
             border: const OutlineInputBorder(),
             suffixIcon: IconButton(
+              // The tooltip is also what a screen reader says: without it the
+              // button is announced as "button" and nothing more.
+              tooltip: _obscured ? l10n.passwordShowTooltip : l10n.passwordHideTooltip,
               onPressed: () => setState(() => _obscured = !_obscured),
               icon: Icon(_obscured ? Icons.visibility : Icons.visibility_off),
             ),

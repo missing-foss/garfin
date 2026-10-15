@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/models/jellyfin_user.dart';
@@ -14,6 +15,8 @@ import 'package:garfin/providers/kids_providers.dart';
 import 'package:garfin/providers/library_providers.dart';
 import 'package:garfin/widgets/picking_for_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/roster_from_overview.dart';
 
 /// Who the Library is about, and the one control that changes it.
 void main() {
@@ -50,6 +53,7 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
+      rosterFromOverview(session),
       kidsOverviewProvider(session).overrideWith(
         (ref) async => KidsOverview(
           shortlisted: kids,
@@ -64,7 +68,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             appBar: AppBar(

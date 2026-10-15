@@ -2,12 +2,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# WHERE THIS RUNS: the published mirror, under GitHub Actions -- not the
-# development forge. The forge reads `.forgejo/workflows/` and, once that
-# directory exists, takes nothing from `.github/`. The published branch
-# carries no `.forgejo/`, so these three files are the only workflows the
-# mirror has. Removing them here removes CI, the release path and Scorecard
-# from the mirror at the next publication.
+# WHERE THIS RUNS: GitHub Actions, on this repository. `.github/workflows/`
+# holds three files -- ci.yml, release.yml and scorecard.yml -- and they are
+# every workflow this repository has. Deleting one deletes CI, the release
+# path or Scorecard outright: nothing else here would pick that work up.
 
 # OpenSSF Scorecard (#31): scores repo security posture (Branch-Protection,
 # Dependency-Update-Tool, SAST, Token-Permissions, Pinned-Dependencies, …) and

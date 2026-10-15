@@ -23,6 +23,16 @@ enum JellyfinErrorKind {
   /// A route, but no answer in time.
   timeout,
 
+  /// HTTPS, with a certificate this phone does not trust — a self-signed
+  /// server, most often.
+  ///
+  /// Its own kind rather than [unreachable], which is what it used to be: the
+  /// fix is not the network but the address or the phone — `http://` on the
+  /// home network, or the server's CA installed on the device. **And there is
+  /// no switch to trust it anyway.** Accepting any certificate would accept
+  /// anyone's, for the app that holds an administrator token.
+  untrustedCertificate,
+
   /// 401. Credentials wrong, or a stored token the server no longer honours.
   unauthorized,
 
@@ -35,6 +45,19 @@ enum JellyfinErrorKind {
 
   /// 404. Usually a URL that reaches *something* which is not Jellyfin.
   notFound,
+
+  /// 30x: the server answered from somewhere else. [JellyfinException.detail]
+  /// is the address it moved to, when it said one.
+  ///
+  /// **Never followed.** Measured with Garfin's own client against two local
+  /// listeners: a redirect to another origin (here another port, as
+  /// `http://` to `https://` is) arrives **without** the `Authorization`
+  /// header — so every call after it is a 401, and the session check a 401
+  /// starts would sign the parent out as "unauthorized" over what is only an
+  /// address change. A redirect within the same origin re-sends the
+  /// token. Neither is a request Garfin chose to make, so neither is made: the
+  /// parent is told the new address and decides.
+  moved,
 
   /// 5xx, or a response that did not parse.
   server,
@@ -120,8 +143,10 @@ class JellyfinException implements Exception {
       DioExceptionType.connectionError ||
       DioExceptionType.unknown =>
         JellyfinErrorKind.unreachable,
-      DioExceptionType.badCertificate => JellyfinErrorKind.unreachable,
+      DioExceptionType.badCertificate => JellyfinErrorKind.untrustedCertificate,
       DioExceptionType.badResponse => switch (status) {
+          final int code when code >= 300 && code < 400 =>
+            JellyfinErrorKind.moved,
           401 => JellyfinErrorKind.unauthorized,
           403 => JellyfinErrorKind.forbidden,
           404 => JellyfinErrorKind.notFound,
@@ -131,6 +156,7 @@ class JellyfinException implements Exception {
 
     return JellyfinException(
       kind,
+      detail: kind == JellyfinErrorKind.moved ? movedTo(error) : null,
       diagnostic: describeCause(error),
       // Path and status only. `error.message` embeds the full URI, and the
       // whole point of not using it is the `?secret=` on the Quick Connect
@@ -138,6 +164,35 @@ class JellyfinException implements Exception {
       message: 'jellyfin call failed: $where'
           '${status == null ? '' : ' (HTTP $status)'}',
     );
+  }
+
+  /// The address a 30x moved the server to, as a parent would type it: the
+  /// `Location` resolved against the request, with the request's own API
+  /// path taken back off and **no query** — a Quick Connect poll carries its
+  /// secret there, and nothing secret goes on screen.
+  ///
+  /// `GET /Users/Me` moved to `https://host/Users/Me` reads `https://host`;
+  /// moved to `/jf/Users/Me`, it reads `http://host/jf`. Null when the server
+  /// named no address.
+  static String? movedTo(DioException error) {
+    final location = error.response?.headers.value('location');
+    if (location == null || location.trim().isEmpty) return null;
+    final Uri resolved;
+    try {
+      resolved = error.requestOptions.uri.resolve(location.trim());
+    } on FormatException {
+      return null;
+    }
+    final asked = error.requestOptions.uri.path;
+    final path = resolved.path.endsWith(asked)
+        ? resolved.path.substring(0, resolved.path.length - asked.length)
+        : resolved.path;
+    return Uri(
+      scheme: resolved.scheme,
+      host: resolved.host,
+      port: resolved.hasPort ? resolved.port : null,
+      path: path,
+    ).toString().replaceFirst(RegExp(r'/$'), '');
   }
 
   @override

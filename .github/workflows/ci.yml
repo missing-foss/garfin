@@ -2,12 +2,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# WHERE THIS RUNS: the published mirror, under GitHub Actions -- not the
-# development forge. The forge reads `.forgejo/workflows/` and, once that
-# directory exists, takes nothing from `.github/`. The published branch
-# carries no `.forgejo/`, so these three files are the only workflows the
-# mirror has. Removing them here removes CI, the release path and Scorecard
-# from the mirror at the next publication.
+# WHERE THIS RUNS: GitHub Actions, on this repository. `.github/workflows/`
+# holds three files -- ci.yml, release.yml and scorecard.yml -- and they are
+# every workflow this repository has. Deleting one deletes CI, the release
+# path or Scorecard outright: nothing else here would pick that work up.
 
 # CI: the pre-merge verify gate. Runs on every push/PR. Read-only token,
 # pinned majors.
@@ -29,19 +27,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      # Flutter's Android build tooling is Gradle underneath (same as
-      # trobar-android) and needs a JDK — pin it explicitly rather than
-      # trusting whatever the runner image happens to default to, same
-      # reasoning and same version as trobar-android's own ci.yml.
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          distribution: temurin
-          java-version: "17"
+      # **Read the pin before anything consumes it.** This step used to sit
+      # *after* `setup-java`, which took a hardcoded "17" — so the `java`
+      # output it computes was written and never read, and the one toolchain
+      # value in this repository that could drift from `.tool-versions` was the
+      # literal three lines above it. The order is the fix; the output was
+      # always the intent.
       - name: Read the pinned toolchain
         id: tools
         run: |
-          echo "flutter=$(awk '/^flutter /{print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
-          echo "java=$(awk '/^java /{print $2}' .tool-versions | sed 's/^temurin-//; s/+.*//')" >> "$GITHUB_OUTPUT"
+          f=$(awk '/^flutter /{print $2}' .tool-versions)
+          # The **major** only. `.tool-versions` pins a full
+          # `temurin-17.0.20+8`, and whether `setup-java` resolves that exact
+          # patch release is not something this repository can test — a major
+          # it certainly resolves, and it is what this step has effectively
+          # been asking for all along.
+          j=$(awk '/^java /{print $2}' .tool-versions | sed 's/^temurin-//; s/\..*//')
+          [ -n "$f" ] || { echo "::error::no flutter pin in .tool-versions"; exit 1; }
+          [ -n "$j" ] || { echo "::error::no java pin in .tool-versions"; exit 1; }
+          echo "flutter=$f" >> "$GITHUB_OUTPUT"
+          echo "java=$j" >> "$GITHUB_OUTPUT"
+      # Flutter's Android build tooling is Gradle underneath (same as
+      # trobar-android) and needs a JDK — pin it explicitly rather than
+      # trusting whatever the runner image happens to default to.
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: ${{ steps.tools.outputs.java }}
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ steps.tools.outputs.flutter }}
@@ -121,9 +133,15 @@ jobs:
         # untranslated-messages-file entry) if you're not translating yet.
         run: |
           flutter gen-l10n
-          if grep -q "\[" lib/l10n/untranslated.txt; then
-            echo "::error::untranslated FR messages:"; cat lib/l10n/untranslated.txt; exit 1
-          fi
+          # On grep's status: 2 (the file was not written) must fail, not read
+          # as "no gaps".
+          fr_rc=0
+          grep -q "\[" lib/l10n/untranslated.txt || fr_rc=$?
+          case "$fr_rc" in
+            0) echo "::error::untranslated FR messages:"; cat lib/l10n/untranslated.txt; exit 1 ;;
+            1) ;;
+            *) echo "::error::untranslated-messages file unreadable (grep exit $fr_rc)"; exit 1 ;;
+          esac
       - name: Copy rules (docs/DECISIONS.md § Voice)
         # Bans "safe"/"protected"/"secure" and surveillance framing in
         # user-facing copy, per-locale so the rule survives translation rather
@@ -141,11 +159,19 @@ jobs:
           fi
       - name: Secret scan
         # Binary download rather than gitleaks-action: the org Actions policy
-        # only allows GitHub-owned + verified-creator actions.
+        # only allows GitHub-owned + verified-creator actions. The version and
+        # the archive's sha256 come from .ci-downloads, and the archive is
+        # checked before it is extracted rather than piped straight into tar.
         run: |
-          v=8.24.3
-          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${v}/gitleaks_${v}_linux_x64.tar.gz" | tar -xz gitleaks
-          ./gitleaks git --no-banner .
+          set -euo pipefail
+          v=$(awk '$1=="gitleaks"{print $2}' .ci-downloads)
+          sum=$(awk '$1=="gitleaks"{print $3}' .ci-downloads)
+          [ -n "$v" ] && [ -n "$sum" ] || { echo "::error::.ci-downloads lacks a gitleaks line"; exit 1; }
+          curl -sSL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${v}/gitleaks_${v}_linux_x64.tar.gz"
+          echo "${sum}  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks git --no-banner .
       - name: REUSE lint (per-file SPDX licensing)
         # Python tool; the org Actions policy blocks fsfe/reuse-action, so run it
         # via pipx (preinstalled on the runner). The charset-normalizer extra

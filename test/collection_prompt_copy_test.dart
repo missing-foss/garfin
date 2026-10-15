@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/collection_set.dart';
 import 'package:garfin/models/library_item.dart';
@@ -32,12 +32,7 @@ void main() {
   Future<void> open(WidgetTester tester, {Locale locale = const Locale('en')}) async {
     await tester.pumpWidget(MaterialApp(
       locale: locale,
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
+      localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Builder(
         builder: (context) => Scaffold(

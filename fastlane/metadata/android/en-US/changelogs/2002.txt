@@ -1,0 +1,8 @@
+Signed with a new key: v0.1.0 can't be updated in place, so install 0.2.0 fresh.
+
+- Opens on Kids. Tap a child's picture to see the library as they have it.
+- Give a whole collection; a film given from a collection brings the collection.
+- Sort the grid. Search by title, cast and crew, or studio.
+- The detail sheet shows rating, duration, country, scores, genres and studios.
+- Screenshots can be allowed in Settings.
+- A warning that this app will stop installing on certified Android devices.

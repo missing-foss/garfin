@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
@@ -14,6 +16,7 @@ import '../models/library_item.dart';
 import '../repositories/jellyfin_api.dart' show searchQueryParameters;
 import '../repositories/library_repository.dart';
 import '../providers/collection_providers.dart';
+import '../providers/auth_providers.dart';
 import '../providers/library_providers.dart';
 import '../repositories/jellyfin_exception.dart';
 import '../widgets/adaptive_layout.dart';
@@ -155,7 +158,13 @@ class LibraryScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     FilledButton(
-                      onPressed: () => refreshLibrary(ref),
+                      // And the session, as on Kids: see that button.
+                      onPressed: () {
+                        refreshLibrary(ref);
+                        unawaited(ref
+                            .read(authControllerProvider.notifier)
+                            .refreshSession());
+                      },
                       child: Text(l10n.libraryRetry),
                     ),
                   ],
@@ -358,7 +367,22 @@ class _Grid extends ConsumerWidget {
             // "Nothing left to give", "they cannot see anything yet" and
             // "nothing here at all" are three different facts, and only the
             // last is a reason to check the server.
+            //
+            // **A search or filter that matched nothing says that first.** It
+            // used to fall through to "Nothing here yet" — or, with a child in
+            // the giving view, to "{name} has everything already", true of the
+            // filtered slice and false as a sentence about the child.
             switch (view) {
+              _ when filters.hasSearch =>
+                l10n.libraryNoMatchesFor(filters.searchTerm!.trim()),
+              // The rating filter narrows nothing for a child with no cap —
+              // the same view the tune badge takes — so it is not a filter
+              // that "matched nothing".
+              _ when !(child?.policy.maxParentalRating == null
+                      ? filters.copyWith(withinCap: false)
+                      : filters)
+                  .isEmpty =>
+                l10n.libraryNoMatches,
               LibraryView.toGive
                   when child != null && feed.totalRecordCount > 0 =>
                 l10n.libraryNothingLeft(child!.name),
@@ -437,7 +461,11 @@ class _Grid extends ConsumerWidget {
                         LibraryView.toGive => l10n.libraryShowShared,
                         LibraryView.all => l10n.libraryHideShared,
                       },
-                      overflow: TextOverflow.ellipsis,
+                      // Wrapped, not cut: held to one line, the French
+                      // "Afficher ce qu'il reste à donner" lost the words that
+                      // say where it goes. The result text beside it wraps
+                      // too, so the row grows rather than either being cut.
+                      textAlign: TextAlign.end,
                     ),
                   ),
                 ),
@@ -447,19 +475,26 @@ class _Grid extends ConsumerWidget {
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async => refreshLibrary(ref),
-            child: NotificationListener<ScrollNotification>(
+            // **And by the grid's size, not only by scrolling.** A page
+            // collapsed to a few sets can leave the grid shorter than the
+            // window: then nothing can scroll, no scroll notification ever
+            // comes, and the next page was never asked for — "short by
+            // design, briefly" with nothing to end the "briefly". A library
+            // whose films mostly live in sets met it on page one. The
+            // metrics notification arrives whenever the content's extent
+            // changes, a page landing included, so the same check runs then.
+            child: NotificationListener<ScrollMetricsNotification>(
+              onNotification: (notification) {
+                _loadMoreNearEnd(ref, notification.metrics);
+                return false;
+              },
+              child: NotificationListener<ScrollNotification>(
               // Paging by scroll position rather than by a sentinel widget:
               // the last tile of a 3-wide grid can be built long before it is
               // anywhere near the viewport, and asking then would fetch pages
               // nobody has scrolled to.
               onNotification: (notification) {
-                final metrics = notification.metrics;
-                if (metrics.axis != Axis.vertical) return false;
-                if (metrics.pixels >= metrics.maxScrollExtent - 600) {
-                  ref
-                      .read(libraryControllerProvider(session).notifier)
-                      .loadMore();
-                }
+                _loadMoreNearEnd(ref, notification.metrics);
                 return false;
               },
               child: LibraryGrid(
@@ -507,6 +542,7 @@ class _Grid extends ConsumerWidget {
                       ],
               ),
             ),
+            ),
           ),
         ),
         // The tail: a spinner while the next page is on its way, or a retry if
@@ -538,5 +574,15 @@ class _Grid extends ConsumerWidget {
           ),
       ],
     );
+  }
+
+  /// The next page, once the bottom of what is drawn is within 600px of the
+  /// window's — from a scroll, or from the grid changing size under it.
+  /// `loadMore` is a no-op while a page is in flight or when there is none.
+  void _loadMoreNearEnd(WidgetRef ref, ScrollMetrics metrics) {
+    if (metrics.axis != Axis.vertical) return;
+    if (metrics.pixels >= metrics.maxScrollExtent - 600) {
+      unawaited(ref.read(libraryControllerProvider(session).notifier).loadMore());
+    }
   }
 }

@@ -269,6 +269,7 @@ void main() {
 
       final warnings = await repository.lastItemWarningsFor(
         TagDiff([TagChange(child: emma, label: 'kids-emma', adding: false)]),
+        touching: const {'item-1'},
       );
 
       expect(warnings, hasLength(1));
@@ -280,6 +281,7 @@ void main() {
 
       final warnings = await repository.lastItemWarningsFor(
         TagDiff([TagChange(child: emma, label: 'kids-emma', adding: false)]),
+        touching: const {'item-1'},
       );
 
       expect(warnings, isEmpty);
@@ -290,6 +292,7 @@ void main() {
 
       final warnings = await repository.lastItemWarningsFor(
         TagDiff([TagChange(child: emma, label: 'kids-emma', adding: true)]),
+        touching: const {'item-1'},
       );
 
       expect(warnings, isEmpty);
@@ -302,6 +305,7 @@ void main() {
 
       final warnings = await repository.lastItemWarningsFor(
         TagDiff([TagChange(child: sam, label: 'block-sam', adding: false)]),
+        touching: const {'item-1'},
       );
 
       expect(warnings, isEmpty);

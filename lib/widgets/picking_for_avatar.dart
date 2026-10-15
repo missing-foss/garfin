@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
@@ -68,7 +68,7 @@ class PickingForAvatar extends ConsumerWidget {
     // back to where it already is teaches a parent that taps here do nothing,
     // which is worse than an ornament that never claimed to be a control.
     if (kids.isEmpty) {
-      return Padding(padding: const EdgeInsets.only(right: 12), child: avatar);
+      return Padding(padding: const EdgeInsetsDirectional.only(end: 12), child: avatar);
     }
 
     return Semantics(

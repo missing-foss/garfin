@@ -4,10 +4,13 @@
 
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/providers/collection_providers.dart';
+import 'package:garfin/models/collection_set.dart';
 import 'package:garfin/models/library_filters.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/models/jellyfin_user.dart';
@@ -23,6 +26,7 @@ import 'package:garfin/repositories/jellyfin_api.dart';
 import 'package:garfin/screens/library_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/roster_from_overview.dart';
 import 'support/fake_jellyfin_server.dart';
 
 /// The result line after a write (#93).
@@ -125,6 +129,7 @@ void main() {
             adapter: server,
           ),
         ),
+        rosterFromOverview(session),
         kidsOverviewProvider(session).overrideWith(
           (ref) async => KidsOverview(
             shortlisted: [
@@ -135,6 +140,12 @@ void main() {
         ),
         parentalRatingLadderProvider(session)
             .overrideWith((ref) async => const ParentalRatingLadder.empty()),
+        // The Library warms the collection index, and its listing would be
+        // answered by the scripted `/Items` replies above — an empty page
+        // claiming a total, which the index now rightly refuses as a listing
+        // that stopped short. Not what these tests are about.
+        collectionIndexProvider(session)
+            .overrideWith((ref) async => const CollectionIndex.empty()),
       ]);
       addTearDown(container.dispose);
       await container.read(kidsOverviewProvider(session).future);
@@ -150,7 +161,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: const Scaffold(body: LibraryScreen(session: session)),
           ),

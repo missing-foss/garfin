@@ -483,6 +483,89 @@ void main() {
     });
   });
 
+  group('ground rule 1 — the last-item warning for a whole set', () {
+    // The common case the old check missed: the set is the only thing the
+    // child has. Twelve items carried the label, so "one left?" said no, and
+    // the removal took all twelve.
+    const wholeSet = {'set-1', ...members};
+
+    void taggedAre(int count, List<String> ids) {
+      server
+        ..onQuery(
+          '/Items',
+          (q) => q['tags'] == 'kids-emma' && q['Limit'] == 0,
+          json: <String, dynamic>{'TotalRecordCount': count},
+        )
+        ..onQuery(
+          '/Items',
+          (q) => q['tags'] == 'kids-emma' && q['Limit'] != 0,
+          json: <String, dynamic>{
+            'Items': [for (final id in ids) <String, dynamic>{'Id': id}],
+            'TotalRecordCount': ids.length,
+          },
+        );
+    }
+
+    test('fires when the set and its films are all the child has', () async {
+      taggedAre(4, ['set-1', ...members]);
+
+      final warnings =
+          await repository.lastItemWarningsFor(take, touching: wholeSet);
+
+      expect(warnings, hasLength(1));
+      expect(warnings.single.child.name, 'Emma');
+    });
+
+    test('stays quiet when something outside the set carries the label',
+        () async {
+      // More tagged items than the write touches: one survives, whichever.
+      taggedAre(5, ['set-1', ...members, 'film-elsewhere']);
+
+      final warnings =
+          await repository.lastItemWarningsFor(take, touching: wholeSet);
+
+      expect(warnings, isEmpty);
+      expect(
+        server.requests.where((r) => r.queryParameters['Limit'] != 0),
+        isEmpty,
+        reason: 'the count alone answers this; listing ids is for the close '
+            'case',
+      );
+    });
+
+    test('lists the carriers over the same population, as many as it touches',
+        () async {
+      // The listing has to be about the items the count counted, and long
+      // enough to hold every one of them. Narrower types would leave a
+      // carrier out; a shorter list could cut the one outside the set and
+      // warn when the child keeps something.
+      taggedAre(4, ['set-1', ...members]);
+
+      await repository.lastItemWarningsFor(take, touching: wholeSet);
+
+      Map<String, dynamic> query(bool listing) => server.requests
+          .lastWhere((r) =>
+              r.queryParameters['tags'] == 'kids-emma' &&
+              (r.queryParameters['Limit'] != 0) == listing)
+          .queryParameters;
+      expect(query(true)['IncludeItemTypes'], query(false)['IncludeItemTypes']);
+      expect(query(true)['IncludeItemTypes'], 'Movie,Series,BoxSet');
+      expect(query(true)['Limit'], wholeSet.length);
+    });
+
+    test('stays quiet when the count fits the set but one tag is elsewhere',
+        () async {
+      // Four tagged, four touched — but film-3 is unlabelled and a film
+      // outside the set carries the label instead. Counting alone would warn.
+      taggedAre(4, ['set-1', 'film-1', 'film-2', 'film-elsewhere']);
+
+      final warnings =
+          await repository.lastItemWarningsFor(take, touching: wholeSet);
+
+      expect(warnings, isEmpty);
+    });
+  });
+
   group('what "the child has this set" means', () {
     LibraryItem member(String id, {List<String> tags = const []}) =>
         LibraryItem(id: id, name: id, type: 'Movie', tags: tags);

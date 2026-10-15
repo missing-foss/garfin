@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app_info.dart';
 import '../l10n/gen/app_localizations.dart';
@@ -13,6 +14,7 @@ import '../providers/update_providers.dart';
 import '../repositories/update_repository.dart';
 import '../widgets/adaptive_layout.dart';
 import '../widgets/garfin_tank.dart';
+import '../widgets/open_external.dart';
 
 /// What Garfin is, who made it, and where to get it (#66).
 ///
@@ -68,6 +70,11 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
               // and with no visual feedback of any kind — a ripple here would
               // be the app hinting that something is behind the mark.
               behavior: HitTestBehavior.opaque,
+              // **Nor any to a screen reader.** With `onTap` alone this adds an
+              // unlabelled node with a tap action around the picture, which
+              // announces that something is here. The easter egg is
+              // sighted-only on purpose; the picture keeps its own label.
+              excludeFromSemantics: true,
               onTap: _tapMark,
               child: Image.asset(
                 'assets/brand/garfin-mark.png',
@@ -196,9 +203,9 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     _marktaps++;
     if (_marktaps < 5) return;
     _marktaps = 0;
-    Navigator.of(context).push(
+    unawaited(Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const GarfinTank()),
-    );
+    ));
   }
 
   /// One call, on a press, and never anywhere else.
@@ -301,33 +308,5 @@ class _LinkTile extends StatelessWidget {
       trailing: const Icon(Icons.open_in_new, size: 18),
       onTap: () => openExternal(context, url),
     );
-  }
-}
-
-/// Hands a URL to the phone, and says so if nothing will take it.
-///
-/// `externalApplication` rather than the default: an in-app web view would put
-/// a browser inside an app that holds an admin token, which is more surface
-/// than four static links are worth.
-///
-/// No `canLaunchUrl` pre-flight. It needs the `<queries>` entry in the manifest
-/// to answer honestly, it answers false for reasons that are not "this will
-/// fail", and the failure it is meant to prevent is already visible in the
-/// return value of `launchUrl`.
-@visibleForTesting
-Future<void> openExternal(BuildContext context, String url) async {
-  final l10n = AppLocalizations.of(context);
-  final messenger = ScaffoldMessenger.of(context);
-  var opened = false;
-  try {
-    opened = await launchUrl(
-      Uri.parse(url),
-      mode: LaunchMode.externalApplication,
-    );
-  } on Object {
-    opened = false;
-  }
-  if (!opened) {
-    messenger.showSnackBar(SnackBar(content: Text(l10n.aboutOpenFailed)));
   }
 }

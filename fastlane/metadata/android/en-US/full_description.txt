@@ -1,0 +1,15 @@
+Jellyfin can limit what a user sees by tag, but tagging hundreds of titles one at a time in the web admin is miserable. Garfin puts it on your phone: pick a child, browse what they can't see yet, and hand them a film, a series or a whole collection in one tap.
+
+<b>What it does</b>
+<ul>
+<li>Signs in to your server with Quick Connect or a password</li>
+<li>Shows which users are under a tag rule, and how many titles each child can see in each library, counted by the server</li>
+<li>Browses the library as posters, with search and filters for type, genre, decade and the child's rating cap</li>
+<li>Gives a title to one or more children by writing the tag back to Jellyfin</li>
+<li>Gives a collection whole, and asks whether to keep a set together when you give one film from it</li>
+<li>Previews every change before it is written, and lets you undo it after</li>
+</ul>
+
+<b>You sign in as a Jellyfin administrator.</b> That is Jellyfin's requirement: the server has no lesser permission that can change what a user may see.
+
+Garfin is not affiliated with, endorsed by, or connected to the Jellyfin project. Jellyfin is a trademark of Jellyfin, Inc.

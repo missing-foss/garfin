@@ -252,6 +252,9 @@ Future<AuthSession> _storedSession(
   String serverUrl,
 ) async {
   await prefs.setString('server_url', serverUrl);
+  // A stored session always has its account id: a token without one is
+  // not restored (see `write_hygiene_test.dart`).
+  await prefs.setString('user_id', 'admin-1');
   await const SecureTokenStore(FlutterSecureStorage()).write('token-abc');
   final session = await repository.restore();
   return session!;

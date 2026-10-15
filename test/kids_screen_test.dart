@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/models/jellyfin_user.dart';
@@ -76,7 +77,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(body: KidCard(kid: summary, session: session)),
         ),
@@ -170,7 +171,7 @@ void main() {
             ProviderScope(
               child: MaterialApp(
                 locale: locale,
-                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                localizationsDelegates: appLocalizationsDelegates,
                 supportedLocales: AppLocalizations.supportedLocales,
                 home: MediaQuery(
                   data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -244,7 +245,7 @@ void main() {
       ProviderScope(
         child: MaterialApp(
           locale: const Locale('fr'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(body: KidCard(kid: kid(), session: session)),
         ),

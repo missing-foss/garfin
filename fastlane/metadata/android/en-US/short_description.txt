@@ -1,0 +1,1 @@
+Hand-pick what your kids can watch on Jellyfin, one tap per title.

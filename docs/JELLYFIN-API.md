@@ -1380,9 +1380,10 @@ One write to one series, then `tags=kids-emma`:
 **`taggedItemCount`'s item types are load-bearing, not incidental.** It is what ground rule 1's
 last-item hard warning counts with — the warning that stops a parent taking a label off the last
 item carrying it and blanking the child's view. Widen that list to include `Episode` or `Season`
-and a single series contributes nine instead of one, `count <= 1` stops being reachable in any
-library with a series in it, and **the warning silently never fires again**. There is a test
-pinning the item types for exactly this reason.
+and a single series contributes nine instead of one, the count stops fitting inside what a write
+touches in any library with a series in it, and **the warning silently never fires again**. There
+is a test pinning the item types for exactly this reason. `taggedItemIds`, which lists the items
+when the count is close, uses the same types: the two answers have to be about one population.
 
 ### Why a series behaves unlike a BoxSet
 
@@ -1722,6 +1723,22 @@ Garfin's labels live in the same array. Consequences:
 - **Never set `Tags` wholesale.** Read, add or remove the one label, write the whole array back.
 - The tag diff shown to the user must not present provider keywords as things they chose.
 - "Remove the child's label" is a surgical removal from a shared list, not a clear.
+
+### Two writers: the last one wins, and nothing checks — measured
+
+There is no optimistic locking on an item write. **Measured 2026-10-12 on 10.11.11 and 12.1**,
+identically: read an item twice, post the first copy with one change, then post the second, stale
+copy with another:
+
+    POST A (fresh)                         204
+    POST B (stale, read before A)          204
+    Tags afterwards                        B's — A's change is gone, and nothing said so
+    POST with If-Match: "bogus"            204   the header is ignored, though the body has an Etag
+
+So two administrators, or two Garfin sessions, writing the same item close together get
+last-write-wins, silently. What keeps the window small is the write path's shape: `_writeOne`
+fetches the item **immediately** before posting it back, never from an earlier read, so the stale
+copy is at most one round trip old.
 
 ### A tag write reaches the library filesystem when the library saves metadata locally — measured
 
@@ -2112,6 +2129,25 @@ The command is exactly as strong as its name and no stronger. Copy implying that
 takes back what a child can reach is wrong, and the wording is the only guard against it.
 
 Not a policy write, so ground rule 8 is untouched — same as the Quick Connect approval.
+
+### Garfin's own sign-out revokes its own token, and no other — measured
+
+Ending a *child's* session is the device revoke above. Garfin signing **itself** out is a different
+call, `POST /Sessions/Logout`, sent with the token being given up. **Measured 2026-10-12 on 10.11.11
+and on 12.1**, identically, in disposable containers: one administrator signed in twice, from two
+device ids, as the control:
+
+    token A on /Users/Me                     200      token B 200
+    POST /Sessions/Logout with token A       204
+    token A on /Users/Me                     401      token B 200    <- only the sender's token
+    POST /Sessions/Logout with token A again 401
+    POST /Sessions/Logout with no token      401
+
+So it ends this sign-in and leaves the account's others alone, which is what *Sign out* in Settings
+means. Before it was called, sign-out only forgot the token on the phone; a token does not expire,
+so one that had been observed kept working. The call is best effort — sign-out has to work with no
+network — and it is skipped when the sign-out is *because* the server answered 401, since that token
+is already dead.
 
 ## What the grid can be sorted by — measured 2026-09-17 on 12.1.0
 

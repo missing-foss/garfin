@@ -254,14 +254,14 @@ logger must never receive tokens, passwords or Quick Connect secrets.
 **Verified against the implementation (2026-08-04).** Two ways, because a
 static reading and a behavioural one fail differently.
 
-*Statically*, every write in `lib/` was enumerated — **twenty-two
-`shared_preferences` call sites across six files** (2026-08-06, since
-updated), which is the complete list:
+*Statically*, every write in `lib/` was enumerated — **twenty-three
+`shared_preferences` call sites across six files** (2026-08-06, last re-run
+2026-10-13), which is the complete list:
 
 | File | Sites | Stored |
 |---|---|---|
 | `server_settings_store.dart` | 5 | server URL, user id, user name (and their removal on sign-out) |
-| `app_settings_store.dart` | 8 | Settings: the collection prompt, refresh-after-write, the starting child's id, hide-shared, theme, dynamic colour, poster size |
+| `app_settings_store.dart` | 9 | Settings: the collection prompt, refresh-after-write, allow screenshots, hide-shared, theme, dynamic colour, poster size, library sort and its direction |
 | `birth_year_store.dart` | 3 | a child's **birth year**, keyed by Jellyfin user id — write, clear, and the sweep `signOut` calls — see below |
 | `activity_store.dart` | 2 | the **Activity log** — see below |
 | `unlock_settings_store.dart` | 3 | whether the unlock gate is required (bool), the idle timeout (int seconds), whether the one-time unlock question has been answered (bool) |
@@ -318,11 +318,13 @@ handle for an installation. What it does: Jellyfin keys a session on `DeviceId`,
 so a stable one is what stops every launch registering a new device on the
 user's own dashboard. Where it goes: the `Authorization` header, to that server
 and nowhere else. It is not derived from any hardware identifier, is not shared
-between apps. It is **not** reliably per-installation, though: preferences are
-covered by Android's default backup (above), so a restore can carry the same id
-onto a reinstall or onto a new phone. An earlier version of this paragraph said
-it "does not survive an uninstall", which is what preferences do in the absence
-of backup and not what happens by default.
+between apps. It is **per-installation**: the manifest sets
+`allowBackup="false"` and its data-extraction rules exclude the app's storage
+from cloud backup and from device-to-device transfer alike, so neither a
+reinstall nor a new phone carries the id over. That is the configuration's
+claim, not a restore that was measured. For a time this paragraph said the
+opposite: it was written against Android's default backup, before backup was
+switched off.
 
 An earlier version of this paragraph said "seven call sites, all in
 `server_settings_store.dart` and `unlock_settings_store.dart`" and omitted
@@ -518,9 +520,8 @@ modelling the threat here should assume admin access defeats it.
 **There is deliberately no `SCORECARD_TOKEN`.** The documented setup asks for a classic PAT with
 `repo` scope — read *and write* over every repository its owner can reach — stored in a public
 repo's secrets, in order to raise a security score. That trade is not worth making: if it leaked,
-the blast radius is the whole organisation, and what it buys is a number. Scorecard is configured
-on the published mirror rather than on the development forge, and without the token the
-Branch-Protection check cannot be scored.
+the blast radius is the whole organisation, and what it buys is a number. Scorecard runs here, on
+this repository, and without the token the Branch-Protection check cannot be scored.
 The SAST check is capped regardless, because CodeQL does not support Dart — which is why
 `flutter analyze` is treated as load-bearing static analysis here rather than a formality.
 

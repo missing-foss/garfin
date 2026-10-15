@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
@@ -25,6 +27,7 @@ import '../widgets/collection_given_line.dart';
 import '../widgets/error_notice.dart';
 import '../widgets/library_grid.dart';
 import '../widgets/picking_for_avatar.dart';
+import '../providers/auth_providers.dart';
 
 /// Open a collection to see what is in it (#83).
 ///
@@ -61,7 +64,7 @@ void openFor(
     // reads as though the two are related, and the first thing here a parent
     // might press is Apply.
     ref.read(assignPanelProvider.notifier).clear();
-    openCollection(context, session: session, collection: item);
+    unawaited(openCollection(context, session: session, collection: item));
     return;
   }
   openAssign(context, ref,
@@ -90,8 +93,8 @@ void openAssign(
     ref.read(assignPanelProvider.notifier).select(item, from: fromCollection);
     return;
   }
-  showAssignSheet(
-      context, session: session, item: item, fromCollection: fromCollection);
+  unawaited(showAssignSheet(
+      context, session: session, item: item, fromCollection: fromCollection));
 }
 
 /// What is inside one collection.
@@ -161,16 +164,41 @@ class CollectionScreen extends ConsumerWidget {
                   // compared two children.
                   skipLoadingOnReload: true,
                   loading: () => const Center(child: CircularProgressIndicator()),
+                  // A way out, as the library's own error has: the set that
+                  // failed to load is one tap from loading again.
                   error: (error, _) => Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: ErrorNotice(
-                        message: jellyfinErrorText(
-                          l10n,
-                          error is JellyfinException
-                              ? error
-                              : const JellyfinException(JellyfinErrorKind.server),
-                        ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ErrorNotice(
+                            message: jellyfinErrorText(
+                              l10n,
+                              error is JellyfinException
+                                  ? error
+                                  : const JellyfinException(
+                                      JellyfinErrorKind.server,
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            // And the session, as on Kids and Library: what
+                            // failed may be the session itself.
+                            onPressed: () {
+                              // The set itself, not only the members built on
+                              // it: its failure is cached, and re-reading the
+                              // members alone would read the same error back.
+                              ref.invalidate(collectionSetProvider(request));
+                              ref.invalidate(collectionMembersProvider(request));
+                              unawaited(ref
+                                  .read(authControllerProvider.notifier)
+                                  .refreshSession());
+                            },
+                            child: Text(l10n.libraryRetry),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -418,8 +446,14 @@ class _RepairOfferState extends ConsumerState<_RepairOffer> {
       refreshLibrary(ref);
       ref.invalidate(kidsOverviewProvider(widget.session));
     } on Object {
-      // Left visible rather than swallowed: the offer staying is the honest
-      // report that the set is still shut.
+      // The offer staying is the honest report that the set is still shut —
+      // but a button that spun and then did nothing is not a report. Said, as
+      // the assign sheet says a failed write.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).errorServer)),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
@@ -37,6 +39,14 @@ class LibraryFilterBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final filters = ref.watch(libraryFiltersProvider);
+    // What the badge counts is what is actually narrowing the grid. The
+    // rating filter does nothing for a child with no cap — the switch is
+    // hidden and the query leaves it out — so counting it put a "1" on the
+    // button with nothing in the sheet to clear but Reset.
+    final child = ref.watch(pickedChildProvider(session));
+    final counted = child?.policy.maxParentalRating == null
+        ? filters.copyWith(withinCap: false)
+        : filters;
 
     return SizedBox(
       height: 48,
@@ -54,16 +64,16 @@ class LibraryFilterBar extends ConsumerWidget {
             // for at dinner"; the tune sheet narrows.
             const Expanded(
               child: Padding(
-                padding: EdgeInsets.only(right: 8, top: 2, bottom: 2),
+                padding: EdgeInsetsDirectional.only(end: 8, top: 2, bottom: 2),
                 child: LibrarySearchField(),
               ),
             ),
             IconButton(
               tooltip: l10n.filterAll,
-              isSelected: !filters.isEmpty,
+              isSelected: !counted.isEmpty,
               icon: Badge(
-                isLabelVisible: filters.activeCount > 0,
-                label: Text(l10n.filterActiveCount(filters.activeCount)),
+                isLabelVisible: counted.activeCount > 0,
+                label: Text(l10n.filterActiveCount(counted.activeCount)),
                 child: const Icon(Icons.tune),
               ),
               onPressed: () => _showAllFilters(context, ref),
@@ -76,7 +86,7 @@ class LibraryFilterBar extends ConsumerWidget {
 
   /// The tune button: every group at once, with Reset.
   void _showAllFilters(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet<void>(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (context) {
@@ -168,7 +178,7 @@ class LibraryFilterBar extends ConsumerWidget {
           ),
         );
       },
-    );
+    ));
   }
 }
 

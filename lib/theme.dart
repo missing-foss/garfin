@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The brand seed. Every colour in the app derives from this or from Material You.
 /// See BRANDING.md — do not introduce colours outside the generated scheme.

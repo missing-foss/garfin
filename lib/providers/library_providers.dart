@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
+import '../logging.dart';
 import '../models/country_lookup.dart';
 import '../models/auth_session.dart';
 import '../models/jellyfin_user.dart';
@@ -62,12 +64,18 @@ final pickingForProvider =
 /// tile as unknown, which is exactly what Everyone means and is the safe answer
 /// to render before the policies have arrived.
 final pickedChildProvider =
-    Provider.family<JellyfinUser?, AuthSession>((ref, session) {
+    Provider.autoDispose.family<JellyfinUser?, AuthSession>((ref, session) {
+  ref.keepAlive(); // released when the session ends
   final id = ref.watch(pickingForProvider);
   if (id == null) return null;
-  final overview = ref.watch(kidsOverviewProvider(session)).asData?.value;
-  for (final kid in overview?.shortlisted ?? const <KidSummary>[]) {
-    if (kid.user.id == id) return kid.user;
+  // **The roster, not the overview.** Seven places invalidate the overview,
+  // and each would hand the Library a new child and refetch its whole window;
+  // the roster is the cheap request the child's account comes from anyway.
+  // `.value` keeps the previous roster while it reloads, rather than reading
+  // as "Everyone" for a build and resetting the grid's paging.
+  final roster = ref.watch(kidsRosterProvider(session)).value;
+  for (final face in roster?.shortlisted ?? const <KidFace>[]) {
+    if (face.user.id == id) return face.user;
   }
   return null;
 });
@@ -146,14 +154,15 @@ class AssignPanelTarget {
 /// the hint and nothing else. An empty ladder answers "not known" for every
 /// rating, which is the honest degradation — see `suitabilityFor`.
 final parentalRatingLadderProvider =
-    FutureProvider.family<ParentalRatingLadder, AuthSession>((ref, session) async {
-  final api = ref.watch(jellyfinApiFactoryProvider).create(
-        baseUrl: session.serverUrl,
-        readToken: () => session.accessToken,
-      );
+    FutureProvider.autoDispose.family<ParentalRatingLadder, AuthSession>((ref, session) async {
+  ref.keepAlive(); // released when the session ends
+  final api = ref.watch(libraryApiProvider(session));
   try {
     return await api.parentalRatings();
-  } on Object {
+  } on Object catch (error) {
+    // Logged, because an empty ladder is otherwise indistinguishable from a
+    // server that has none.
+    log.info('parental ratings unavailable: ${error.runtimeType}');
     return const ParentalRatingLadder.empty();
   }
 });
@@ -167,14 +176,13 @@ final parentalRatingLadderProvider =
 /// for every country. That is the honest degradation: the rating shows alone
 /// and each country shows as its name, rather than a guess at either.
 final countriesProvider =
-    FutureProvider.family<CountryLookup, AuthSession>((ref, session) async {
-  final api = ref.watch(jellyfinApiFactoryProvider).create(
-        baseUrl: session.serverUrl,
-        readToken: () => session.accessToken,
-      );
+    FutureProvider.autoDispose.family<CountryLookup, AuthSession>((ref, session) async {
+  ref.keepAlive(); // released when the session ends
+  final api = ref.watch(libraryApiProvider(session));
   try {
     return await api.countries();
-  } on Object {
+  } on Object catch (error) {
+    log.info('countries unavailable: ${error.runtimeType}');
     return const CountryLookup.empty();
   }
 });
@@ -184,7 +192,12 @@ final countriesProvider =
 /// Separate from the repository because these are not the grid's data — they
 /// are the filter bar's menus, and a failure in one must not empty the other.
 final libraryApiProvider =
-    Provider.family<JellyfinApi, AuthSession>((ref, session) {
+    Provider.autoDispose.family<JellyfinApi, AuthSession>((ref, session) {
+  ref.keepAlive(); // released when the session ends
+  // **The one place a session's API is made.** Each `Dio` owns its own
+  // connection pool; every repository and lookup for this session watches
+  // this, so the app holds one pool to the server rather than one per caller
+  // (and one per child for the per-child library lists).
   return ref.watch(jellyfinApiFactoryProvider).create(
         baseUrl: session.serverUrl,
         readToken: () => session.accessToken,
@@ -192,11 +205,9 @@ final libraryApiProvider =
 });
 
 final libraryRepositoryProvider =
-    Provider.family<LibraryRepository, AuthSession>((ref, session) {
-  final api = ref.watch(jellyfinApiFactoryProvider).create(
-        baseUrl: session.serverUrl,
-        readToken: () => session.accessToken,
-      );
+    Provider.autoDispose.family<LibraryRepository, AuthSession>((ref, session) {
+  ref.keepAlive(); // released when the session ends
+  final api = ref.watch(libraryApiProvider(session));
   return LibraryRepository(api: api, adminUserId: session.userId);
 });
 
@@ -255,7 +266,8 @@ void refreshLibrary(WidgetRef ref) =>
 /// empty for a conflicting account, and asking `tags=` for nothing would count
 /// the whole library.
 final taggedItemCountProvider =
-    FutureProvider.family<int, AuthSession>((ref, session) async {
+    FutureProvider.autoDispose.family<int, AuthSession>((ref, session) async {
+  ref.keepAlive(); // released when the session ends
   // Refetched with the grid, never on its own — see [libraryRevisionProvider].
   ref.watch(libraryRevisionProvider);
 
@@ -293,7 +305,8 @@ final taggedItemCountProvider =
 /// query, which would return the whole library for a name nobody is credited
 /// under.
 final resolvedLibraryFiltersProvider =
-    FutureProvider.family<LibraryFilters, AuthSession>((ref, session) async {
+    FutureProvider.autoDispose.family<LibraryFilters, AuthSession>((ref, session) async {
+  ref.keepAlive(); // released when the session ends
   final filters = ref.watch(libraryFiltersProvider);
   if (filters.searchScope == SearchScope.title || !filters.hasSearch) {
     return filters;
@@ -305,7 +318,8 @@ final resolvedLibraryFiltersProvider =
           scope: filters.searchScope,
         );
     return filters.copyWith(resolvedSearchValue: name);
-  } on Object {
+  } on Object catch (error) {
+    log.info('search name unresolved: ${error.runtimeType}');
     // A resolve that failed is not a resolve that found nothing, but the grid
     // shows the same empty result either way and there is nothing a parent can
     // do differently. Failing to empty rather than to the whole library is the
@@ -381,19 +395,22 @@ final libraryFiltersProvider =
 /// measured, those are indistinguishable from here — so the chip hides rather
 /// than offering an empty menu or claiming the library has no genres.
 final libraryGenresProvider =
-    FutureProvider.family<List<String>, AuthSession>((ref, session) async {
+    FutureProvider.autoDispose.family<List<String>, AuthSession>((ref, session) async {
+  ref.keepAlive(); // released when the session ends
   try {
     return await ref.watch(libraryApiProvider(session)).genres(
           userId: session.userId,
         );
-  } on Object {
+  } on Object catch (error) {
+    log.info('genres unavailable: ${error.runtimeType}');
     return const [];
   }
 });
 
 /// The decades present, newest first, derived from the years the server lists.
 final libraryDecadesProvider =
-    FutureProvider.family<List<int>, AuthSession>((ref, session) async {
+    FutureProvider.autoDispose.family<List<int>, AuthSession>((ref, session) async {
+  ref.keepAlive(); // released when the session ends
   try {
     final years = await ref.watch(libraryApiProvider(session)).years(
           userId: session.userId,
@@ -401,7 +418,8 @@ final libraryDecadesProvider =
     final decades = {for (final year in years) (year ~/ 10) * 10}.toList()
       ..sort((a, b) => b.compareTo(a));
     return decades;
-  } on Object {
+  } on Object catch (error) {
+    log.info('years unavailable: ${error.runtimeType}');
     return const [];
   }
 });
@@ -519,6 +537,7 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
 
   @override
   Future<LibraryFeed> build() async {
+    ref.keepAlive(); // released when the session ends
     // The other half of the refresh unit (#93). Watched here rather than
     // invalidated from six call sites, so the grid and the count that
     // describes it can never be refreshed apart.
@@ -540,12 +559,13 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
       // it makes a different list, so it must start at the top: restoring a
       // window of N entries under a new order would hand back the first N of
       // a list the parent has never seen the start of.
-      sort: _sort(),
+      sort: _sort(watching: true),
     );
     final same = _lastList == list;
     _lastList = list;
 
     final slice = await _fetch(
+      watching: true,
       startIndex: 0,
       want: same ? _loaded : LibraryRepository.pageSize,
     );
@@ -565,23 +585,36 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
   /// Measured: it turns three `library_count_test` cases red. A search that
   /// needs resolving takes the `.then` path and accepts the hop, because there
   /// it is buying something.
+  ///
+  /// [watching] is true from `build` alone. `loadMore` reaches this after
+  /// `build` has finished, where `ref.watch` is the pattern Riverpod 3 warns
+  /// against; there it reads instead, and loses nothing, because `build`
+  /// already watches every provider this asks.
   Future<LibrarySlice> _fetch({
+    required bool watching,
     required int startIndex,
     int want = LibraryRepository.pageSize,
   }) {
-    final filters = ref.watch(libraryFiltersProvider);
-    if (!filters.needsResolve) return _fetchWith(filters, startIndex, want);
-    return ref
-        .watch(resolvedLibraryFiltersProvider(session).future)
-        .then((resolved) => _fetchWith(resolved, startIndex, want));
+    final filters = _get(libraryFiltersProvider, watching: watching);
+    if (!filters.needsResolve) {
+      return _fetchWith(filters, startIndex, want, watching: watching);
+    }
+    return _get(resolvedLibraryFiltersProvider(session).future,
+            watching: watching)
+        .then((resolved) =>
+            _fetchWith(resolved, startIndex, want, watching: watching));
   }
+
+  /// `ref.watch` inside `build`, `ref.read` after it.
+  T _get<T>(ProviderListenable<T> provider, {required bool watching}) =>
+      watching ? ref.watch(provider) : ref.read(provider);
 
   /// The order the grid is in, as the two strings the query sends.
   ///
   /// Read in one place so the record `build` compares and the query it issues
   /// can never disagree about what is on screen.
-  (String, String) _sort() {
-    final settings = ref.watch(settingsProvider);
+  (String, String) _sort({required bool watching}) {
+    final settings = _get(settingsProvider, watching: watching);
     return (
       librarySortBy(settings.librarySort),
       librarySortOrder(descending: settings.librarySortDescending),
@@ -591,21 +624,24 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
   Future<LibrarySlice> _fetchWith(
     LibraryFilters filters,
     int startIndex,
-    int want,
-  ) =>
-      ref.watch(libraryRepositoryProvider(session)).fetch(
-            sortBy: _sort().$1,
-            sortOrder: _sort().$2,
+    int want, {
+    required bool watching,
+  }) {
+    final sort = _sort(watching: watching);
+    return _get(libraryRepositoryProvider(session), watching: watching).fetch(
+            sortBy: sort.$1,
+            sortOrder: sort.$2,
             startIndex: startIndex,
             // Never below one page: `_loaded` is zero before anything has
             // been fetched, and a restore of zero would ask for nothing at all.
             want: want < LibraryRepository.pageSize
                 ? LibraryRepository.pageSize
                 : want,
-            child: ref.watch(pickedChildProvider(session)),
-            view: ref.watch(libraryViewProvider),
+            child: _get(pickedChildProvider(session), watching: watching),
+            view: _get(libraryViewProvider, watching: watching),
             filters: filters,
           );
+  }
 
   /// The next page, appended.
   ///
@@ -618,7 +654,8 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
 
     state = AsyncData(feed.copyWith(loadingMore: true, moreFailed: false));
     try {
-      final slice = await _fetch(startIndex: feed.nextStartIndex);
+      final slice =
+          await _fetch(watching: false, startIndex: feed.nextStartIndex);
       final current = state.asData?.value ?? feed;
       final grown = _appendNew(current.entries, slice.entries);
       // The window grew, so the amount a refresh has to restore grew with it.
@@ -658,5 +695,5 @@ class LibraryController extends AsyncNotifier<LibraryFeed> {
 }
 
 final libraryControllerProvider =
-    AsyncNotifierProvider.family<LibraryController, LibraryFeed, AuthSession>(
+    AsyncNotifierProvider.autoDispose.family<LibraryController, LibraryFeed, AuthSession>(
         LibraryController.new);

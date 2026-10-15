@@ -9,6 +9,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 Why things are the way they are. If you want to change one of these, that's fine — but read the
 rationale first, because the obvious alternative is usually what was rejected.
 
+A code comment never overrules this file or `UI-SPEC.md`: a reversal is a spec edit first, with
+the measurement behind it.
+
 ---
 
 ## Naming
@@ -228,6 +231,28 @@ policy filters the films inside. Tagging the container alone appears to work and
 > paged with the grid, scaling with what is on screen rather than with the size of the library. That
 > price is accepted knowingly. The grid page already sends `Fields: 'Tags,ChildCount'`, so only the
 > numerator ever needed asking for.
+>
+> **What that price comes to, measured 2026-10-14** in widget tests on the fake server, with the real
+> providers down to `JellyfinApi` (the probes were not kept). On a grid page of **240 sets**, a full
+> `pageSize`, with a child picked:
+>
+> ```
+>                          first render    page scrolled to the end
+> phone   1080x2400 @2.625      18          240, each set once
+> tablet  2560x1600 @2          28          240, each set once
+> ```
+>
+> That is the visible tiles plus the grid's cache extent. `GridView.builder` already builds tiles,
+> and so asks for their sets, as they come into view, so "per visible tile" holds at this page size
+> and needs no batching. A first probe read 0 because it did not drive the fake clock and real async
+> together; the count was taken only after a positive control.
+>
+> **The paging spinner's rebuild, measured the same day.** One frame after `loadMore()`, with the
+> spinner showing, **15** library tiles rebuild: those on screen plus the cache extent, not the
+> page. It happens twice per page fetched. A spinner-only consumer would not remove them, because
+> the library screen watches the whole controller and `loadingMore` is part of the feed. Avoiding
+> them means moving the paging flags out of `LibraryFeed`, a controller refactor that 15 rebuilds
+> twice per 240 items does not justify.
 >
 > Installs already holding loose films are **offered** a repair — one tap, user-initiated,
 > idempotent, writing only the container — rather than silently rewritten. The state is detectable
@@ -634,10 +659,11 @@ it, but not the others — changing the device credential or re-enrolling biomet
 the Keystore key the same way. `app_root.dart` renders that `AsyncError` as the sign-in screen,
 deliberately, and `test/widget_test.dart` now pins it.
 
-**`FLAG_SECURE` is set, blanket, on the one window (settled 2026-08-05).** The
-issue deliberately refused to pick an option until the exposure had been *measured*, because
-`FLAG_SECURE` costs a legitimate user something real and the case for it had been argued from
-documented Android behaviour rather than observed. Measured 2026-08-05; numbers in `SECURITY.md`.
+**`FLAG_SECURE` is set on the one window by default (settled 2026-08-05; made the parent's choice
+2026-09-07, below).** The issue deliberately refused to pick an option until the exposure had been
+*measured*, because `FLAG_SECURE` costs a legitimate user something real and the case for it had
+been argued from documented Android behaviour rather than observed. Measured 2026-08-05; numbers in
+`SECURITY.md`.
 
 What the measurement changed: the exposure is not a live thumbnail, it is a **file on disk** at
 `/data/system_ce/0/snapshots/<taskId>.jpg` that outlives the idle timeout byte-identical. So
@@ -657,6 +683,16 @@ Accepted cost, and it is a real one: the parent cannot screenshot Garfin or mirr
 screen. Garfin is not a media player, so casting it was never the point; screenshots for a bug
 report are the genuine loss. Weighed against an admin token on a phone handed to children by
 design — ground rule 9's whole premise — the trade is worth making.
+
+**Amended 2026-09-07: the cost is now a choice, off by default.** A parent asked to stop paying it,
+and on Android 13 and later the two halves turn out to be separable:
+`setRecentsScreenshotEnabled(false)` covers the recents thumbnail without the flag, measured on an
+Android 14 emulator. So **Settings → Unlock → Allow screenshots** relaxes `FLAG_SECURE` while the
+thumbnail stays covered. Below Android 13 nothing covers the thumbnail on its own, so allowing
+capture gives it back, and the switch says so in a second line, driven by asking the platform. The
+default is unchanged: the window starts secure at creation and is relaxed only once the stored
+answer has been read, so a parent who never opens the setting keeps exactly what was measured above.
+The measurements and the per-version table are in `SECURITY.md`.
 
 Implemented natively in `MainActivity.onCreate`, not via a plugin. The usual plugin suggestion,
 `flutter_windowmanager`, is not an option here at all: latest is 0.2.0, published 2021-08-26, and
@@ -1045,9 +1081,28 @@ row in the About screen that reopens it on demand. It would work; it was not wan
 
 ---
 
+## Secure storage reports its own upgrade losses (settled 2026-10-05)
+
+`main` calls `checkUpgradeStatus()` on `flutter_secure_storage` once, before anything reads the
+store, and logs the answer: WARNING on a loss, so it survives the release log level; INFO
+otherwise. Added with the v10 → v11 bump and **kept permanently**: it is read-only and costs one
+platform call, and the next major version can strand data the same way. Without it a loss looks
+like nothing more than a parent who has to sign in again.
+
+**What a loss costs, and what it does not.** Only the access token is in secure storage; the
+device id is in `shared_preferences`. A loss signs the parent out; it registers no new device.
+
+**Why v11 was safe for us**, so the next bump can check the same three things: the pin was
+`^10.3.1` from the first commit, a bare `FlutterSecureStorage()` writes with RSA-OAEP and
+AES-GCM by default, and the cipher names are in the store's own configuration file on the device.
+Then measured both ways: on an Android 14 emulator, installed over a signed-in v10 build, the
+session survived and the check answered `ok` for its one entry; on a real Android 17 phone, a
+release-signed build installed over the release kept the parent signed in, and the fingerprint
+gate still opened on relaunch.
+
+---
+
 ## Open questions
 
-- Whether to offer a migration when the tag prefix changes, or just document it
-- Whether the Activity log persists across sessions or is session-only
 - Music: albums and artists are taggable but the value is unclear — currently in scope, untested
 - Whether to support multiple servers, or one at a time

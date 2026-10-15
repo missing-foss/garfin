@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../l10n/gen/app_localizations.dart';
 import '../models/age_suitability.dart';
@@ -11,6 +10,7 @@ import '../models/item_holder.dart';
 import '../models/library_item.dart';
 import '../repositories/library_repository.dart';
 import 'user_avatar.dart';
+import 'server_image.dart';
 
 /// One poster on the grid.
 ///
@@ -170,7 +170,7 @@ class LibraryTile extends StatelessWidget {
                           ),
                         Expanded(
                           child: Align(
-                            alignment: Alignment.topRight,
+                            alignment: AlignmentDirectional.topEnd,
                             // The faces are already in the tile's own semantic
                             // label, in full. Left in the tree they would read
                             // as a string of stray initials between the title
@@ -619,8 +619,8 @@ class _HolderRow extends StatelessWidget {
       child: Stack(
         children: [
           for (var i = 0; i < circles; i++)
-            Positioned(
-              left: i * (_diameter * scale - _overlap * scale),
+            PositionedDirectional(
+              start: i * (_diameter * scale - _overlap * scale),
               child: Container(
                 // A ring in the surface colour, because a dark avatar over a
                 // dark poster is one shape rather than two — and posters are
@@ -719,13 +719,11 @@ class _Poster extends StatelessWidget {
     final base =
         serverUrl.endsWith('/') ? serverUrl.substring(0, serverUrl.length - 1) : serverUrl;
 
-    return CachedNetworkImage(
+    return ServerImage(
       // The tag is what makes the URL change when the artwork does; without it
       // a cached poster would outlive the picture it shows.
-      imageUrl: '$base/Items/${item.id}/Images/Primary?tag=$tag',
-      fit: BoxFit.cover,
-      placeholder: (_, _) => placeholder,
-      errorWidget: (_, _, _) => placeholder,
+      url: '$base/Items/${item.id}/Images/Primary?tag=$tag',
+      placeholder: placeholder,
     );
   }
 }

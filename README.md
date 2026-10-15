@@ -47,8 +47,9 @@ mode that does less and still does something useful. What that leaves them is be
 
 ## Install
 
-Android 8.0 or newer. The APK is published on the project's Releases page, so
-Android will ask you to allow installing from wherever you downloaded it.
+Android 8.0 or newer. The APKs are published on the project's Releases page —
+one per ABI, so take the one matching your device — and Android will ask you to
+allow installing from wherever you downloaded it.
 
 **Check what you downloaded before installing it.** The signing fingerprint is
 not a secret and is published in [`SECURITY.md`](SECURITY.md):
@@ -66,6 +67,12 @@ this app's signing key was changed early on. `SECURITY.md` records both values
 and the reason, so v0.1.0 stays verifiable. An update cannot cross a key change,
 so anyone holding v0.1.0 installs the newer one fresh rather than updating over
 it.
+
+**To be told about updates, use Obtainium.** Add this repository's GitHub page
+as an Obtainium source; tick pre-releases for test builds. Obtainium fetches the
+same signed APKs from the Releases page, so the check above applies to them too.
+
+What changed in each release is in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## First run
 
@@ -196,11 +203,14 @@ lives.
 
 ## Status
 
-**v0.1.0 is released.** Early, and `docs/ENGINEERING.md` records the build order
-it followed.
+**v0.2.0 is released**, as one APK per ABI: `arm64-v8a`, `armeabi-v7a` and
+`x86_64`. Take the one your device needs, and check it before installing — see
+**Install** above.
 
-It is signed with a different key from the releases after it — see **Install**
-above, and [`SECURITY.md`](SECURITY.md) for both fingerprints and the reason.
+v0.1.0 came first and is signed with a different key, so an update cannot cross
+from it: anyone still holding v0.1.0 installs a newer one fresh rather than
+updating over it. [`SECURITY.md`](SECURITY.md) records both fingerprints and the
+reason, and `docs/ENGINEERING.md` records the build order the project followed.
 
 ## Documentation
 

@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/active_session.dart';
 import 'package:garfin/models/auth_session.dart';
@@ -264,7 +265,7 @@ void main() {
           ],
           child: MaterialApp(
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: SessionCard(session: session, active: active),
@@ -284,9 +285,8 @@ void main() {
 
     /// The same session on a device that accepts remote commands.
     ///
-    /// The default fixture reports `SupportsRemoteControl: false`, which is
-    /// now enough to disable Stop — so every test that drives that button has
-    /// to say it is talking to a device that claims it can be driven.
+    /// The default fixture reports `SupportsRemoteControl: false`. The flag
+    /// changes End's confirmation body, not whether Stop is offered.
     final emmaRemote = ActiveSession.fromJson(sessionJson(
       user: 'kid-1',
       userName: 'Emma',
@@ -395,12 +395,14 @@ void main() {
       await tester.pump();
     });
 
-    testWidgets('a device that cannot be controlled says so', (tester) async {
+    testWidgets('a device that reports it cannot be controlled says so, as its claim',
+        (tester) async {
       // Measured: the message and stop commands answer 204 anyway, so without
-      // this the parent is told something was sent to a device that cannot
-      // receive it.
+      // this the parent is told something was sent to a device that may not
+      // act on it. Worded as what the device *says*: the flag is its own
+      // claim, and Stop is offered beside it.
       await pumpCard(tester, emma);
-      expect(find.textContaining("doesn't accept remote commands"),
+      expect(find.textContaining("says it doesn't accept remote commands"),
           findsOneWidget);
     });
 
@@ -583,20 +585,18 @@ void main() {
           findsOneWidget);
     });
 
-    testWidgets('Stop is not offered to a device that says it cannot obey',
+    testWidgets('Stop stays enabled on a device that says it cannot obey',
         (tester) async {
-      // Reverses the decision that previously stood here. The flag is the
-      // client's own claim, so this does withdraw a control that might have
-      // worked -- that is the price, and the ruling took it: a button known in
-      // advance not to work is the same dishonesty as a toast that reports
-      // intent as outcome. End stays, because the revoke works regardless.
+      // The flag is the client's own claim and the commands answer 204 either
+      // way, so disabling on it withdraws a control that may work. The
+      // read-back is what tells the parent whether it did.
       await pumpCard(tester, emma);
 
       final stop = tester.widget<TextButton>(
         find.ancestor(
             of: find.text('Stop playback'), matching: find.byType(TextButton)),
       );
-      expect(stop.onPressed, isNull);
+      expect(stop.onPressed, isNotNull);
 
       final end = tester.widget<TextButton>(
         find.ancestor(

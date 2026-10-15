@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import '../logging.dart';
 import '../models/jellyfin_user.dart';
 import '../models/kid_summary.dart';
 import '../models/parental_rating.dart';
@@ -94,7 +95,10 @@ class KidsRepository {
     // in the list.
     final ladder = await _api.parentalRatings().then<ParentalRatingLadder>(
           (value) => value,
-          onError: (_, _) => const ParentalRatingLadder.empty(),
+          onError: (Object error, _) {
+            log.info('parental ratings unavailable: ${error.runtimeType}');
+            return const ParentalRatingLadder.empty();
+          },
         );
 
     final shortlisted = <KidSummary>[

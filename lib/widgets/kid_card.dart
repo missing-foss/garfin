@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -221,7 +223,7 @@ class _KidCardState extends ConsumerState<KidCard> {
                 if (!conflicting) ...[
                   const SizedBox(height: 4),
                   Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: AlignmentDirectional.centerStart,
                     child: TextButton.icon(
                       icon: const Icon(Icons.phonelink_lock_outlined, size: 18),
                       label: Text(l10n.deviceSignInAction),
@@ -474,7 +476,7 @@ class _KidCardState extends ConsumerState<KidCard> {
 /// It states the read-only boundary plainly. Ground rule 8 is a deliberate
 /// design commitment, and a limit nobody explains reads as a missing feature.
 void _explain(BuildContext context, AppLocalizations l10n, String name) {
-  showModalBottomSheet<void>(
+  unawaited(showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     builder: (context) {
@@ -524,7 +526,7 @@ void _explain(BuildContext context, AppLocalizations l10n, String name) {
         ),
       );
     },
-  );
+  ));
 }
 
 class _AgeLine extends ConsumerWidget {
@@ -539,16 +541,27 @@ class _AgeLine extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final age = kid.ageIn(DateTime.now().year);
 
-    return InkWell(
-      onTap: () => _edit(context, ref),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Text(
-          age == null ? l10n.kidsAgeUnknown : l10n.kidsAgeYears(age),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: age == null
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurfaceVariant,
+    // A control in its own right, inside the row that expands the card: so a
+    // full 48dp target, and a button with a hint, or a screen-reader user hears
+    // an age and has no way to know it can be changed.
+    return Semantics(
+      button: true,
+      hint: l10n.kidsAgeEditHint,
+      child: InkWell(
+        onTap: () => _edit(context, ref),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: kMinInteractiveDimension),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            widthFactor: 1,
+            child: Text(
+              age == null ? l10n.kidsAgeUnknown : l10n.kidsAgeYears(age),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: age == null
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
         ),
       ),

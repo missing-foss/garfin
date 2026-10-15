@@ -59,6 +59,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get passwordLabel => 'Password';
 
   @override
+  String get passwordShowTooltip => 'Show password';
+
+  @override
+  String get passwordHideTooltip => 'Hide password';
+
+  @override
   String get signInAction => 'Sign in';
 
   @override
@@ -73,6 +79,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get signOutAction => 'Sign out';
+
+  @override
+  String get signOutConfirmTitle => 'Sign out?';
+
+  @override
+  String get signOutConfirmBody =>
+      'This phone forgets your Jellyfin sign-in and asks the server to stop accepting it. To use Garfin again, you\'ll sign in again or pair this phone with Quick Connect.';
 
   @override
   String get homeNextUpBody =>
@@ -99,6 +112,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorTimeout => 'The server didn\'t answer in time. Try again.';
 
   @override
+  String get errorUntrustedCertificate =>
+      'This phone doesn\'t trust the server\'s certificate. On your home network, use its http:// address, or install the server\'s certificate on this phone.';
+
+  @override
   String get errorUnauthorized => 'That username or password didn\'t match.';
 
   @override
@@ -108,6 +125,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorNotFound =>
       'Something answered at that address, but it wasn\'t Jellyfin.';
+
+  @override
+  String errorMoved(String address) {
+    return 'This server has moved to $address. Sign in with that address instead.';
+  }
+
+  @override
+  String get errorMovedNoAddress =>
+      'This server has moved, but didn\'t say where. Check its address.';
 
   @override
   String get errorServer =>
@@ -242,11 +268,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String kidsAgeYears(int years) {
-    return '$years years old';
+    String _temp0 = intl.Intl.pluralLogic(
+      years,
+      locale: localeName,
+      other: '$years years old',
+      one: '$years year old',
+    );
+    return '$_temp0';
   }
 
   @override
   String get kidsAgeUnknown => 'Add a birth year';
+
+  @override
+  String get kidsAgeEditHint => 'Change the birth year';
 
   @override
   String kidsRatingCap(String rating) {
@@ -352,12 +387,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String libraryNotYetGiven(int count, String name) {
-    return '$count things $name hasn\'t got yet';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count things $name hasn\'t got yet',
+      one: '$count thing $name hasn\'t got yet',
+    );
+    return '$_temp0';
   }
 
   @override
   String libraryWithheld(int count, String name) {
-    return '$count things kept from $name';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count things kept from $name',
+      one: '$count thing kept from $name',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -367,7 +414,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String libraryItemCount(int count) {
-    return '$count things';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count things',
+      one: '$count thing',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -386,6 +439,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get libraryEmpty => 'Nothing here yet.';
+
+  @override
+  String get libraryNoMatches => 'Nothing here matches these filters.';
+
+  @override
+  String libraryNoMatchesFor(String query) {
+    return 'Nothing here matches “$query”.';
+  }
 
   @override
   String libraryNothingLeft(String name) {
@@ -408,17 +469,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String libraryCollectionCount(int count) {
-    return '$count titles';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titles',
+      one: '$count title',
+    );
+    return '$_temp0';
   }
 
   @override
   String libraryEpisodeCount(int count) {
-    return '$count episodes';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count episodes',
+      one: '$count episode',
+    );
+    return '$_temp0';
   }
 
   @override
   String librarySemanticSeries(int count) {
-    return 'Series, $count episodes';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Series, $count episodes',
+      one: 'Series, $count episode',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -426,7 +505,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String librarySemanticCollection(int count) {
-    return 'Collection, $count titles';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Collection, $count titles',
+      one: 'Collection, $count title',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -434,7 +519,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String collectionTitleCount(int count) {
-    return '$count titles in this collection';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titles in this collection',
+      one: '$count title in this collection',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -510,6 +601,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assignTitle => 'Who gets this?';
 
   @override
+  String get libraryTileAssignHint => 'Choose who gets it';
+
+  @override
+  String get libraryTileOpenHint => 'Open the collection';
+
+  @override
   String assignSees(String name, int visible, int total) {
     return '$name sees $visible of $total';
   }
@@ -559,12 +656,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String assignCollectionNote(int count) {
-    return 'Labels land on all $count titles inside, and on the collection itself.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Labels land on all $count titles inside, and on the collection itself.',
+      one:
+          'Labels land on the $count title inside, and on the collection itself.',
+    );
+    return '$_temp0';
   }
 
   @override
   String assignPartOfSet(String name, int count) {
-    return 'Part of $name — $count titles in the set.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Part of $name — $count titles in the set.',
+      one: 'Part of $name — $count title in the set.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -585,27 +696,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String assignSetTogetherAll(int count) {
-    return 'All $count';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'All $count',
+      one: 'The $count',
+    );
+    return '$_temp0';
   }
 
   @override
   String assignBatchPartial(int done, int total) {
-    return '$done of $total titles changed.';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$done of $total titles changed.',
+      one: '$done of $total title changed.',
+    );
+    return '$_temp0';
   }
 
   @override
   String assignBatchSetIncomplete(int count) {
-    return 'All $count titles changed, but the collection itself didn\'t.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'All $count titles changed, but the collection itself didn\'t.',
+      one: 'The $count title changed, but the collection itself didn\'t.',
+    );
+    return '$_temp0';
   }
 
   @override
   String assignBatchSetIncompleteAdded(int count) {
-    return 'All $count titles are labelled, but the collection itself isn\'t. The films are there; the set isn\'t.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'All $count titles are labelled, but the collection itself isn\'t. The films are there; the set isn\'t.',
+      one:
+          'The $count title is labelled, but the collection itself isn\'t. The film is there; the set isn\'t.',
+    );
+    return '$_temp0';
   }
 
   @override
   String assignBatchSetIncompleteRemoved(int count) {
-    return 'All $count titles are unlabelled, but the collection itself still is. The films are gone; the set is still there, and it will look empty.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'All $count titles are unlabelled, but the collection itself still is. The films are gone; the set is still there, and it will look empty.',
+      one:
+          'The $count title is unlabelled, but the collection itself still is. The film is gone; the set is still there, and it will look empty.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -619,7 +764,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String assignBatchPreflightFailed(int count) {
-    return 'Nothing was changed. $count titles in this set couldn\'t be read, so Garfin left the whole set alone.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Nothing was changed. $count titles in this set couldn\'t be read, so Garfin left the whole set alone.',
+      one:
+          'Nothing was changed. $count title in this set couldn\'t be read, so Garfin left the whole set alone.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -735,7 +888,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String aboutOurPackagesCount(int count) {
-    return '$count chosen here — the rest come with Flutter';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count chosen here — the rest come with Flutter',
+      one: '$count chosen here — the rest come with Flutter',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -850,7 +1009,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String activityWhenCollection(String when, int count) {
-    return '$when · $count titles';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$when · $count titles',
+      one: '$when · $count title',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1036,7 +1201,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sessionsUncontrollable =>
-      'This device doesn\'t accept remote commands. Signing it out won\'t stop what\'s playing.';
+      'This device says it doesn\'t accept remote commands. Signing it out won\'t stop what\'s playing.';
 
   @override
   String get librarySearchHint => 'Search titles';
@@ -1168,7 +1333,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String collectionGivenAll(int total, String name) {
-    return 'All $total given to $name';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: 'All $total given to $name',
+      one: 'The $total title given to $name',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1183,6 +1354,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String collectionKeptAll(int total, String name) {
-    return 'All $total kept from $name';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: 'All $total kept from $name',
+      one: 'The $total title kept from $name',
+    );
+    return '$_temp0';
   }
 }

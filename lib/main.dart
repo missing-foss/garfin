@@ -2,21 +2,25 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'dart:async';
+
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_info.dart';
+import 'l10n/app_delegates.dart';
 import 'l10n/gen/app_localizations.dart';
 import 'logging.dart';
 import 'providers/app_providers.dart';
 import 'providers/settings_providers.dart';
 import 'repositories/device_identity.dart';
+import 'repositories/token_store.dart';
 import 'screens/app_root.dart';
 import 'theme.dart';
 
@@ -29,6 +33,11 @@ Future<void> main() async {
   configureLogging(level: kReleaseMode ? Level.WARNING : Level.INFO);
 
   registerPlatformLicences();
+
+  // Before anything reads the store, as the plugin asks: reports whether the
+  // token survived a major upgrade of `flutter_secure_storage`. The same const
+  // instance `secureStorageProvider` builds, so the same default options.
+  await logSecureStorageUpgradeStatus(const FlutterSecureStorage(), log);
 
   // Both need async setup before the first frame, so they are resolved here and
   // injected. See the note on `sharedPreferencesProvider` for why those
@@ -53,8 +62,8 @@ Future<void> main() async {
 /// `LicenseRegistry` is populated from Dart package licences and the engine's
 /// vendored `NOTICES`. FreeDroidWarn is an Android library resolved by Gradle,
 /// so it is linked into the APK while being invisible to every one of those
-/// sources — without this the licence page would list eleven packages and ship
-/// twelve. That is an attribution licence going unattributed, and it would also
+/// sources — without this the licence page would list twelve packages and ship
+/// thirteen. That is an attribution licence going unattributed, and it would also
 /// make the claim in `licences_screen.dart` about the full page being
 /// "generated from what is actually linked" untrue.
 ///
@@ -98,9 +107,9 @@ class _GarfinAppState extends ConsumerState<GarfinApp> {
     // unprotected frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(windowSecurityProvider).setScreenshotsAllowed(
+      unawaited(ref.read(windowSecurityProvider).setScreenshotsAllowed(
             allowed: ref.read(settingsProvider).allowScreenshots,
-          );
+          ));
     });
   }
 
@@ -122,12 +131,7 @@ class _GarfinAppState extends ConsumerState<GarfinApp> {
         return MaterialApp(
           onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
           debugShowCheckedModeBanner: false,
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: garfinTheme(light),
           darkTheme: garfinTheme(dark),

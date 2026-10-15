@@ -69,9 +69,11 @@ nothing, and the scrollbar leaves the window's edge to come and meet the text. I
 width rather than one that varies with the insets it happens to declare.
 
 The **poster grid is deliberately not capped** — it is the one thing on screen that gets better with
-room, which is what the target-width rule in § Library is for. Both **modal bottom sheets** are
-capped, because between 600dp and 840dp there is a rail but no panel yet and a sheet is still
-allowed to be 839dp wide.
+room, which is what the target-width rule in § Library is for. **Modal bottom sheets** need no cap
+of their own: Material 3 already draws a modal sheet's surface no wider than 640dp, centred
+(measured under this theme at 700, 800 and 839dp of window), and no sheet here overrides that. The
+device sign-in and assign sheets do sit in the same 640dp wrapper; what it adds there is the vertical
+shrink-wrap, so the sheet is as tall as its contents rather than as tall as the space it is offered.
 
 ## Unlock
 
@@ -153,11 +155,18 @@ in the navigation and unchanged in every other respect.
  `searchTerm` on the same request, never a filter applied to a page after it arrives, because
    the match is usually not in the first page of rows.
 
-   It matches the **title only** — measured, not the overview, cast, tags or genres — any
-   substring, case- and accent-insensitively, and it combines with the other filters rather than
-   replacing them. Typing is debounced at 350ms: every keystroke would otherwise be a
-   library-sized query, which was measured at up to half a second. Whitespace is not a search, and
-   an active search counts toward the filter badge like anything else.
+   **A menu on the field picks what is searched**, one at a time: *Title* (the default),
+   *Cast & crew* or *Studio*, and the placeholder names the scope in force. One at a time because
+   `/Items` ANDs its filters and has no OR, and a union of queries cannot be paged by the server.
+   *Title* matches the **title only** — measured, not the overview, cast, tags or genres — any
+   substring, case- and accent-insensitively. *Cast & crew* and *Studio* are exact matches on the
+   server, so what was typed is first resolved to a name through `/Search/Hints`; a name nobody is
+   credited under shows an empty grid, never the whole library. *Cast & crew* matches every credit,
+   because narrowing to actors behaves differently between the supported server versions. Every
+   scope combines with the other filters rather than replacing them. Typing is debounced at 350ms:
+   every keystroke would otherwise be a library-sized query, which was measured at up to half a
+   second. Whitespace is not a search, and an active search counts toward the filter badge like
+   anything else.
 
 **The share sits in the collection's own badge, on the poster.** One badge rather than two,
 because all four corners of a poster are already spoken for — state top-left, faces top-right, age
@@ -474,6 +483,12 @@ the collection itself** — measured, a set whose members alone are labelled han
 films without the set, and browsing it answers 401. For a film in a collection: a softer note
 naming the set, **one per set**, because a film can belong to several.
 
+**Everything above Apply scrolls as one, the cover included, and Apply is the only part pinned.**
+With the cover pinned above the rows, a phone gave the children whatever the cover left: measured
+at 412×917dp, a Pixel 9 Pro, a 159dp window from three children up, and at font size 1.3 a 67dp
+one — less than a single row, which a flick crosses at once. One scrolling area reaches every
+child the same way, however many there are, on the sheet and the panel alike.
+
 One row per label-controlled child, the selected one first. Rows above the child's rating cap are
 flagged. Each row carries that child's **current** visible count — "Emma sees 24 of 400" —
 fetched from the server, never computed here.
@@ -505,6 +520,14 @@ Garfin cannot empty `AllowedTags` itself — ground rule 8 means it never writes
 the trigger is a **count of items carrying the tag**, reached zero. That is a library query, not
 a visibility computation, so ground rule 4 is not in play: no rating cap enters into it. It must
 be impossible to apply without having read the warning.
+
+**Reached zero by this write**, which is not the same as "one left". A set's removal takes the
+label off every member and the container, so taking a twelve-film set from a child who has only
+that set goes from twelve to none. The question is therefore whether every item still carrying the
+label is one the write touches, asked of the server: when the count is no more than the write
+touches, the ids are listed and compared. **Every button that can take a label away asks it**:
+Apply, the reversal of a partly-written set, the toast's Undo and Activity's. An Undo of the only
+thing a child was given is the same event.
 
 If a single film belongs to a collection and labels were added, an **AlertDialog** asks whether to
 keep the set together, listing the other members with their ratings. "Just this one" / "All N".
@@ -874,20 +897,35 @@ measured. "Sent" stays the whole of what that command claims.
 **Garfin's own session is never in this list.** Ending it is a 204 followed by an immediate 401:
 the app signing the parent out of itself.
 
-## Kid detail
+## Kid detail — not a screen
 
-Hero block in the child's hue: avatar, the visible count as a large number, progress, and a
-sentence explaining the mode in words. Then one row per library with its own visible/total, greyed
-when access is denied — a missing library is usually a folder-permission mistake, not a tag one.
-Extended FAB: "Add titles".
+There is no separate screen for one child. What a child's detail would hold opens **in place, on
+their card on the Kids screen**: the owner asked for the per-library detail to be revealed by a tap
+on the Kids screen rather than shown up front, and for a tap on the face to land on what that child
+has. Each piece of the screen first drawn here went somewhere, or went on purpose:
+
+- **The picture** is on the card. Tapping it picks the child and opens the Library on what they
+  have been given; it never opens a detail view.
+- **The visible count, as a large number with a progress bar, is gone**, as is the request behind
+  it. The per-library rows answer the same question with more resolution, and a total beside them
+  could disagree with them — § Kids, *There is no headline count*.
+- **The sentence explaining the mode** is the sentence that introduces the labels, chosen by the
+  account's mode, and absent for a conflicting account.
+- **One row per library** is the *{name} has access to* card: each library's visible count, sorted
+  most-seen first. There is no total beside each row. A library the child cannot open is **left
+  out, not greyed**: measured, a count in it answers 401 rather than zero, and one such library
+  failed the whole breakdown. A library Garfin cannot give or take from is left out too.
+- **There is no "Add titles" button.** Giving a child something starts from the title, in the
+  Library and its assign sheet, not from the child.
 
 ## Activity
 
-Reverse-chronological list of every label write: item, "Handed to / Taken from {child}", relative
-time, and the tag that changed. Entries offer Undo — a forward write, per the assign sheet's
-*How Undo works* above, which is why an entry stays safely undoable however old it is. That is also
-why the offer is not limited to recent ones: age was the only reason to withhold it, and a forward
-write removes that reason.
+Reverse-chronological list of every label write: item, "Handed to / Taken from {child}", the label
+that was written, as a chip, and relative time. The label is shown beside the verb because for a
+block-list child they read opposite ways: "Taken from Sam" is the label being *added*. Entries offer
+Undo — a forward write, per the assign sheet's *How Undo works* above, which is why an entry stays
+safely undoable however old it is. That is also why the offer is not limited to recent ones: age was
+the only reason to withhold it, and a forward write removes that reason.
 
 **This is Garfin's own record, and the screen says so.** Measured: Jellyfin logs nothing
 when an item's metadata is written, so there is no server history to read back — a label added in
@@ -918,10 +956,16 @@ does not survive an uninstall and does not leave the phone.
 
 ## Settings
 
-- **Unlock** — require biometric/PIN (on by default), and the idle timeout before Garfin asks
-  again on resume. Default 2 minutes. Long enough not to nag while the parent is picking, short
-  enough that handing the phone over expires the session in practice.
-- **Server** — host, signed-in user, sign out, refresh cache
+- **Unlock** — require biometric/PIN (on by default); **Allow screenshots** (off by default);
+  and the idle timeout before Garfin asks again on resume. Default 2 minutes. Long enough not to
+  nag while the parent is picking, short enough that handing the phone over expires the session in
+  practice. Allow screenshots lives here rather than under Looks because it moves the window flag
+  the lock's recents cover used to depend on. Off, screenshots, recording and mirroring are
+  blocked. Where turning it on also exposes the recent-apps preview (below Android 13, or a device
+  that cannot say), its subtitle gains a line saying so.
+- **Server** — host, signed-in user, sign out, refresh cache. **Sign out is confirmed** (ground
+  rule 6), as Stop and End are on a session card: getting back in can mean pairing the phone again.
+  It also revokes the token on the server, best effort; see `docs/JELLYFIN-API.md`.
 - **Labels** — collection prompt behaviour (ask each time / the whole set / just the one title),
   refresh metadata after write
 - **Picking** — hide shared
@@ -948,7 +992,11 @@ Reached from Settings → About. Top bar with a back button, centred scrolling c
 - **Licences** — the GPL line, then Flutter's own licence page, then the non-affiliation note.
 
 The mark takes five taps, and nothing before the fifth. It is not announced anywhere and
-carries no affordance — no ripple, no button semantics — which is the point of it.
+carries no affordance — no ripple, no button semantics, and no tap action for a screen reader —
+which is the point of it. The picture itself is labelled with the product name, as any image
+should be. The tap target is excluded from semantics: a `GestureDetector` with `onTap` otherwise
+adds an unlabelled node with a tap action around it, measured in the semantics tree, which would
+tell a screen-reader user something is there. So the easter egg is sighted-only, deliberately.
 
 ### Three switches this list used to carry, and why they are gone
 

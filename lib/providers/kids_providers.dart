@@ -10,6 +10,7 @@ import '../models/media_library.dart';
 import '../repositories/bounded_batch.dart';
 import '../repositories/kids_repository.dart';
 import 'app_providers.dart';
+import 'library_providers.dart';
 
 /// The Kids repository for a given signed-in session.
 ///
@@ -18,11 +19,9 @@ import 'app_providers.dart';
 /// when the account does. Keying on the session means switching accounts cannot
 /// leave a repository pointed at the previous one.
 final kidsRepositoryProvider =
-    Provider.family<KidsRepository, AuthSession>((ref, session) {
-  final api = ref.watch(jellyfinApiFactoryProvider).create(
-        baseUrl: session.serverUrl,
-        readToken: () => session.accessToken,
-      );
+    Provider.autoDispose.family<KidsRepository, AuthSession>((ref, session) {
+  ref.keepAlive(); // released when the session ends
+  final api = ref.watch(libraryApiProvider(session));
   return KidsRepository(
     api: api,
     birthYears: ref.watch(birthYearStoreProvider),
@@ -36,7 +35,8 @@ final kidsRepositoryProvider =
 /// and cannot forget the third — the definition of done requires a clear error
 /// rather than a blank screen.
 final kidsOverviewProvider =
-    FutureProvider.family<KidsOverview, AuthSession>((ref, session) async {
+    FutureProvider.autoDispose.family<KidsOverview, AuthSession>((ref, session) async {
+  ref.keepAlive(); // released when the session ends
   // Built on the roster rather than beside it, so listing the users happens
   // once and this provider's wait is the counts alone.
   final roster = await ref.watch(kidsRosterProvider(session).future);
@@ -51,7 +51,8 @@ final kidsOverviewProvider =
 /// a large library is seconds later, and used to be seconds of spinner on the
 /// first screen anyone sees.
 final kidsRosterProvider =
-    FutureProvider.family<KidsRoster, AuthSession>((ref, session) {
+    FutureProvider.autoDispose.family<KidsRoster, AuthSession>((ref, session) {
+  ref.keepAlive(); // released when the session ends
   return ref.watch(kidsRepositoryProvider(session)).roster();
 });
 
@@ -90,12 +91,10 @@ class ChildLibrariesRequest {
 /// worth having: the alternative shows a parent libraries that are not their
 /// child's, and every count in one of them fails outright.
 final childLibrariesProvider =
-    FutureProvider.family<List<MediaLibrary>, ChildLibrariesRequest>(
+    FutureProvider.autoDispose.family<List<MediaLibrary>, ChildLibrariesRequest>(
         (ref, request) {
-  final api = ref.watch(jellyfinApiFactoryProvider).create(
-        baseUrl: request.session.serverUrl,
-        readToken: () => request.session.accessToken,
-      );
+  ref.keepAlive(); // released when the session ends
+  final api = ref.watch(libraryApiProvider(request.session));
   return api.libraries(userId: request.childId);
 });
 
@@ -123,13 +122,11 @@ final childLibrariesProvider =
 /// Fanned out with [mapBounded] at the house limit of four, the same as every
 /// other batch here: one library at a time would be needlessly slow, and all of
 /// them at once is what the limit exists to prevent.
-final childLibraryCountsProvider = FutureProvider.family<
+final childLibraryCountsProvider = FutureProvider.autoDispose.family<
     List<LibraryVisibleCount>, ChildLibrariesRequest>((ref, request) async {
+  ref.keepAlive(); // released when the session ends
   final libraries = await ref.watch(childLibrariesProvider(request).future);
-  final api = ref.watch(jellyfinApiFactoryProvider).create(
-        baseUrl: request.session.serverUrl,
-        readToken: () => request.session.accessToken,
-      );
+  final api = ref.watch(libraryApiProvider(request.session));
   return mapBounded<MediaLibrary, LibraryVisibleCount>(
     libraries.where((library) => library.manageable).toList(growable: false),
     (library) async => LibraryVisibleCount(

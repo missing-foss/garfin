@@ -13,7 +13,7 @@
 /// *window*; there are none left here.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Where a column of rows stops widening.
 ///

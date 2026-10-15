@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -17,6 +17,7 @@ import '../providers/collection_providers.dart';
 import '../providers/kids_providers.dart';
 import '../providers/library_providers.dart';
 import '../widgets/adaptive_layout.dart';
+import '../widgets/last_item_confirm.dart';
 
 /// Build order step 8 (#57). What Garfin did, newest first.
 ///
@@ -123,6 +124,20 @@ class _EntryTileState extends ConsumerState<_EntryTile> {
                 : l10n.activityTakenFrom(entry.childName),
             style: theme.textTheme.bodyMedium,
           ),
+          // **The label itself, under the verb.** The verb says what happened
+          // to the child; the label says what was written to make it happen,
+          // and for a block-list child the two read opposite ways. Drawn as on
+          // the kid card. An entry whose label could not be read shows none
+          // rather than an empty chip.
+          if (entry.label.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Chip(
+                label: Text(entry.label, style: theme.textTheme.labelSmall),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
           Text(
             entry.isCollection
                 ? l10n.activityWhenCollection(
@@ -205,12 +220,31 @@ class _EntryTileState extends ConsumerState<_EntryTile> {
         final set = await ref
             .read(collectionRepositoryProvider(widget.session))
             .setForId(entry.itemId);
+        // Undoing a give is a take, and it can leave the child with nothing:
+        // the same hard warning Apply asks, for the whole set it touches.
+        if (!mounted) return;
+        if (!await confirmLastItem(
+          context,
+          repository: repository,
+          diff: reverse,
+          touching: {entry.itemId, ...set.memberIds},
+        )) {
+          return;
+        }
         await repository.applyToCollection(
           collectionId: entry.itemId,
           memberIds: set.memberIds,
           diff: reverse,
         );
       } else {
+        if (!await confirmLastItem(
+          context,
+          repository: repository,
+          diff: reverse,
+          touching: {entry.itemId},
+        )) {
+          return;
+        }
         await repository.apply(itemId: entry.itemId, diff: reverse);
       }
       if (!mounted) return;

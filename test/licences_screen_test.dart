@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/app_info.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/screens/licences_screen.dart';
 
@@ -30,7 +31,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: const LicencesScreen(),
       ),
@@ -72,5 +73,11 @@ void main() {
           of: find.text('logging'), matching: find.byType(ListTile)),
     );
     expect(bare.onTap, isNull);
+    // And no chevron: an arrow is a promise of somewhere to go.
+    expect(bare.trailing, isNull);
+    final dio = tester.widget<ListTile>(
+      find.ancestor(of: find.text('dio'), matching: find.byType(ListTile)),
+    );
+    expect(dio.trailing, isA<Icon>());
   });
 }

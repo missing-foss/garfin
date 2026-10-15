@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../l10n/gen/app_localizations.dart';
 import '../repositories/jellyfin_exception.dart';
@@ -22,9 +22,14 @@ String jellyfinErrorText(AppLocalizations l10n, JellyfinException error) =>
       JellyfinErrorKind.unreachable =>
         l10n.errorUnreachable(error.detail ?? ''),
       JellyfinErrorKind.timeout => l10n.errorTimeout,
+      JellyfinErrorKind.untrustedCertificate => l10n.errorUntrustedCertificate,
       JellyfinErrorKind.unauthorized => l10n.errorUnauthorized,
       JellyfinErrorKind.forbidden => l10n.errorForbidden,
       JellyfinErrorKind.notFound => l10n.errorNotFound,
+      JellyfinErrorKind.moved => switch (error.detail) {
+          final address? => l10n.errorMoved(address),
+          null => l10n.errorMovedNoAddress,
+        },
       JellyfinErrorKind.server => l10n.errorServer,
       JellyfinErrorKind.quickConnectUnavailable =>
         l10n.errorQuickConnectUnavailable,

@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/active_session.dart';
 import 'package:garfin/models/auth_session.dart';
@@ -68,19 +69,26 @@ void main() {
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
           kidsOverviewProvider(session).overrideWith(
-            (ref) async => KidsOverview(
-              shortlisted: [emma, liam],
-              withoutShortlist: const <UnshortlistedUser>[],
-            ),
+            (ref) async {
+              ref.keepAlive(); // as the real body does
+              return KidsOverview(
+                shortlisted: [emma, liam],
+                withoutShortlist: const <UnshortlistedUser>[],
+              );
+            },
           ),
           childSessionsProvider(session)
-              .overrideWith((ref) async => <ActiveSession>[]),
+              .overrideWith((ref) async {
+                ref.keepAlive(); // as the real body does
+                return <ActiveSession>[];
+              }),
           // Counted per child, so "opened Emma" and "fetched for Liam" are
           // distinguishable rather than one number.
           for (final childId in const ['kid-1', 'kid-2'])
             childLibraryCountsProvider(
               ChildLibrariesRequest(session: session, childId: childId),
             ).overrideWith((ref) async {
+              ref.keepAlive(); // as the real body does
               fetches[childId] = (fetches[childId] ?? 0) + 1;
               return [
                 const LibraryVisibleCount(
@@ -95,7 +103,7 @@ void main() {
             }),
         ],
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: const Scaffold(body: KidsScreen(session: session)),
         ),

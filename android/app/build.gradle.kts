@@ -140,10 +140,10 @@ android {
             // The case the guard above cannot reach: *nothing* was set. With
             // neither a keystore nor a password there is genuinely nothing here
             // to distinguish "CI, or a contributor, building release on
-            // purpose" -- which SECURITY.md and the forge workflow positively
-            // permit -- from "a maintainer whose signing environment was never
-            // sourced". Failing would break the first, so this is loud rather
-            // than fatal.
+            // purpose" -- which SECURITY.md and CI's own release build
+            // positively permit -- from "a maintainer whose signing
+            // environment was never sourced". Failing would break the first,
+            // so this is loud rather than fatal.
             //
             // Loud matters because the quiet version has already happened: a
             // release APK was built, reported success, carried no `-unsigned`

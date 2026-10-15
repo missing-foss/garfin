@@ -10,9 +10,9 @@ import '../models/library_item.dart';
 import '../models/tag_diff.dart';
 import '../repositories/assign_repository.dart';
 import 'activity_providers.dart';
-import 'app_providers.dart';
 import 'collection_providers.dart';
 import 'kids_providers.dart';
+import 'library_providers.dart';
 import 'settings_providers.dart';
 
 /// Identifies one sheet: which server, which item.
@@ -40,11 +40,9 @@ class AssignRequest {
 }
 
 final assignRepositoryProvider =
-    Provider.family<AssignRepository, AuthSession>((ref, session) {
-  final api = ref.watch(jellyfinApiFactoryProvider).create(
-        baseUrl: session.serverUrl,
-        readToken: () => session.accessToken,
-      );
+    Provider.autoDispose.family<AssignRepository, AuthSession>((ref, session) {
+  ref.keepAlive(); // released when the session ends
+  final api = ref.watch(libraryApiProvider(session));
   return AssignRepository(
     api: api,
     adminUserId: session.userId,
@@ -60,7 +58,8 @@ final assignRepositoryProvider =
 /// because ground rule 3 refuses to pick a verb for them — a row offering a
 /// toggle would have to guess which direction it meant.
 final assignRowsProvider =
-    FutureProvider.family<List<AssignRow>, AssignRequest>((ref, request) async {
+    FutureProvider.autoDispose.family<List<AssignRow>, AssignRequest>((ref, request) async {
+  ref.keepAlive(); // released when the session ends
   final overview = await ref.watch(kidsOverviewProvider(request.session).future);
   final children = overview.shortlisted
       .map((KidSummary k) => k.user)

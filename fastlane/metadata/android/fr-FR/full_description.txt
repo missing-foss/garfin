@@ -1,0 +1,15 @@
+Jellyfin sait limiter ce qu'un utilisateur voit grâce aux étiquettes, mais étiqueter des centaines de titres un par un dans l'interface web d'administration est pénible. Garfin met tout cela sur votre téléphone : choisissez un enfant, parcourez ce qu'il ne voit pas encore, et donnez-lui un film, une série ou toute une collection d'un seul geste.
+
+<b>Ce que fait Garfin</b>
+<ul>
+<li>Se connecte à votre serveur avec Quick Connect ou un mot de passe</li>
+<li>Indique quels utilisateurs sont soumis à une règle d'étiquettes, et combien de titres chaque enfant voit dans chaque médiathèque, d'après le décompte du serveur</li>
+<li>Affiche la médiathèque en affiches, avec une recherche et des filtres par type, genre, décennie et limite d'âge de l'enfant</li>
+<li>Donne un titre à un ou plusieurs enfants en écrivant l'étiquette dans Jellyfin</li>
+<li>Donne une collection en entier, et demande s'il faut garder l'ensemble quand vous en donnez un seul film</li>
+<li>Montre chaque changement avant de l'écrire, et permet de l'annuler ensuite</li>
+</ul>
+
+<b>Vous vous connectez avec un compte administrateur Jellyfin.</b> C'est une exigence de Jellyfin : le serveur n'a aucune permission plus restreinte qui permette de changer ce qu'un utilisateur peut voir.
+
+Garfin n'est ni affilié au projet Jellyfin, ni approuvé par lui, ni lié à lui. Jellyfin est une marque de Jellyfin, Inc.

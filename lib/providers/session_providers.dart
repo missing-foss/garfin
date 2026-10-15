@@ -62,8 +62,9 @@ class SessionCommandsInFlight extends Notifier<int> {
 /// is signing the parent out of the app from inside the app. A control that
 /// does that has no business being on screen at all.
 final childSessionsProvider =
-    FutureProvider.family<List<ActiveSession>, AuthSession>(
+    FutureProvider.autoDispose.family<List<ActiveSession>, AuthSession>(
         (ref, session) async {
+  ref.keepAlive(); // released when the session ends
   final api = ref.watch(libraryApiProvider(session));
   // **The roster, not the overview.** All this needs is which users are
   // children; taking it from the counted payload would put the most expensive

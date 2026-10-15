@@ -116,13 +116,17 @@ SPDX-FileCopyrightText = "2026 missing-foss"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
 
 # --- First-party translations, generated output, locks, and misc config -----
-# ARB is JSON (no comments); lib/l10n/gen is generated from those ARB files;
-# pubspec.lock / .metadata / .gitignore carry no header. ui-mockup.jsx is a
-# visual reference, not source — see docs/ENGINEERING.md. All first-party.
+# ARB is JSON (no comments), as is renovate.json; lib/l10n/gen is generated from those ARB files;
+# pubspec.lock / .metadata / .gitignore carry no header, nor do the store texts
+# and screenshots under fastlane/, which are read verbatim. ui-mockup.jsx is a visual reference,
+# not source — see docs/ENGINEERING.md. All first-party.
 [[annotations]]
 path = [
   "lib/l10n/app_en.arb",
   "lib/l10n/app_fr.arb",
+  "renovate.json",
+  "fastlane/metadata/**/*.txt",
+  "fastlane/metadata/**/*.png",
   "lib/l10n/gen/**",
   "docs/ui-mockup.jsx",
   "pubspec.lock",
@@ -130,13 +134,5 @@ path = [
   "**/.gitignore",
 ]
 precedence = "override"
-SPDX-FileCopyrightText = "2026 missing-foss"
-SPDX-License-Identifier = "GPL-3.0-or-later"
-
-# dev/forbidden-terms.txt is fed to grep -f as literal patterns, so no inline
-# header — a comment line would itself become a search pattern.
-[[annotations]]
-path = "dev/forbidden-terms.txt"
-precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 missing-foss"
 SPDX-License-Identifier = "GPL-3.0-or-later"

@@ -64,6 +64,14 @@
   "@passwordLabel": {
     "description": "Label on the password field of the password sign-in form."
   },
+  "passwordShowTooltip": "Show password",
+  "@passwordShowTooltip": {
+    "description": "Tooltip, and screen-reader label, of the eye button that reveals the typed password."
+  },
+  "passwordHideTooltip": "Hide password",
+  "@passwordHideTooltip": {
+    "description": "Tooltip, and screen-reader label, of the eye button that hides the password again."
+  },
   "signInAction": "Sign in",
   "@signInAction": {
     "description": "Button that submits the username and password."
@@ -91,6 +99,14 @@
   "signOutAction": "Sign out",
   "@signOutAction": {
     "description": "Button that forgets the account and the access token."
+  },
+  "signOutConfirmTitle": "Sign out?",
+  "@signOutConfirmTitle": {
+    "description": "Title of the confirmation before signing out from Settings. Signing out is destructive: getting back in may mean pairing the phone again with Quick Connect."
+  },
+  "signOutConfirmBody": "This phone forgets your Jellyfin sign-in and asks the server to stop accepting it. To use Garfin again, you'll sign in again or pair this phone with Quick Connect.",
+  "@signOutConfirmBody": {
+    "description": "Body of the sign-out confirmation. 'Asks' on purpose: with no network the server is not reached, and the phone still forgets the sign-in."
   },
   "homeNextUpBody": "Sign-in is done. The Kids and Library screens come next.",
   "@homeNextUpBody": {
@@ -122,6 +138,10 @@
   "@errorTimeout": {
     "description": "Shown when a request timed out."
   },
+  "errorUntrustedCertificate": "This phone doesn't trust the server's certificate. On your home network, use its http:// address, or install the server's certificate on this phone.",
+  "@errorUntrustedCertificate": {
+    "description": "HTTPS with a certificate the phone does not trust, usually self-signed. Garfin deliberately has no option to accept it anyway."
+  },
   "errorUnauthorized": "That username or password didn't match.",
   "@errorUnauthorized": {
     "description": "Shown for HTTP 401 during sign-in."
@@ -133,6 +153,17 @@
   "errorNotFound": "Something answered at that address, but it wasn't Jellyfin.",
   "@errorNotFound": {
     "description": "Shown for HTTP 404 — usually a URL pointing at some other service."
+  },
+  "errorMoved": "This server has moved to {address}. Sign in with that address instead.",
+  "@errorMoved": {
+    "description": "The server answered with a redirect. Garfin does not follow redirects, because a redirect to another origin drops the sign-in. {address} is the new address, scheme and host, with no query.",
+    "placeholders": {
+      "address": {"type": "String", "example": "https://jellyfin.local"}
+    }
+  },
+  "errorMovedNoAddress": "This server has moved, but didn't say where. Check its address.",
+  "@errorMovedNoAddress": {
+    "description": "A redirect with no Location header."
   },
   "errorServer": "The server ran into a problem. Try again in a moment.",
   "@errorServer": {
@@ -298,7 +329,7 @@
   "@kidsModeConflictingDetail": {
     "description": "Explains the conflicting-lists state and what to do about it."
   },
-  "kidsAgeYears": "{years} years old",
+  "kidsAgeYears": "{years, plural, one{{years} year old} other{{years} years old}}",
   "@kidsAgeYears": {
     "description": "Age on a child's card, worked out from the birth year the parent entered.",
     "placeholders": {
@@ -310,6 +341,10 @@
   "kidsAgeUnknown": "Add a birth year",
   "@kidsAgeUnknown": {
     "description": "Shown in place of an age when no birth year has been entered. Jellyfin does not store one."
+  },
+  "kidsAgeEditHint": "Change the birth year",
+  "@kidsAgeEditHint": {
+    "description": "Screen-reader hint on the age line of a child's card, which opens the birth-year dialog when tapped."
   },
   "kidsRatingCap": "Up to {rating}",
   "@kidsRatingCap": {
@@ -455,7 +490,7 @@
   "@libraryEveryone": {
     "description": "The option in the picking-for row that clears the child selection."
   },
-  "libraryNotYetGiven": "{count} things {name} hasn't got yet",
+  "libraryNotYetGiven": "{count, plural, one{{count} thing {name} hasn't got yet} other{{count} things {name} hasn't got yet}}",
   "@libraryNotYetGiven": {
     "description": "Result line when a child is selected. Says what has not been handed over, NOT what the child can see — the second is the server's answer and includes the rating cap.",
     "placeholders": {
@@ -467,7 +502,7 @@
       }
     }
   },
-  "libraryWithheld": "{count} things kept from {name}",
+  "libraryWithheld": "{count, plural, one{{count} thing kept from {name}} other{{count} things kept from {name}}}",
   "@libraryWithheld": {
     "description": "Result line when the selected child is on a block-list, where a label takes a title away rather than handing it over. The mirror of libraryNotYetGiven, and the same caution applies: it counts labels, not what the child can see.",
     "placeholders": {
@@ -484,7 +519,7 @@
     "description": "The result line while a search is active. The server orders a search by its own relevance and ignores the sort chosen in Settings, so the line says so. {line} is the ordinary result line, e.g. '12 things'.",
     "placeholders": { "line": { "type": "String" } }
   },
-  "libraryItemCount": "{count} things",
+  "libraryItemCount": "{count, plural, one{{count} thing} other{{count} things}}",
   "@libraryItemCount": {
     "description": "Result line when no child is selected.",
     "placeholders": {
@@ -513,6 +548,17 @@
   "libraryEmpty": "Nothing here yet.",
   "@libraryEmpty": {
     "description": "Shown when the library query returns no items at all."
+  },
+  "libraryNoMatches": "Nothing here matches these filters.",
+  "@libraryNoMatches": {
+    "description": "The grid is empty because the active filters matched nothing. Not a claim about the library or the child."
+  },
+  "libraryNoMatchesFor": "Nothing here matches “{query}”.",
+  "@libraryNoMatchesFor": {
+    "description": "The grid is empty because the search matched nothing. {query} is what the parent typed.",
+    "placeholders": {
+      "query": {"type": "String", "example": "paddington"}
+    }
   },
   "libraryNothingLeft": "{name} has everything already.",
   "@libraryNothingLeft": {
@@ -544,7 +590,7 @@
       }
     }
   },
-  "libraryCollectionCount": "{count} titles",
+  "libraryCollectionCount": "{count, plural, one{{count} title} other{{count} titles}}",
   "@libraryCollectionCount": {
     "description": "Badge on a collection tile saying how many items it holds.",
     "placeholders": {
@@ -553,7 +599,7 @@
       }
     }
   },
-  "libraryEpisodeCount": "{count} episodes",
+  "libraryEpisodeCount": "{count, plural, one{{count} episode} other{{count} episodes}}",
   "@libraryEpisodeCount": {
     "description": "Badge on a series tile saying how many episodes it holds. A separate string from libraryCollectionCount because the noun is not interchangeable: a collection holds titles, a series holds episodes, and 'titles' on a show reads as a count of something else. Measured on 10.11.11: this is RecursiveItemCount, the episodes, NOT ChildCount, which for a series is the seasons — a two-season five-episode show reports ChildCount 2.",
     "placeholders": {
@@ -562,7 +608,7 @@
       }
     }
   },
-  "librarySemanticSeries": "Series, {count} episodes",
+  "librarySemanticSeries": "{count, plural, one{Series, {count} episode} other{Series, {count} episodes}}",
   "@librarySemanticSeries": {
     "description": "Spoken by a screen reader for a series tile, so a show is distinguishable from a film. Says the NOUN as well as the number, for the same reason librarySemanticCollection does: the bare count is what the visual badge already is. Only spoken when the server sent a recursive count — see librarySemanticSeriesAlone for when it did not.",
     "placeholders": {
@@ -575,7 +621,7 @@
   "@librarySemanticSeriesAlone": {
     "description": "The same, for a series whose episode count the server did not send. RecursiveItemCount is absent unless Fields asks for it, and a tile in that state renders no badge either, so the spoken label degrades the same way rather than saying 'nought episodes'."
   },
-  "librarySemanticCollection": "Collection, {count} titles",
+  "librarySemanticCollection": "{count, plural, one{Collection, {count} title} other{Collection, {count} titles}}",
   "@librarySemanticCollection": {
     "description": "Spoken by a screen reader for a collection tile, so a box set is distinguishable from a film. Says the NOUN as well as the number: the bare count is what the visual badge already is, and 'seven titles' alone does not tell you what the thing is. Only spoken when the server sent a count — see librarySemanticCollectionAlone for when it did not. Unlike the state badge this is not a claim about any child, so it is spoken whatever the selection is.",
     "placeholders": {
@@ -589,7 +635,7 @@
     "description": "The same, for a collection whose size the server did not send. ChildCount is absent unless Fields=ChildCount is asked for, and a tile in that state renders no count badge either — so the spoken label degrades the same way rather than saying 'nought titles'.",
     "placeholders": {}
   },
-  "collectionTitleCount": "{count} titles in this collection",
+  "collectionTitleCount": "{count, plural, one{{count} title in this collection} other{{count} titles in this collection}}",
   "@collectionTitleCount": {
     "description": "Header on the screen showing what is inside one collection. A fact about the library, not about the selected child, so unlike the grid's result line it does not change when the selection does.",
     "placeholders": {
@@ -682,6 +728,14 @@
   "@assignTitle": {
     "description": "Title of the assign sheet, opened by tapping a title in the library."
   },
+  "libraryTileAssignHint": "Choose who gets it",
+  "@libraryTileAssignHint": {
+    "description": "Screen-reader hint on a film or show tile in the library grid: a tap opens the 'Who gets this?' sheet."
+  },
+  "libraryTileOpenHint": "Open the collection",
+  "@libraryTileOpenHint": {
+    "description": "Screen-reader hint on a collection tile in the library grid: a tap opens the collection rather than assigning it."
+  },
   "assignSees": "{name} sees {visible} of {total}",
   "@assignSees": {
     "description": "A child's current visible count on their row. Fetched from the server, never predicted.",
@@ -767,7 +821,7 @@
   "@assignNoChildren": {
     "description": "Shown on the assign sheet when no account is under shortlist control."
   },
-  "assignCollectionNote": "Labels land on all {count} titles inside, and on the collection itself.",
+  "assignCollectionNote": "{count, plural, one{Labels land on the {count} title inside, and on the collection itself.} other{Labels land on all {count} titles inside, and on the collection itself.}}",
   "@assignCollectionNote": {
     "description": "Shown when the item is a collection. Measured: labelling only the container gives the child an empty collection, and labelling only the members hands over the films without the set, so both are written.",
     "placeholders": {
@@ -776,7 +830,7 @@
       }
     }
   },
-  "assignPartOfSet": "Part of {name} — {count} titles in the set.",
+  "assignPartOfSet": "{count, plural, one{Part of {name} — {count} title in the set.} other{Part of {name} — {count} titles in the set.}}",
   "@assignPartOfSet": {
     "description": "Shown when a single film belongs to a collection. A film can be in several sets, so this line can appear more than once.",
     "placeholders": {
@@ -813,7 +867,7 @@
   "@assignSetTogetherJustThis": {
     "description": "Declines the cascade: write the single film only."
   },
-  "assignSetTogetherAll": "All {count}",
+  "assignSetTogetherAll": "{count, plural, one{The {count}} other{All {count}}}",
   "@assignSetTogetherAll": {
     "description": "Accepts the cascade: write every title in the set.",
     "placeholders": {
@@ -822,7 +876,7 @@
       }
     }
   },
-  "assignBatchPartial": "{done} of {total} titles changed.",
+  "assignBatchPartial": "{total, plural, one{{done} of {total} title changed.} other{{done} of {total} titles changed.}}",
   "@assignBatchPartial": {
     "description": "Ground rule 5's exact state after a collection write partly failed — the rule's own example is '7 of 12 tagged'. Worded for what changed rather than for tagging, because the same notice reports a partly-failed removal, and the change preview directly above already says which direction it went. Nothing that succeeded is undone; the parent chooses what happens next.",
     "placeholders": {
@@ -834,7 +888,7 @@
       }
     }
   },
-  "assignBatchSetIncomplete": "All {count} titles changed, but the collection itself didn't.",
+  "assignBatchSetIncomplete": "{count, plural, one{The {count} title changed, but the collection itself didn't.} other{All {count} titles changed, but the collection itself didn't.}}",
   "@assignBatchSetIncomplete": {
     "description": "The other half-done state: every member took the change and the container did not. Used when the diff went both ways at once, so nothing directional can be said about what the child now sees. The two directional versions below carry the consequence.",
     "placeholders": {
@@ -843,7 +897,7 @@
       }
     }
   },
-  "assignBatchSetIncompleteAdded": "All {count} titles are labelled, but the collection itself isn't. The films are there; the set isn't.",
+  "assignBatchSetIncompleteAdded": "{count, plural, one{The {count} title is labelled, but the collection itself isn't. The film is there; the set isn't.} other{All {count} titles are labelled, but the collection itself isn't. The films are there; the set isn't.}}",
   "@assignBatchSetIncompleteAdded": {
     "description": "Labels went on to every title and not to the container. Measured — the child gets the films while the collection stays absent from their library, so this is not finished.",
     "placeholders": {
@@ -852,7 +906,7 @@
       }
     }
   },
-  "assignBatchSetIncompleteRemoved": "All {count} titles are unlabelled, but the collection itself still is. The films are gone; the set is still there, and it will look empty.",
+  "assignBatchSetIncompleteRemoved": "{count, plural, one{The {count} title is unlabelled, but the collection itself still is. The film is gone; the set is still there, and it will look empty.} other{All {count} titles are unlabelled, but the collection itself still is. The films are gone; the set is still there, and it will look empty.}}",
   "@assignBatchSetIncompleteRemoved": {
     "description": "The mirror image, and it must not be described as the one above. Labels came off every title and not off the container, so — measured — the child keeps the collection and finds nothing inside it.",
     "placeholders": {
@@ -873,7 +927,7 @@
   "@assignBatchRemoveAll": {
     "description": "Takes the change back off the whole set, as a forward write. Not a rollback — see ground rule 5."
   },
-  "assignBatchPreflightFailed": "Nothing was changed. {count} titles in this set couldn't be read, so Garfin left the whole set alone.",
+  "assignBatchPreflightFailed": "{count, plural, one{Nothing was changed. {count} title in this set couldn't be read, so Garfin left the whole set alone.} other{Nothing was changed. {count} titles in this set couldn't be read, so Garfin left the whole set alone.}}",
   "@assignBatchPreflightFailed": {
     "description": "Ground rule 5's pre-flight: every member is read before anything is written, and one unreadable member cancels the write.",
     "placeholders": {
@@ -1027,7 +1081,7 @@
   "@aboutOurPackages": {
     "description": "Opens the short list: the packages this app chose to depend on, read from pubspec rather than guessed. The full built-in list stays one row below and is still the authoritative one."
   },
-  "aboutOurPackagesCount": "{count} chosen here \u2014 the rest come with Flutter",
+  "aboutOurPackagesCount": "{count, plural, one{{count} chosen here — the rest come with Flutter} other{{count} chosen here — the rest come with Flutter}}",
   "@aboutOurPackagesCount": {
     "description": "Subtitle under the short list. Measured on the 0.2.0 release build: the full page lists 201 packages, almost all of it the Flutter engine's vendored C++. This says which of those were decisions anyone made.",
     "placeholders": { "count": { "type": "int" } }
@@ -1165,7 +1219,7 @@
       }
     }
   },
-  "activityWhenCollection": "{when} · {count} titles",
+  "activityWhenCollection": "{count, plural, one{{when} · {count} title} other{{when} · {count} titles}}",
   "@activityWhenCollection": {
     "description": "A collection entry: when it happened, and how many titles it covered. One entry per action, not per title.",
     "placeholders": {
@@ -1447,9 +1501,9 @@
     "description": "Neither half achieved. Said plainly rather than left to the parent to notice from a card that looks unchanged.",
     "placeholders": { "device": { "type": "String" } }
   },
-  "sessionsUncontrollable": "This device doesn't accept remote commands. Signing it out won't stop what's playing.",
+  "sessionsUncontrollable": "This device says it doesn't accept remote commands. Signing it out won't stop what's playing.",
   "@sessionsUncontrollable": {
-    "description": "Shown when SupportsRemoteControl is false. Measured: the message and stop commands answer 204 anyway, so without this the parent would be told something was sent to a device that cannot receive it. It no longer offers End as the way round, because the revoke does not stop playback either."
+    "description": "Shown when SupportsRemoteControl is false. Worded as the device's own claim, because that is what the flag is: Stop stays offered beside it, and the read-back says whether a command was obeyed. Measured: the message and stop commands answer 204 anyway, so without this the parent would be told something was sent to a device that may not act on it. It does not offer End as the way round, because the revoke does not stop playback either."
   },
   "librarySearchHint": "Search titles",
   "@librarySearchHint": {
@@ -1608,7 +1662,7 @@
       "name": { "type": "String" }
     }
   },
-  "collectionGivenAll": "All {total} given to {name}",
+  "collectionGivenAll": "{total, plural, one{The {total} title given to {name}} other{All {total} given to {name}}}",
   "@collectionGivenAll": {
     "description": "The whole set. Its own string rather than a plural of the partial one, because 'All 8' is the sentence a parent is looking for and '8 of 8' reads like a coincidence.",
     "placeholders": {
@@ -1632,7 +1686,7 @@
       "name": { "type": "String" }
     }
   },
-  "collectionKeptAll": "All {total} kept from {name}",
+  "collectionKeptAll": "{total, plural, one{The {total} title kept from {name}} other{All {total} kept from {name}}}",
   "@collectionKeptAll": {
     "description": "Block mode, whole set.",
     "placeholders": {

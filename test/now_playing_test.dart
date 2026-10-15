@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/active_session.dart';
 import 'package:garfin/models/auth_session.dart';
@@ -213,7 +214,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: SessionCard(session: session, active: active),
@@ -265,8 +266,10 @@ void main() {
 
       final image =
           tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+      // Sized for its slot: 44dp at the test's 3.0 ratio is 132px, which the
+      // 120px steps round up to 240.
       expect(image.imageUrl, 'http://host:8096/Items/series-9/Images/Primary'
-          '?tag=show-art');
+          '?tag=show-art&maxWidth=240');
       expect(image.imageUrl, isNot(contains('episode-3')));
     });
 
@@ -276,7 +279,7 @@ void main() {
       final image =
           tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
       expect(image.imageUrl,
-          'http://host:8096/Items/movie-7/Images/Primary?tag=poster-1');
+          'http://host:8096/Items/movie-7/Images/Primary?tag=poster-1&maxWidth=240');
     });
 
     testWidgets('a trailing slash on the server URL does not double up',
@@ -290,7 +293,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: SessionCard(session: trailing, active: parse(movie())),

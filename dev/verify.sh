@@ -8,32 +8,27 @@
 #   dev/verify.sh
 # Needs flutter on PATH.
 #
-# The gate that blocks a merge is .forgejo/workflows/ci.yml. TWO checks run
-# ONLY here: the leak scan, which needs a pattern list supplied through the
-# environment and deliberately absent from the repository, so a hosted runner
-# has nothing to give it; and "Toolchain pin agrees with CI", which compares
-# .tool-versions against the workflow files. The forge gate has a toolchain
-# step of its own, but it is a different check -- it confirms the flutter it
-# is running matches the pin, not that the pinned versions agree with each
-# other.
+# This script is the wider gate. Nine of its fifteen steps have a counterpart
+# in .github/workflows/ci.yml; SIX do not, and run only here:
 #
-# One check runs in both places but NOT identically: the hardcoded-UI-string
-# check. The forge gate allows Text() literals naming a language in a picker;
-# this script has no such allowlist and is therefore stricter. Nothing in lib/
-# triggers the difference today. If you add one, this goes red while the gate
-# stays green.
+#   * the leak scan, which needs a pattern list supplied through the
+#     environment and deliberately absent from the repository, so a hosted
+#     runner has nothing to give it;
+#   * the hardcoded-UI-string check;
+#   * the vendored-guard version check;
+#   * the tracker-reference check;
+#   * "No workflow hardcodes a toolchain version". CI reads .tool-versions to
+#     install its own toolchain; it never checks that nothing else in the
+#     workflow files states a version of its own.
+#   * the CHANGELOG-section check on the pubspec version.
 #
-# .github/workflows/ci.yml is the mirror's inherited workflow, not this
-# repository's gate: no tracker-reference check, no vendored-guard check, no
-# hardcoded-string check, no toolchain confirmation. Do not read it as "CI"
-# when deciding what a change has been checked by.
+# So a green run here covers everything CI runs, plus those six. Do not read a
+# green CI as covering them.
 #
-# Everything else here runs in the forge gate too, with the same invocation.
-#
-# This paragraph previously named the mirror's workflow as "CI" and claimed
-# four local-only checks. Three of those had moved into the forge gate and the
-# sentence did not move with them -- the same drift the tracker-reference and
-# vendored-guard steps below exist to catch, in the file that describes them.
+# This list has drifted before, in both directions: a step moved and the
+# sentence describing it did not. Update it in the same change that moves a
+# step -- the same drift the tracker-reference and vendored-guard steps below
+# exist to catch, in the file that describes them.
 set -uo pipefail
 fail=0
 step() { echo; echo "== $1 =="; }
@@ -91,7 +86,7 @@ if flutter build apk --release; then
   if [ -f "$apk" ]; then
     apksigner=$(ls "${ANDROID_HOME:-$HOME/sdk/android}"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
     if [ -z "$apksigner" ]; then
-      echo "SIGNING: unknown (apksigner not found) — the forge gate checks this too"
+      echo "SIGNING: unknown (apksigner not found) — CI checks this too"
     elif "$apksigner" verify "$apk" >/dev/null 2>&1; then
       # A pipe is safe here where it is not above: `sed -n s///p` reads its
       # input to EOF, so nothing takes SIGPIPE and `pipefail` has nothing to
@@ -119,12 +114,17 @@ step "translations (FR ARB complete, #32)"
 # file is "{}" when complete and "{\"fr\": [...]}" when a key lacks its FR value,
 # so a "[" means a gap — a new string then fails the build instead of shipping an
 # English fallback in French. Delete this step (and l10n.yaml) if not translating.
+# Branch on grep's status, not its truthiness: if gen-l10n stops writing the
+# file (the l10n.yaml entry dropped, say) grep exits 2, and `if grep` would read
+# that as "no gaps" -- a parity check that cannot read its file is not a pass.
 if flutter gen-l10n; then
-  if grep -q "\[" lib/l10n/untranslated.txt 2>/dev/null; then
-    echo "UNTRANSLATED FR messages:"; cat lib/l10n/untranslated.txt; fail=1
-  else
-    echo ok
-  fi
+  fr_rc=0
+  grep -q "\[" lib/l10n/untranslated.txt || fr_rc=$?
+  case "$fr_rc" in
+    0) echo "UNTRANSLATED FR messages:"; cat lib/l10n/untranslated.txt; fail=1 ;;
+    1) echo ok ;;
+    *) echo "FAIL: untranslated-messages file unreadable (grep exit $fr_rc); is untranslated-messages-file still set in l10n.yaml?"; fail=1 ;;
+  esac
 else
   echo "flutter gen-l10n failed (placeholder/ICU mismatch?)"; fail=1
 fi
@@ -134,16 +134,15 @@ step "no hardcoded UI strings (must go through AppLocalizations)"
 # regardless of locale.
 #
 # There is no allowlist here, and there never was. This comment used to say
-# "adjust the allowlist below", pointing at something absent -- while the forge
-# gate carried a real one this script did not. Two call sites, both green,
-# checking different things: the gate had the exemption and no comment, this
-# had the comment and no exemption. The gate's is gone; so is the sentence.
+# "adjust the allowlist below", pointing at something absent: a comment
+# describing an exemption the script did not have.
 #
-# Must stay identical to .forgejo/workflows/ci.yml's copy. When a language
-# picker arrives this goes red: do not reinstate a literal allowlist -- exact
-# match permits those strings anywhere in lib/, not just the picker, and covers
-# exactly two languages until the third silently isn't. Prefer a structural
-# exemption, decided with the picker in front of you.
+# Nothing in CI repeats this check, so a Text() literal reaching lib/ is caught
+# here or nowhere. When a language picker arrives this goes red: do not
+# reinstate a literal allowlist -- exact match permits those strings anywhere
+# in lib/, not just the picker, and covers exactly two languages until the
+# third silently isn't. Prefer a structural exemption, decided with the picker
+# in front of you.
 if grep -rnE "Text\(\s*(const\s+)?['\"]" lib/ --include='*.dart' \
      | grep -v 'l10n/gen'; then
   echo "HARDCODED: localize the Text() string(s) above via AppLocalizations"; fail=1
@@ -288,8 +287,8 @@ step "Tracker references in published prose"
 # NO PATH ARGUMENTS. The guard defaults to the whole tree, minus vendored and
 # generated directories. It used to be handed four paths here, and prose added
 # outside them was never checked -- THIRD_PARTY_NOTICES.md sat unscanned while
-# carrying four citations. If you add an argument list back, the forge workflow
-# has to change with it or the two gates check different things.
+# carrying four citations. Nothing in CI repeats this check, so an argument
+# list added back here silently stops covering everything it used to.
 if python3 dev/guards/check-tracker-refs.py; then
   echo ok
 else
@@ -297,21 +296,80 @@ else
 fi
 
 echo
-step "Toolchain pin agrees with CI"
-# .tool-versions is the source of truth; CI must not drift from it. Deliberately
-# a consistency check rather than making CI read the exact string: setup-java's
-# acceptance of a "17.0.20+8" style version is not something this repo can test,
-# and a check that both agree catches the drift either way.
-if [ -f .tool-versions ]; then
-  tv_java=$(awk '/^java /{print $2}' .tool-versions | sed 's/^temurin-//; s/\..*//')
-  ci_java=$(grep -hoE 'java-version: *"?[0-9]+' .github/workflows/*.yml 2>/dev/null | grep -oE '[0-9]+' | sort -u)
-  if [ -n "$tv_java" ] && [ -n "$ci_java" ] && [ "$tv_java" != "$ci_java" ]; then
-    echo "PIN DRIFT: .tool-versions says java $tv_java, CI says $ci_java"; fail=1
-  else
-    echo ok
-  fi
+step "No workflow hardcodes a toolchain version"
+# `.tool-versions` is the source of truth and CI now reads **every** toolchain
+# version out of it at run time, so there is nothing left for a drift check to
+# compare.
+#
+# The check that used to live here compared `.tool-versions` against the
+# `java-version:` literal in ci.yml. That literal is gone, and the old check
+# would have found nothing to compare and printed `ok`. A check that cannot
+# fail looks exactly like a check that passed, so it is replaced rather than
+# left to go quietly green.
+#
+# What can still go wrong is a literal being written back in, by someone
+# pinning a version in a hurry or copying a step from another repository. That
+# is what this guards: every toolchain version in a workflow must be an
+# expression, never a number, quoted or not. The same goes for the Android SDK:
+# platform and build-tools levels and the cmdline-tools build come from
+# .ci-downloads, which also holds the sha256 every downloaded archive is
+# checked against, so a literal in a workflow would install something nothing
+# verifies. And .ci-downloads' flutter line must name the version
+# .tool-versions pins, or CI fails closed on the mismatch; checked here too, so
+# a bump that forgets it is red locally first.
+#
+# "Every workflow" means every `workflows` directory under a hidden top-level
+# directory, found rather than listed, so a CI system added later is covered
+# without anyone remembering to add it here.
+wf_dirs=$(find . -mindepth 2 -maxdepth 2 -type d -name workflows -path './.*' | sort)
+literals=$( [ -z "$wf_dirs" ] || grep -rnE "^[[:space:]]*(java|flutter)-version:[[:space:]]*[\"']?[0-9]" \
+  $wf_dirs 2>/dev/null || true)
+sdk_literals=$( [ -z "$wf_dirs" ] || grep -rnE "platforms;android-[0-9]|build-tools;[0-9]|commandlinetools-linux-[0-9]" \
+  $wf_dirs 2>/dev/null || true)
+pinned_flutter=$(awk '/^flutter /{print $2}' .tool-versions 2>/dev/null)
+download_flutter=$(awk '$1=="flutter"{print $2}' .ci-downloads 2>/dev/null)
+if [ -z "$wf_dirs" ]; then
+  echo "FAIL: found no workflow directory, so there was nothing to check"; fail=1
+elif [ -n "$literals" ]; then
+  echo "HARDCODED TOOLCHAIN VERSION — these must read .tool-versions instead:"
+  echo "$literals"
+  fail=1
+elif [ -n "$sdk_literals" ]; then
+  echo "HARDCODED ANDROID SDK VERSION — these must read .ci-downloads instead:"
+  echo "$sdk_literals"
+  fail=1
+elif [ ! -f .tool-versions ]; then
+  echo "FAIL: no .tool-versions, and CI reads it at run time"; fail=1
+elif [ ! -f .ci-downloads ]; then
+  echo "FAIL: no .ci-downloads, and CI reads it at run time"; fail=1
+elif [ -z "$download_flutter" ] || [ "$download_flutter" != "$pinned_flutter" ]; then
+  echo "FAIL: .ci-downloads has flutter '$download_flutter' but .tool-versions pins '$pinned_flutter'"
+  fail=1
 else
-  echo "SKIP (no .tool-versions in this repo)"
+  # Say what was checked rather than a bare ok: a guard that prints nothing is
+  # indistinguishable from a guard that matched nothing because its pattern
+  # was wrong.
+  n=$(grep -rhcE '^[[:space:]]*(java|flutter)-version:' $wf_dirs 2>/dev/null \
+    | awk '{t+=$1} END {print t+0}')
+  echo "ok ($n toolchain version(s) declared in $(echo $wf_dirs | wc -w) workflow director(ies), all derived from .tool-versions; no SDK literal; .ci-downloads matches flutter $pinned_flutter)"
+fi
+
+step "The pubspec version has a CHANGELOG section"
+# Whoever bumps the version renames "Unreleased" in the same change, so a
+# release never goes out with nothing said about it. Checked against the
+# version without its +BUILD suffix, and as a heading, not anywhere in the
+# file: a version named only in prose has no section.
+version=$(awk '/^version:/{print $2; exit}' pubspec.yaml)
+version="${version%%+*}"
+if [ -z "$version" ]; then
+  echo "FAIL: no version in pubspec.yaml"; fail=1
+elif [ ! -f CHANGELOG.md ]; then
+  echo "FAIL: no CHANGELOG.md, so version $version has no section"; fail=1
+elif grep -qE "^## ${version//./\\.}( |$)" CHANGELOG.md; then
+  echo "ok (## $version)"
+else
+  echo "FAIL: CHANGELOG.md has no '## $version' section; rename Unreleased, or add one"
+  fail=1
 fi
 
 echo

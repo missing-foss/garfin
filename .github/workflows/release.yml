@@ -2,12 +2,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# WHERE THIS RUNS: the published mirror, under GitHub Actions -- not the
-# development forge. The forge reads `.forgejo/workflows/` and, once that
-# directory exists, takes nothing from `.github/`. The published branch
-# carries no `.forgejo/`, so these three files are the only workflows the
-# mirror has. Removing them here removes CI, the release path and Scorecard
-# from the mirror at the next publication.
+# WHERE THIS RUNS: GitHub Actions, on this repository. `.github/workflows/`
+# holds three files -- ci.yml, release.yml and scorecard.yml -- and they are
+# every workflow this repository has. Deleting one deletes CI, the release
+# path or Scorecard outright: nothing else here would pick that work up.
 
 # Release: fires on a bare vX.Y.Z tag.
 #
@@ -85,6 +83,47 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Release notes from CHANGELOG.md
+        # The CHANGELOG is the release notes; its wording is reviewed in the
+        # version-bump PR. --generate-notes had no pull requests to read on
+        # this curated repository, so it produced only a compare link. A tag
+        # whose CHANGELOG has no entry is refused, as version-check refuses a
+        # tag that disagrees with pubspec.yaml.
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          notes="$RUNNER_TEMP/release-notes.md"
+          # The lines under `## X.Y.Z` up to the next `## ` heading, without
+          # the heading and without blank lines at either end.
+          awk -v v="$version" '
+            /^## / { if (found) exit; if ($2 == v) found = 1; next }
+            found && (n || NF) { line[++n] = $0 }
+            END { while (n && line[n] ~ /^[[:space:]]*$/) n--
+                  for (i = 1; i <= n; i++) print line[i] }
+          ' CHANGELOG.md > "$notes"
+          if ! grep -q '[^[:space:]]' "$notes"; then
+            echo "::error::CHANGELOG.md has no '## $version' section, or it is empty — write the release's entry before tagging"
+            exit 1
+          fi
+          # The previous release is the next version heading down, not
+          # `git describe`: this checkout has depth 1, so no earlier tag exists
+          # in it.
+          prev=$(awk -v v="$version" '
+            /^## / { if (found) { print $2; exit } if ($2 == v) found = 1 }
+          ' CHANGELOG.md)
+          {
+            echo
+            echo "Install the APK for your device's ABI; Obtainium users get it automatically."
+            case "$prev" in
+              [0-9]*)
+                echo
+                echo "Changes since v$prev: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/v$prev...$TAG"
+                ;;
+            esac
+          } >> "$notes"
+          echo "NOTES_FILE=$notes" >> "$GITHUB_ENV"
+          cat "$notes"
       - name: Create or update the draft release
         # `gh` in a run: step rather than a third-party release action — the org
         # Actions policy allows GitHub-owned and verified-creator actions only.
@@ -94,15 +133,18 @@ jobs:
         run: |
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "release $TAG already exists — leaving it alone"
+            notes_line="The release already existed, so its notes were left as they are."
           else
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
-              --title "$TAG" --draft --generate-notes \
-              --notes-start-tag "$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || echo '')"
+              --title "$TAG" --draft --notes-file "$NOTES_FILE"
+            notes_line="The notes are the \`${TAG#v}\` section of \`CHANGELOG.md\`, followed by the install line and, when an earlier release is listed there, the compare link."
           fi
           cat >> "$GITHUB_STEP_SUMMARY" <<SUMMARY
           ### $TAG — draft release created
 
           Tag matches \`pubspec.yaml\`, and all gates passed.
+
+          $notes_line
 
           **No artifact is attached, by design.** The release APK is built and
           signed as part of the project's release process and attached before

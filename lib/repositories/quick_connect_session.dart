@@ -87,10 +87,22 @@ class QuickConnectSession {
   @visibleForTesting
   bool get holdsSecret => _secret != null;
 
+  /// Whether the loop is between polls, where a [poke] cuts the wait short.
+  ///
+  /// For a test to poke at a known point: a poke that lands while a poll is in
+  /// flight has no wait to cut yet.
+  @visibleForTesting
+  bool get isWaiting => _wake != null;
+
   bool _disposed = false;
   Completer<void>? _wake;
   Timer? _sleepTimer;
   bool _resetBackoff = false;
+
+  /// A [poke] that found no wait to cut: the poll was in flight. The next
+  /// [_sleep] returns at once, so the poll after that answer is not held back
+  /// a whole interval.
+  bool _wakePending = false;
 
   /// Runs the pairing to completion.
   ///
@@ -183,7 +195,13 @@ class QuickConnectSession {
           return false;
         case JellyfinErrorKind.unauthorized:
         case JellyfinErrorKind.forbidden:
+        // An answer about the address, not a dropped connection: polling it
+        // again will not change the certificate.
+        case JellyfinErrorKind.untrustedCertificate:
         case JellyfinErrorKind.notFound:
+        // An answer, not a dropped connection: the address has moved, and
+        // polling the old one cannot succeed.
+        case JellyfinErrorKind.moved:
         case JellyfinErrorKind.quickConnectUnavailable:
         case JellyfinErrorKind.quickConnectExpired:
         case JellyfinErrorKind.notAdministrator:
@@ -197,11 +215,17 @@ class QuickConnectSession {
   /// [initialInterval].
   ///
   /// Called when the app returns to the foreground: the likeliest reason the
-  /// user is back is that they have just approved the code.
+  /// user is back is that they have just approved the code. A poke that lands
+  /// while a poll is in flight skips the wait after that poll instead, at the
+  /// cost of at most one extra request.
   void poke() {
     _resetBackoff = true;
     final wake = _wake;
-    if (wake != null && !wake.isCompleted) wake.complete();
+    if (wake != null && !wake.isCompleted) {
+      wake.complete();
+    } else {
+      _wakePending = true;
+    }
   }
 
   /// Abandons the pairing and drops the secret.
@@ -223,6 +247,10 @@ class QuickConnectSession {
   }
 
   Future<void> _sleep(Duration duration) async {
+    if (_wakePending) {
+      _wakePending = false;
+      return;
+    }
     final completer = Completer<void>();
     _wake = completer;
     _sleepTimer = Timer(duration, () {

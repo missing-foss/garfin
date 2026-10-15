@@ -4,8 +4,7 @@
 
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
@@ -15,6 +14,7 @@ import '../providers/library_providers.dart';
 import '../providers/session_providers.dart';
 import '../repositories/session_verifier.dart';
 import 'session_result_toast.dart';
+import 'server_image.dart';
 
 /// One signed-in device, and the three things a parent can do about it (#41).
 ///
@@ -41,14 +41,12 @@ import 'session_result_toast.dart';
 /// removes that session from `/Sessions`, so reversed the command goes to
 /// something no longer there and there is nothing left to read back either.
 ///
-/// **Stop is disabled when `SupportsRemoteControl` is false**, reversing the
-/// decision that previously stood here: offering a button known in advance not
-/// to work is the same dishonesty as a toast reporting intent as outcome. The
-/// earlier argument — that the flag is the client's own claim, so disabling on
-/// it withdraws a control that might have worked on the strength of a
-/// self-report — is still true, and is the price of this. End stays enabled,
-/// because the revoke works whatever the flag says, but its confirmation no
-/// longer promises the film stops.
+/// **Stop stays enabled when `SupportsRemoteControl` is false.** That flag is
+/// the client's own claim and the commands answer 204 either way, so disabling
+/// on it withdraws a control that may work, on the strength of a self-report.
+/// What was dishonest was the copy, and the copy now reads back. End's
+/// confirmation, by contrast, does change on the flag: it no longer promises
+/// the film stops.
 ///
 /// The order is deliberate: a message first, because it is the move a parent
 /// actually wants most of the time and the only one that costs the child
@@ -131,9 +129,7 @@ class _SessionCardState extends ConsumerState<SessionCard> {
                   TextButton.icon(
                     icon: const Icon(Icons.stop_circle_outlined, size: 18),
                     label: Text(l10n.sessionsStop),
-                    onPressed: _working || !active.supportsRemoteControl
-                        ? null
-                        : _stop,
+                    onPressed: _working ? null : _stop,
                   ),
                 TextButton.icon(
                   icon: const Icon(Icons.logout, size: 18),
@@ -509,14 +505,12 @@ class _Artwork extends StatelessWidget {
       height: _height,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: CachedNetworkImage(
+        child: ServerImage(
           // The tag is what makes the URL change when the artwork does;
           // without it a cached poster would outlive the picture it shows.
-          imageUrl: '$base/Items/${artwork.itemId}/Images/Primary'
+          url: '$base/Items/${artwork.itemId}/Images/Primary'
               '?tag=${artwork.imageTag}',
-          fit: BoxFit.cover,
-          placeholder: (_, _) => placeholder,
-          errorWidget: (_, _, _) => placeholder,
+          placeholder: placeholder,
         ),
       ),
     );

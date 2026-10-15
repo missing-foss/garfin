@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 missing-foss
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# What CI downloads, at which version, and the sha256 each archive must have.
+# The workflows read this file at run time and check every archive against its
+# line before extracting it, so nothing unverified is unpacked and run.
+#
+# Format: `<name> <version> <sha256>`, one archive per line. The flutter line
+# must name the same version as `.tool-versions`: CI fails closed when they
+# differ, so a Flutter bump that forgets this line is red, not unverified.
+#
+# A new digest comes from the publisher, never from a download alone:
+#   flutter        the `sha256` of the archive in Flutter's releases_linux.json
+#   cmdline-tools  Google's repository manifest gives a sha1; check the download
+#                  against it, then take that download's sha256
+#   gitleaks       the release's checksums.txt
+flutter 3.44.9 a9120fa4a01048bdef438ddc3a2d4b7389662ea98a95db86eeaf10382bc4efcb
+cmdline-tools 11076708 2d2d50857e4eb553af5a6dc3ad507a17adf43d115264b1afc116f95c92e5e258
+gitleaks 8.24.3 9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c
+
+# Android SDK packages the forge CI installs with sdkmanager, one per line.
+# `compileSdk` comes from Flutter rather than a literal in build.gradle.kts, so
+# two platform levels are installed rather than guessing which one it wants.
+sdk platform-tools
+sdk platforms;android-36
+sdk platforms;android-37.0
+sdk build-tools;36.0.0

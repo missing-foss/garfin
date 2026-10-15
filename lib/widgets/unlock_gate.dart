@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/app_providers.dart';
+import '../providers/auth_providers.dart';
 import '../providers/unlock_providers.dart';
 import '../screens/lock_screen.dart';
 
@@ -67,6 +70,11 @@ class _UnlockGateState extends ConsumerState<UnlockGate>
         controller.noteBackgrounded();
       case AppLifecycleState.resumed:
         controller.noteResumed();
+        // Coming back is when the network most often has: a phone that went
+        // to sleep on mobile data and woke on Wi-Fi, or the other way round.
+        // And it is when a device revoked from the dashboard meanwhile should
+        // stop pretending to be signed in.
+        unawaited(ref.read(authControllerProvider.notifier).refreshSession());
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
@@ -96,7 +104,7 @@ class _UnlockGateState extends ConsumerState<UnlockGate>
       _warningScheduled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ref.read(deviceWarningProvider).showIfDue();
+        unawaited(ref.read(deviceWarningProvider).showIfDue());
       });
     }
 

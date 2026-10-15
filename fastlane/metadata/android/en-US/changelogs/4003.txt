@@ -1,0 +1,7 @@
+- The assign sheet scrolls as one; Undo still works after it closes.
+- A warning before a change would leave a child with nothing.
+- Collections are read whole, page by page. Posters load at the size drawn.
+- Picking a child's face carries their view and rating filter.
+- The session is checked again when you come back; signing out asks first.
+- Approving the code in Jellyfin is noticed at once when you switch back.
+- Every empty or failed screen says what happened and offers a way out.

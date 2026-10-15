@@ -4,11 +4,10 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app_info.dart';
 import '../models/auth_session.dart';
@@ -19,11 +18,13 @@ import '../widgets/adaptive_layout.dart';
 import '../widgets/error_notice.dart';
 import '../widgets/user_avatar.dart';
 import '../models/active_session.dart';
+import '../providers/auth_providers.dart';
 import '../providers/session_providers.dart';
 import '../models/label_collision.dart';
 import '../widgets/kid_card.dart';
 import '../widgets/label_clash_notice.dart';
 import '../widgets/session_card.dart';
+import '../widgets/open_external.dart';
 
 /// Build order step 3. The first screen that reads a child's policy.
 ///
@@ -83,8 +84,13 @@ class KidsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: () =>
-                      ref.invalidate(kidsOverviewProvider(session)),
+                  // The session too: what failed may be the session itself —
+                  // offline at launch, or revoked since — and only this check
+                  // can clear the banner or sign a dead token out.
+                  onPressed: () {
+                    ref.invalidate(kidsOverviewProvider(session));
+                    unawaited(ref.read(authControllerProvider.notifier).refreshSession());
+                  },
                   child: Text(l10n.kidsRetry),
                 ),
               ],
@@ -342,14 +348,13 @@ class _NobodyYet extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: TextButton.icon(
               icon: const Icon(Icons.open_in_new, size: 18),
               label: Text(l10n.kidsWelcomeNoneLink),
-              onPressed: () => launchUrl(
-                Uri.parse(jellyfinUsersDocsUrl),
-                mode: LaunchMode.externalApplication,
-              ),
+              // About's opener, so a link that cannot be opened says so here
+              // as it does there, rather than doing nothing.
+              onPressed: () => openExternal(context, jellyfinUsersDocsUrl),
             ),
           ),
         ],

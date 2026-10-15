@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
@@ -64,14 +66,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
   }
 
   void _useServer(String input) {
-    ref.read(signInControllerProvider.notifier).useServer(input).then((_) {
+    unawaited(ref.read(signInControllerProvider.notifier).useServer(input).then((_) {
       if (!mounted) return;
       // Show the address that will actually be used, scheme and all, rather
       // than leaving the user's shorthand on screen while Garfin talks to
       // something slightly different.
       final resolved = ref.read(signInControllerProvider).serverUrl;
       if (resolved != null) _serverAddress.text = resolved;
-    });
+    }));
   }
 
   @override
@@ -213,9 +215,9 @@ class _MethodTabsState extends ConsumerState<_MethodTabs>
 
   void _start() {
     if (!mounted) return;
-    ref
+    unawaited(ref
         .read(quickConnectControllerProvider.notifier)
-        .start(widget.serverUrl);
+        .start(widget.serverUrl));
   }
 
   @override

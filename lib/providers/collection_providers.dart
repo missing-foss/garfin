@@ -10,16 +10,13 @@ import '../models/library_item.dart';
 import '../repositories/app_settings_store.dart';
 import '../repositories/collection_repository.dart';
 import '../repositories/library_repository.dart';
-import 'app_providers.dart';
 import 'library_providers.dart';
 import 'settings_providers.dart';
 
 final collectionRepositoryProvider =
-    Provider.family<CollectionRepository, AuthSession>((ref, session) {
-  final api = ref.watch(jellyfinApiFactoryProvider).create(
-        baseUrl: session.serverUrl,
-        readToken: () => session.accessToken,
-      );
+    Provider.autoDispose.family<CollectionRepository, AuthSession>((ref, session) {
+  ref.keepAlive(); // released when the session ends
+  final api = ref.watch(libraryApiProvider(session));
   return CollectionRepository(api: api, adminUserId: session.userId);
 });
 
@@ -31,16 +28,20 @@ final collectionRepositoryProvider =
 /// is what stops that price being paid every time a sheet opens; nothing Garfin
 /// does changes membership, so nothing it does invalidates this.
 final collectionIndexProvider =
-    FutureProvider.family<CollectionIndex, AuthSession>(
-  (ref, session) => ref.watch(collectionRepositoryProvider(session)).index(),
+    FutureProvider.autoDispose.family<CollectionIndex, AuthSession>(
+  (ref, session) {
+    ref.keepAlive(); // released when the session ends
+    return ref.watch(collectionRepositoryProvider(session)).index();
+  },
 );
 
 /// One collection's membership, for a sheet opened on the collection itself.
 ///
 /// Identifies the set directly, so it does not wait on the whole index.
 final collectionSetProvider =
-    FutureProvider.family<CollectionSet, CollectionRequest>(
+    FutureProvider.autoDispose.family<CollectionSet, CollectionRequest>(
   (ref, request) {
+    ref.keepAlive(); // released when the session ends
     // The members are drawn by the grid's own tiles, so they are ordered by
     // the grid's own setting: browsing a set is the library narrowed to one
     // container. Watching the setting here is what re-reads the set when a
@@ -67,8 +68,9 @@ final collectionSetProvider =
 /// re-reads it. Without that the badge a parent just changed would be the one
 /// thing on screen still showing the old answer.
 final collectionMembersProvider =
-    FutureProvider.family<List<LibraryEntry>, CollectionRequest>(
+    FutureProvider.autoDispose.family<List<LibraryEntry>, CollectionRequest>(
         (ref, request) async {
+  ref.keepAlive(); // released when the session ends
   ref.watch(libraryRevisionProvider);
   final set = await ref.watch(collectionSetProvider(request).future);
   final child = ref.watch(pickedChildProvider(request.session));
@@ -83,7 +85,8 @@ final collectionMembersProvider =
 /// conservative answer: with no sets known, no cascade is offered, and a
 /// single-film write happens exactly as it did before this feature existed.
 final setsContainingProvider =
-    Provider.family<List<CollectionSet>, CollectionRequest>((ref, request) {
+    Provider.autoDispose.family<List<CollectionSet>, CollectionRequest>((ref, request) {
+  ref.keepAlive(); // released when the session ends
   final index = ref.watch(collectionIndexProvider(request.session));
   return index.asData?.value.setsContaining(request.collection.id) ?? const [];
 });

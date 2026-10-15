@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../l10n/gen/app_localizations.dart';
 import '../models/auth_session.dart';
@@ -12,6 +11,7 @@ import '../models/library_item.dart';
 import '../models/rating_origin.dart';
 import '../repositories/app_settings_store.dart';
 import 'phosphor_glyphs.dart';
+import 'server_image.dart';
 
 /// The head of the assign sheet: the poster the parent just tapped, its title,
 /// the year and running time on one line under it, the country as flags on the
@@ -449,12 +449,9 @@ class _Poster extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: tag == null
           ? placeholder
-          : CachedNetworkImage(
-              imageUrl:
-                  '${session.serverUrl}/Items/${item.id}/Images/Primary?tag=$tag',
-              fit: BoxFit.cover,
-              placeholder: (_, _) => placeholder,
-              errorWidget: (_, _, _) => placeholder,
+          : ServerImage(
+              url: '${session.serverUrl}/Items/${item.id}/Images/Primary?tag=$tag',
+              placeholder: placeholder,
             ),
     );
   }

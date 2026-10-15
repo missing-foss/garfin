@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
@@ -77,9 +77,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// and carrying the last child over would answer a question the parent did
   /// not ask. The face tap sets the selection and calls the notifier directly,
   /// so it does not pass through here.
+  ///
+  /// **And the rest of what a face tap set goes with the child**: the view of
+  /// what they already see, and the rating filter. Left behind, the next
+  /// child picked from the app bar landed on "what they already see" instead
+  /// of the giving grid that is the default, and the filter stayed on for
+  /// Everyone, who has no cap for it to mean anything against.
   void _go(HomeTab tab) {
     if (tab == HomeTab.library) {
       ref.read(pickingForProvider.notifier).select(null);
+      // Back to the Settings default, which is what the view's own build
+      // reads.
+      ref.invalidate(libraryViewProvider);
+      final filters = ref.read(libraryFiltersProvider);
+      if (filters.withinCap) {
+        ref.read(libraryFiltersProvider.notifier)
+            .set(filters.copyWith(withinCap: false));
+      }
     }
     ref.read(homeTabProvider.notifier).go(tab);
   }

@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/active_session.dart';
 import 'package:garfin/models/auth_session.dart';
@@ -74,7 +75,7 @@ void main() {
           }),
         ],
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: const Scaffold(body: KidsScreen(session: session)),
         ),
@@ -99,6 +100,28 @@ void main() {
     expect(sessionBuilds, 2, reason: 'the tick must re-read /Sessions');
     // The half that matters: the counts query is the expensive one and must
     // not be on a ten-second loop.
+    expect(overviewBuilds, 1,
+        reason: 'the overview carries the per-child counts and must not poll');
+  });
+
+  testWidgets('three intervals are exactly three re-reads, never more',
+      (tester) async {
+    // One interval proves the timer ticks; several prove it ticks once per
+    // interval. A timer started twice (by a rebuild, say) or one that re-arms
+    // itself would pass the test above and double the polling here.
+    await pumpScreen(tester);
+    expect(sessionBuilds, 1);
+
+    for (var tick = 1; tick <= 3; tick++) {
+      await tester.pump(sessionPollInterval);
+      await tester.pump();
+      expect(sessionBuilds, 1 + tick, reason: 'after $tick interval(s)');
+    }
+
+    // Short of the next tick, nothing more arrives.
+    await tester.pump(sessionPollInterval ~/ 2);
+    await tester.pump();
+    expect(sessionBuilds, 4);
     expect(overviewBuilds, 1,
         reason: 'the overview carries the per-child counts and must not poll');
   });

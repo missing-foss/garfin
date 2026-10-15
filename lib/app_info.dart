@@ -15,7 +15,7 @@ const appClientName = 'Garfin';
 /// which fails if the two drift. Reading it at runtime instead would mean a
 /// `package_info_plus` dependency for one string, and every new dependency
 /// costs a licence review (`CONTRIBUTING.md`).
-const appVersion = '0.2.0';
+const appVersion = '0.3.0';
 
 /// The packages Garfin itself chose to depend on.
 ///
@@ -53,7 +53,7 @@ const appVersion = '0.2.0';
 /// **SDK packages are absent on purpose.** `flutter_localizations` is declared
 /// `sdk: flutter` and ships under Flutter's own entry rather than its own, so
 /// listing it here would produce a row with no licence behind it. Confirmed
-/// against the release build's `NOTICES`: of twelve direct dependencies, that
+/// against a build's `NOTICES`: of thirteen direct dependencies, that
 /// is the one with no entry of its own.
 ///
 /// Kept in sync with `pubspec.yaml` by `test/app_info_test.dart`, the same way
@@ -68,6 +68,7 @@ const directDependencies = <String>[
   'intl',
   'local_auth',
   'logging',
+  'material_ui',
   'shared_preferences',
   'url_launcher',
 ];

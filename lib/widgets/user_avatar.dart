@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'server_image.dart';
 
 /// A Jellyfin user's picture, or their initial when there isn't one.
 ///
@@ -53,18 +53,15 @@ class UserAvatar extends StatelessWidget {
     }
 
     return ClipOval(
-      child: CachedNetworkImage(
-        imageUrl: avatarUrl!,
+      child: ServerImage(
+        url: avatarUrl!,
+        aspectRatio: 1,
         width: radius * 2,
         height: radius * 2,
-        fit: BoxFit.cover,
         // The initial while loading *and* on error, so a picture that never
         // arrives degrades to the same thing as no picture rather than a blank
         // circle.
-        placeholder: (_, _) =>
-            CircleAvatar(radius: radius, child: Text(initial, style: textStyle)),
-        errorWidget: (_, _, _) =>
-            CircleAvatar(radius: radius, child: Text(initial, style: textStyle)),
+        placeholder: CircleAvatar(radius: radius, child: Text(initial, style: textStyle)),
       ),
     );
   }

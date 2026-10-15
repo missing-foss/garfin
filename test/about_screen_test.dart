@@ -6,10 +6,12 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SemanticsNode;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/app_info.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/providers/update_providers.dart';
 import 'package:garfin/screens/about_screen.dart';
@@ -31,7 +33,7 @@ void main() {
             .overrideWithValue(Dio()..httpClientAdapter = github),
       ],
       child: MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: const AboutScreen(),
       ),
@@ -46,6 +48,39 @@ void main() {
         'assets/brand/garfin-mark.png');
     expect(find.text(appClientName), findsOneWidget);
     expect(find.textContaining(appVersion), findsWidgets);
+  });
+
+  testWidgets('the mark is named to a screen reader, and offers it nothing to tap',
+      (tester) async {
+    // The five taps are sighted-only by ruling. Without `excludeFromSemantics`
+    // the gesture adds an unlabelled node with a tap action around the
+    // picture — measured — which tells a screen reader something is there.
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(app());
+    await tester.pump();
+
+    final picture = tester
+        .getSemantics(find.bySemanticsLabel(appClientName).first)
+        .getSemanticsData();
+    expect(picture.flagsCollection.isImage, isTrue,
+        reason: 'the picture keeps its label');
+
+    final unnamedTaps = <String>[];
+    void walk(SemanticsNode node) {
+      final data = node.getSemanticsData();
+      if (data.hasAction(ui.SemanticsAction.tap) && data.label.isEmpty) {
+        unnamedTaps.add('node ${node.id} at ${node.rect}');
+      }
+      node.visitChildren((child) {
+        walk(child);
+        return true;
+      });
+    }
+
+    walk(tester.getSemantics(find.byType(AboutScreen)));
+    expect(unnamedTaps, isEmpty,
+        reason: 'every tappable thing on About says what it is');
+    handle.dispose();
   });
 
   testWidgets('the four links carry the addresses they claim', (tester) async {

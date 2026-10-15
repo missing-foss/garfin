@@ -59,6 +59,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get passwordLabel => 'Mot de passe';
 
   @override
+  String get passwordShowTooltip => 'Afficher le mot de passe';
+
+  @override
+  String get passwordHideTooltip => 'Masquer le mot de passe';
+
+  @override
   String get signInAction => 'Se connecter';
 
   @override
@@ -73,6 +79,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get signOutAction => 'Se déconnecter';
+
+  @override
+  String get signOutConfirmTitle => 'Se déconnecter ?';
+
+  @override
+  String get signOutConfirmBody =>
+      'Ce téléphone oublie votre connexion à Jellyfin et demande au serveur de ne plus l\'accepter. Pour utiliser Garfin à nouveau, il faudra vous reconnecter ou associer de nouveau ce téléphone avec Quick Connect.';
 
   @override
   String get homeNextUpBody =>
@@ -99,6 +112,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get errorTimeout => 'Le serveur n\'a pas répondu à temps. Réessayez.';
 
   @override
+  String get errorUntrustedCertificate =>
+      'Ce téléphone ne fait pas confiance au certificat du serveur. Sur votre réseau local, utilisez son adresse http://, ou installez le certificat du serveur sur ce téléphone.';
+
+  @override
   String get errorUnauthorized =>
       'Ce nom d\'utilisateur ou ce mot de passe ne correspond pas.';
 
@@ -109,6 +126,15 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get errorNotFound =>
       'Quelque chose a répondu à cette adresse, mais ce n\'était pas Jellyfin.';
+
+  @override
+  String errorMoved(String address) {
+    return 'Ce serveur a changé d\'adresse : $address. Connectez-vous plutôt avec cette adresse.';
+  }
+
+  @override
+  String get errorMovedNoAddress =>
+      'Ce serveur a changé d\'adresse sans indiquer laquelle. Vérifiez son adresse.';
 
   @override
   String get errorServer =>
@@ -244,11 +270,20 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String kidsAgeYears(int years) {
-    return '$years ans';
+    String _temp0 = intl.Intl.pluralLogic(
+      years,
+      locale: localeName,
+      other: '$years ans',
+      one: '$years an',
+    );
+    return '$_temp0';
   }
 
   @override
   String get kidsAgeUnknown => 'Ajouter une année de naissance';
+
+  @override
+  String get kidsAgeEditHint => 'Modifier l\'année de naissance';
 
   @override
   String kidsRatingCap(String rating) {
@@ -357,12 +392,24 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String libraryNotYetGiven(int count, String name) {
-    return '$count titres que $name n\'a pas encore';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titres que $name n\'a pas encore',
+      one: '$count titre que $name n\'a pas encore',
+    );
+    return '$_temp0';
   }
 
   @override
   String libraryWithheld(int count, String name) {
-    return '$count titres retirés à $name';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titres retirés à $name',
+      one: '$count titre retiré à $name',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -372,7 +419,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String libraryItemCount(int count) {
-    return '$count titres';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titres',
+      one: '$count titre',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -391,6 +444,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get libraryEmpty => 'Rien ici pour le moment.';
+
+  @override
+  String get libraryNoMatches => 'Rien ici ne correspond à ces filtres.';
+
+  @override
+  String libraryNoMatchesFor(String query) {
+    return 'Rien ici ne correspond à « $query ».';
+  }
 
   @override
   String libraryNothingLeft(String name) {
@@ -413,17 +474,35 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String libraryCollectionCount(int count) {
-    return '$count titres';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titres',
+      one: '$count titre',
+    );
+    return '$_temp0';
   }
 
   @override
   String libraryEpisodeCount(int count) {
-    return '$count épisodes';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count épisodes',
+      one: '$count épisode',
+    );
+    return '$_temp0';
   }
 
   @override
   String librarySemanticSeries(int count) {
-    return 'Série, $count épisodes';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Série, $count épisodes',
+      one: 'Série, $count épisode',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -431,7 +510,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String librarySemanticCollection(int count) {
-    return 'Collection, $count titres';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Collection, $count titres',
+      one: 'Collection, $count titre',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -439,7 +524,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String collectionTitleCount(int count) {
-    return '$count titres dans cette collection';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titres dans cette collection',
+      one: '$count titre dans cette collection',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -515,6 +606,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get assignTitle => 'Pour qui ?';
 
   @override
+  String get libraryTileAssignHint => 'Choisir pour qui';
+
+  @override
+  String get libraryTileOpenHint => 'Ouvrir la collection';
+
+  @override
   String assignSees(String name, int visible, int total) {
     return '$name voit $visible sur $total';
   }
@@ -565,12 +662,26 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String assignCollectionNote(int count) {
-    return 'Les étiquettes sont posées sur les $count titres de la collection, et sur la collection elle-même.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Les étiquettes sont posées sur les $count titres de la collection, et sur la collection elle-même.',
+      one:
+          'Les étiquettes sont posées sur le $count titre de la collection, et sur la collection elle-même.',
+    );
+    return '$_temp0';
   }
 
   @override
   String assignPartOfSet(String name, int count) {
-    return 'Fait partie de $name — $count titres dans l\'ensemble.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Fait partie de $name — $count titres dans l\'ensemble.',
+      one: 'Fait partie de $name — $count titre dans l\'ensemble.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -591,27 +702,62 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String assignSetTogetherAll(int count) {
-    return 'Les $count';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Les $count',
+      one: 'Le $count',
+    );
+    return '$_temp0';
   }
 
   @override
   String assignBatchPartial(int done, int total) {
-    return '$done titres modifiés sur $total.';
+    String _temp0 = intl.Intl.pluralLogic(
+      done,
+      locale: localeName,
+      other: '$done titres modifiés sur $total.',
+      one: '$done titre modifié sur $total.',
+    );
+    return '$_temp0';
   }
 
   @override
   String assignBatchSetIncomplete(int count) {
-    return 'Les $count titres ont été modifiés, mais pas la collection elle-même.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Les $count titres ont été modifiés, mais pas la collection elle-même.',
+      one: 'Le $count titre a été modifié, mais pas la collection elle-même.',
+    );
+    return '$_temp0';
   }
 
   @override
   String assignBatchSetIncompleteAdded(int count) {
-    return 'Les $count titres sont étiquetés, mais pas la collection elle-même. Les films sont là ; l\'ensemble ne l\'est pas.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Les $count titres sont étiquetés, mais pas la collection elle-même. Les films sont là ; l\'ensemble ne l\'est pas.',
+      one:
+          'Le $count titre est étiqueté, mais pas la collection elle-même. Le film est là ; l\'ensemble ne l\'est pas.',
+    );
+    return '$_temp0';
   }
 
   @override
   String assignBatchSetIncompleteRemoved(int count) {
-    return 'Les étiquettes ont été retirées des $count titres, mais pas de la collection. Les films ne sont plus là ; l\'ensemble y est encore, et il paraîtra vide.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Les étiquettes ont été retirées des $count titres, mais pas de la collection. Les films ne sont plus là ; l\'ensemble y est encore, et il paraîtra vide.',
+      one:
+          'L\'étiquette a été retirée du $count titre, mais pas de la collection. Le film n\'est plus là ; l\'ensemble y est encore, et il paraîtra vide.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -625,7 +771,15 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String assignBatchPreflightFailed(int count) {
-    return 'Rien n\'a été modifié. $count titres de cet ensemble n\'ont pas pu être lus : Garfin a laissé l\'ensemble intact.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Rien n\'a été modifié. $count titres de cet ensemble n\'ont pas pu être lus : Garfin a laissé l\'ensemble intact.',
+      one:
+          'Rien n\'a été modifié. $count titre de cet ensemble n\'a pas pu être lu : Garfin a laissé l\'ensemble intact.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -743,7 +897,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String aboutOurPackagesCount(int count) {
-    return '$count choisis ici — les autres viennent avec Flutter';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count choisis ici — les autres viennent avec Flutter',
+      one: '$count choisi ici — les autres viennent avec Flutter',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -858,7 +1018,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String activityWhenCollection(String when, int count) {
-    return '$when · $count titres';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$when · $count titres',
+      one: '$when · $count titre',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1044,7 +1210,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get sessionsUncontrollable =>
-      'Cet appareil n\'accepte pas les commandes à distance. Le déconnecter n\'arrêtera pas la lecture en cours.';
+      'Cet appareil indique ne pas accepter les commandes à distance. Le déconnecter n\'arrêtera pas la lecture en cours.';
 
   @override
   String get librarySearchHint => 'Rechercher un titre';
@@ -1176,7 +1342,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String collectionGivenAll(int total, String name) {
-    return 'Les $total partagés avec $name';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: 'Les $total partagés avec $name',
+      one: 'Le $total titre partagé avec $name',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1191,6 +1363,12 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String collectionKeptAll(int total, String name) {
-    return 'Les $total retirés à $name';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: 'Les $total retirés à $name',
+      one: 'Le $total titre retiré à $name',
+    );
+    return '$_temp0';
   }
 }

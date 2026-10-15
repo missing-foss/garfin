@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'dart:async';
+
 import '../logging.dart';
 import '../models/auth_session.dart';
 import '../models/authentication_result.dart';
 import '../models/jellyfin_user.dart';
+import '../models/server_version.dart';
 import 'birth_year_store.dart';
 import 'jellyfin_api.dart';
 import 'jellyfin_exception.dart';
@@ -102,9 +105,17 @@ class AuthRepository {
       );
     }
 
-    await _tokenStore.write(result.accessToken);
+    // **The token last.** It is what `restore` takes as "signed in", so it is
+    // written only once the address and account it belongs to are: an
+    // interruption between the two used to leave a token that restored with
+    // an empty user id, and every request then went to `/Users//Items/…`.
     await _settings.setServerUrl(serverUrl);
     await _settings.setUser(id: result.user.id, name: result.user.name);
+    await _tokenStore.write(result.accessToken);
+
+    // Not awaited and not a gate: a sign-in to a version nobody measured
+    // still signs in. It only puts that fact at the top of the log.
+    unawaited(_noteServerVersion(serverUrl));
 
     return AuthSession(
       serverUrl: serverUrl,
@@ -128,10 +139,17 @@ class AuthRepository {
     final token = await _tokenStore.read();
     if (token == null) return null;
 
+    // No account id is no session: every request is keyed on it. A token
+    // without one is what an interrupted sign-in used to leave behind, and it
+    // is treated as signed out rather than restored into `/Users//…`. A
+    // stored empty id reads as null already: the store maps it.
+    final userId = _settings.userId;
+    if (userId == null) return null;
+
     return AuthSession(
       serverUrl: serverUrl,
       accessToken: token,
-      userId: _settings.userId ?? '',
+      userId: userId,
       userName: _settings.userName ?? '',
     );
   }
@@ -160,13 +178,67 @@ class AuthRepository {
 
   /// Forgets the account and the token. Keeps the server address, which the
   /// next sign-in will want and which is not a secret.
-  Future<void> signOut() async {
+  ///
+  /// **And revokes the token on the server first**, when [revoke] is true.
+  /// Clearing it here only forgets it on this phone: a Jellyfin token does not
+  /// expire, the default address is plain `http://`, and the token rides in a
+  /// header on every request — so one that was ever observed kept working
+  /// after the parent signed out, until they found the device in the
+  /// dashboard.
+  ///
+  /// Best effort, and bounded: signing out must work with no network, so a
+  /// failure is logged and the local sign-out goes ahead. [revoke] is false
+  /// when the server has just refused the token (401) — there is nothing left
+  /// to revoke, and asking again would only wait on a request that cannot
+  /// help.
+  Future<void> signOut({bool revoke = true}) async {
+    if (revoke) await _revoke();
     await _tokenStore.clear();
     await _settings.clearUser();
     // Birth years are keyed by Jellyfin user id, and ids are per-server.
     // Leaving them would at best be dead keys and at worst attach one
     // household's ages to another's accounts after a server change.
     await _birthYears.clearAll();
+  }
+
+  Future<void> _revoke() async {
+    final session = await restore();
+    if (session == null) return;
+    try {
+      await _apiFactory
+          .create(
+            baseUrl: session.serverUrl,
+            readToken: () => session.accessToken,
+          )
+          .logout()
+          .timeout(revokeTimeout);
+    } on Object catch (error) {
+      log.info('sign-out could not revoke the token: '
+          '${error is JellyfinException ? error.kind.name : error.runtimeType}');
+    }
+  }
+
+  /// How long sign-out waits for the server before going ahead locally.
+  ///
+  /// Short on purpose: the parent pressed *Sign out* and is waiting on it,
+  /// and the client's own timeouts are sized for a library page.
+  static const revokeTimeout = Duration(seconds: 3);
+
+  /// Logs a warning when the server is outside what Garfin was measured
+  /// against. Never throws: a version that cannot be read is no reason to
+  /// interrupt anything, and is not logged as untested.
+  Future<void> _noteServerVersion(String serverUrl) async {
+    try {
+      final version = await _anonymous(serverUrl)
+          .serverVersion()
+          .timeout(const Duration(seconds: 5));
+      if (isTestedServerVersion(version) == false) {
+        log.warning('server version $version is outside the tested '
+            '10.11.x / 12.x; reports from it should say so');
+      }
+    } on Object {
+      // Unknown, not untested.
+    }
   }
 
   JellyfinApi _anonymous(String serverUrl) =>

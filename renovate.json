@@ -1,0 +1,41 @@
+{
+  "description": [
+    "Dependency updates for garfin. Renovate's pull requests go through reviewer-bot, CI and merge-bot like any other, and none is merged automatically.",
+    "A release must be three days old before it is proposed; a release whose date the registry does not publish is still proposed.",
+    "Updates arrive once a week, one pull request per manager group (pub, gradle, GitHub Actions), so a week of bumps is one review each rather than many."
+  ],
+  "extends": [
+    "config:recommended",
+    "schedule:weekly"
+  ],
+  "timezone": "Europe/Zurich",
+  "minimumReleaseAge": "3 days",
+  "minimumReleaseAgeBehaviour": "timestamp-optional",
+  "enabledManagers": [
+    "pub",
+    "gradle",
+    "github-actions"
+  ],
+  "pinDigests": true,
+  "automerge": false,
+  "packageRules": [
+    {
+      "matchManagers": [
+        "pub"
+      ],
+      "groupName": "pub dependencies"
+    },
+    {
+      "matchManagers": [
+        "gradle"
+      ],
+      "groupName": "gradle dependencies"
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "github-actions"
+    }
+  ]
+}

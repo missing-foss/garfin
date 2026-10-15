@@ -14,6 +14,7 @@ import '../repositories/device_warning.dart';
 import '../repositories/jellyfin_api.dart';
 import '../repositories/server_settings_store.dart';
 import '../repositories/token_store.dart';
+import '../repositories/session_signals.dart';
 
 /// The platform singletons, resolved once in `main` and injected here.
 ///
@@ -70,8 +71,15 @@ final recentsCoveredProvider = FutureProvider<bool>(
   (ref) => ref.watch(windowSecurityProvider).isRecentsCovered(),
 );
 
+/// The relay every authenticated client reports to, and the auth controller
+/// listens on. See [SessionSignals].
+final sessionSignalsProvider = Provider<SessionSignals>((ref) => SessionSignals());
+
 final jellyfinApiFactoryProvider = Provider<JellyfinApiFactory>(
-  (ref) => JellyfinApiFactory(identity: ref.watch(deviceIdentityProvider)),
+  (ref) => JellyfinApiFactory(
+    identity: ref.watch(deviceIdentityProvider),
+    signals: ref.watch(sessionSignalsProvider),
+  ),
 );
 
 final authRepositoryProvider = Provider<AuthRepository>(

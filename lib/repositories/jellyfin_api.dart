@@ -19,6 +19,7 @@ import '../models/quick_connect.dart';
 import 'device_identity.dart';
 import 'jellyfin_exception.dart';
 import 'media_browser_auth.dart';
+import 'session_signals.dart';
 
 /// The Jellyfin HTTP surface Garfin needs to sign in.
 ///
@@ -788,12 +789,18 @@ class JellyfinApi {
         return readInt(_asMap(response.data), 'TotalRecordCount') ?? 0;
       });
 
-  /// Every BoxSet on the server, for the reverse index a sheet needs.
+  /// The ids of the items carrying any of [tags], at most [limit] of them.
   ///
-  /// One call; the members come from [collectionMembers], one call each.
-  Future<List<LibraryItem>> collections({
+  /// The other half of the last-item warning. [taggedItemCount] says how many
+  /// items carry a label; when that is no more than a write touches, this says
+  /// **which** — and the warning fires only if every one of them is being
+  /// written. The same population as the count, whole library and no filters,
+  /// so the two answers are about the same items.
+  Future<List<String>> taggedItemIds({
     required String userId,
-    int limit = 500,
+    required List<String> tags,
+    required int limit,
+    List<String> itemTypes = const ['Movie', 'Series', 'BoxSet'],
   }) =>
       _call(() async {
         final response = await _dio.get<dynamic>(
@@ -802,14 +809,45 @@ class JellyfinApi {
             'userId': userId,
             'Recursive': true,
             'Limit': limit,
+            'tags': tags.join('|'),
+            'IncludeItemTypes': itemTypes.join(','),
+          },
+        );
+        return _itemsOf(response.data)
+            .map((item) => item.id)
+            .toList(growable: false);
+      });
+
+  /// The server's version, from the one endpoint that answers without a token.
+  ///
+  /// Null when the field is absent. Read once at sign-in, for the log — see
+  /// `isTestedServerVersion`.
+  Future<String?> serverVersion() => _call(() async {
+        final response = await _dio.get<dynamic>('/System/Info/Public');
+        return readString(_asMap(response.data), 'Version');
+      });
+
+  /// Every BoxSet on the server, for the reverse index a sheet needs.
+  ///
+  /// **Every one, page by page** — one call per 500 sets (see [_everyPage]);
+  /// the members come from [collectionMembers], the same way, per set.
+  Future<List<LibraryItem>> collections({
+    required String userId,
+    int pageSize = _listingPage,
+  }) =>
+      _call(
+        () => _everyPage(
+          <String, dynamic>{
+            'userId': userId,
+            'Recursive': true,
             'IncludeItemTypes': 'BoxSet',
             'Fields': 'Tags,ChildCount',
             'SortBy': 'SortName',
             'SortOrder': 'Ascending',
           },
-        );
-        return _itemsOf(response.data);
-      });
+          pageSize: pageSize,
+        ),
+      );
 
   /// What is inside a collection.
   ///
@@ -826,20 +864,21 @@ class JellyfinApi {
   /// against 41 from a single-item `GET` on a BoxSet — and posting one back is
   /// the wipe ground rule 2 exists to prevent. Nothing in the write path
   /// accepts them; it takes ids. See [replaceItem].
+  ///
+  /// **Every member, page by page** — see [_everyPage]. A set's members are
+  /// what a collection write labels, so a short list is a half-labelled set.
   Future<List<LibraryItem>> collectionMembers({
     required String userId,
     required String collectionId,
-    int limit = 500,
+    int pageSize = _listingPage,
     String sortBy = 'SortName',
     String sortOrder = 'Ascending',
   }) =>
-      _call(() async {
-        final response = await _dio.get<dynamic>(
-          '/Items',
-          queryParameters: <String, dynamic>{
+      _call(
+        () => _everyPage(
+          <String, dynamic>{
             'userId': userId,
             'parentId': collectionId,
-            'Limit': limit,
             // **The same fields the grid asks for, because these are the same
             // tiles.** `collection_screen.dart` renders members through
             // `LibraryGrid`, so a member is drawn by exactly the widget the
@@ -862,9 +901,94 @@ class JellyfinApi {
             'SortBy': sortBy,
             'SortOrder': sortOrder,
           },
+          pageSize: pageSize,
+        ),
+      );
+
+  /// One `Limit` of a listing that is read whole.
+  static const _listingPage = 500;
+
+  /// Every item an `/Items` listing has, not its first page.
+  ///
+  /// [collections] and [collectionMembers] used to ask for 500 and drop
+  /// `TotalRecordCount`, so a set of 600 came back as 500 with nothing to say
+  /// so — and a collection write labelled those 500, saw no failures, and
+  /// marked the container: the half-labelled set `docs/DECISIONS.md`
+  /// § Collections exists to prevent, made by the read path, silently.
+  ///
+  /// Pages by `StartIndex` until the items reach `TotalRecordCount`. Measured
+  /// on 10.11.11 and 12.1 for both listings — a set's members by `parentId`,
+  /// and the BoxSets themselves: pages of 2 over five members answered 2, 2,
+  /// 1, then 0, `TotalRecordCount` 5 on every page, each member exactly once.
+  ///
+  /// **A listing that stops short throws** rather than returning what it has:
+  /// an empty page before the total is reached means the server's answer
+  /// changed under the read, and a partial membership is the one thing the
+  /// write path must never be handed. The sheet already refuses to write a
+  /// set whose membership could not be read.
+  ///
+  /// **So does one that stops advancing**: a page holding nothing new — the
+  /// same items again, from something that ignores `StartIndex` — would
+  /// otherwise be read until the duplicates reached the total, and hand over
+  /// a membership made of repeats.
+  Future<List<LibraryItem>> _everyPage(
+    Map<String, dynamic> query, {
+    required int pageSize,
+  }) async {
+    final items = <LibraryItem>[];
+    final seen = <String>{};
+    // The first page's total, held to on every page after it.
+    int? expected;
+    var first = true;
+    while (true) {
+      final response = await _dio.get<dynamic>(
+        '/Items',
+        queryParameters: <String, dynamic>{
+          ...query,
+          'StartIndex': items.length,
+          'Limit': pageSize,
+        },
+      );
+      final page = _itemsOf(response.data);
+      final total = readInt(_asMap(response.data), 'TotalRecordCount');
+      // **A total that moves means the listing moved under the read.** A
+      // member removed between two pages shifts every later one left: the
+      // next page starts one item late and skips a member that still exists,
+      // and the total drops by the same one — so "items reached the total"
+      // holds on a membership one short, and nothing else would notice. Added
+      // members shift the other way and repeat one. Either way the read is of
+      // no single moment, and the write path must not be handed it.
+      if (first) {
+        expected = total;
+        first = false;
+      } else if (total != expected) {
+        throw JellyfinException(
+          JellyfinErrorKind.server,
+          message: 'listing changed during the read: $expected then $total',
         );
-        return _itemsOf(response.data);
-      });
+      }
+      final fresh = [for (final item in page) if (seen.add(item.id)) item];
+      if (page.isNotEmpty && fresh.isEmpty) {
+        throw JellyfinException(
+          JellyfinErrorKind.server,
+          message: 'listing did not advance past ${items.length}',
+        );
+      }
+      items.addAll(fresh);
+      // No total at all: the page size is the only signal there is.
+      if (total == null) {
+        if (page.length < pageSize) return items;
+        continue;
+      }
+      if (items.length >= total) return items;
+      if (page.isEmpty) {
+        throw JellyfinException(
+          JellyfinErrorKind.server,
+          message: 'listing stopped at ${items.length} of $total',
+        );
+      }
+    }
+  }
 
   /// Every signed-in device the server knows about.
   ///
@@ -913,6 +1037,16 @@ class JellyfinApi {
             'TimeoutMs': 8000,
           },
         );
+      });
+
+  /// Revokes the token this client sends: Garfin's own sign-out.
+  ///
+  /// Measured on 10.11.11 and 12.1: **204**, and that token answers **401**
+  /// from then on — while a second token for the same account, from another
+  /// device, keeps answering 200. So it ends this sign-in and no other. A
+  /// second call with the dead token answers 401, as does one with none.
+  Future<void> logout() => _call(() async {
+        await _dio.post<dynamic>('/Sessions/Logout');
       });
 
   /// Asks a session to stop whatever it is playing.
@@ -1091,9 +1225,14 @@ class JellyfinApiFactory {
     this.connectTimeout = const Duration(seconds: 10),
     this.receiveTimeout = const Duration(seconds: 20),
     this.adapter,
+    this.signals,
   });
 
   final DeviceIdentity identity;
+
+  /// Told about every authenticated call's 2xx and 401; see [SessionSignals].
+  /// Null in tests that are not about the session.
+  final SessionSignals? signals;
   final Duration connectTimeout;
   final Duration receiveTimeout;
 
@@ -1117,6 +1256,8 @@ class JellyfinApiFactory {
         // reverse proxy content-negotiating us into XML.
         headers: const {'Accept': 'application/json'},
         responseType: ResponseType.json,
+        // A 30x is reported, never followed: see `JellyfinErrorKind.moved`.
+        followRedirects: false,
       ),
     );
     if (adapter != null) dio.httpClientAdapter = adapter!;
@@ -1126,6 +1267,10 @@ class JellyfinApiFactory {
         readToken: readToken ?? () => null,
       ),
     );
+    // Only where a token is sent: a 401 without one is a wrong password.
+    if (readToken != null && signals != null) {
+      dio.interceptors.add(SessionSignalInterceptor(signals!));
+    }
     return JellyfinApi(dio);
   }
 }

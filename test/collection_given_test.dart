@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/models/collection_set.dart';
@@ -22,6 +23,7 @@ import 'package:garfin/repositories/jellyfin_api.dart';
 import 'package:garfin/screens/collection_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/roster_from_overview.dart';
 import 'support/fake_jellyfin_server.dart';
 
 /// How much of a set is theirs, said on screen (#107).
@@ -151,6 +153,7 @@ void main() {
                 adapter: server,
               ),
             ),
+            rosterFromOverview(session),
             kidsOverviewProvider(session).overrideWith(
               (ref) async => KidsOverview(
                 shortlisted: [
@@ -165,7 +168,7 @@ void main() {
             pickingForProvider.overrideWith(() => _Picked(kid.id)),
           ],
           child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: CollectionScreen(
               session: session,
@@ -232,6 +235,7 @@ void main() {
                 adapter: server,
               ),
             ),
+            rosterFromOverview(session),
             kidsOverviewProvider(session).overrideWith(
               (ref) async => KidsOverview(
                 shortlisted: [
@@ -244,7 +248,7 @@ void main() {
                 .overrideWith((ref) async => const ParentalRatingLadder.empty()),
           ],
           child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: CollectionScreen(
               session: session,
@@ -362,6 +366,7 @@ void main() {
                 adapter: gridServer,
               ),
             ),
+            rosterFromOverview(session),
             kidsOverviewProvider(session).overrideWith(
               (ref) async => KidsOverview(
                 shortlisted: [
@@ -377,7 +382,7 @@ void main() {
               pickingForProvider.overrideWith(() => _Picked(kid.id)),
           ],
           child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(body: LibraryScreen(session: session)),
           ),

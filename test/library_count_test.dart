@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/models/collection_set.dart';
@@ -23,6 +24,7 @@ import 'package:garfin/repositories/jellyfin_api.dart';
 import 'package:garfin/screens/library_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/roster_from_overview.dart';
 import 'support/fake_jellyfin_server.dart';
 
 /// The Library's result line (#81).
@@ -136,6 +138,7 @@ void main() {
             adapter: server,
           ),
         ),
+        rosterFromOverview(session),
         kidsOverviewProvider(session).overrideWith(
           (ref) async => KidsOverview(
             shortlisted: [
@@ -146,6 +149,8 @@ void main() {
         ),
       ]);
       await container.read(kidsOverviewProvider(session).future);
+      // The picked child comes from the roster.
+      await container.read(kidsRosterProvider(session).future);
       container.read(pickingForProvider.notifier).select(child.id);
       container.read(libraryFiltersProvider.notifier).set(filters);
       return container;
@@ -326,6 +331,7 @@ void main() {
             adapter: server,
           ),
         ),
+        rosterFromOverview(session),
         kidsOverviewProvider(session).overrideWith(
           (ref) async => KidsOverview(
             shortlisted: [
@@ -336,12 +342,14 @@ void main() {
         ),
         parentalRatingLadderProvider(session)
             .overrideWith((ref) async => const ParentalRatingLadder.empty()),
-        // A search reads the collection index to add the sets its films are
-        // in. Stubbed empty so it takes none of the scripted `/Items` replies
-        // above, whose order is the whole point of this harness.
-        if (search != null)
-          collectionIndexProvider(session)
-              .overrideWith((ref) async => const CollectionIndex.empty()),
+        // The collection index is stubbed empty so it takes none of the
+        // scripted `/Items` replies above, whose order is the whole point of
+        // this harness. A search reads it to add the sets its films are in,
+        // and the Library warms it regardless; read from these replies, its
+        // listing gets an empty page claiming a total, which it now refuses
+        // as a listing that stopped short.
+        collectionIndexProvider(session)
+            .overrideWith((ref) async => const CollectionIndex.empty()),
       ]);
       addTearDown(container.dispose);
       if (scope != SearchScope.title) {
@@ -360,6 +368,8 @@ void main() {
         container.read(libraryFiltersProvider.notifier).setSearch(search);
       }
       await container.read(kidsOverviewProvider(session).future);
+      // The picked child comes from the roster.
+      await container.read(kidsRosterProvider(session).future);
       container.read(pickingForProvider.notifier).select(child.id);
       // Show shared: the default, and the configuration the second defect
       // lived in — the grid then holds titles the child already has.
@@ -370,7 +380,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: const Scaffold(body: LibraryScreen(session: session)),
           ),

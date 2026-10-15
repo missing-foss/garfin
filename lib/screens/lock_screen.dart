@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
@@ -36,9 +38,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
   void _prompt() {
     if (!mounted) return;
-    ref
+    unawaited(ref
         .read(lockControllerProvider.notifier)
-        .unlock(reason: AppLocalizations.of(context).unlockPromptReason);
+        .unlock(reason: AppLocalizations.of(context).unlockPromptReason));
   }
 
   @override

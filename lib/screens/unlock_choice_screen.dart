@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/gen/app_localizations.dart';
@@ -137,6 +139,6 @@ class _UnlockChoiceScreenState extends ConsumerState<UnlockChoiceScreen>
   /// Either answer is an answer: both record that the question was asked, so it
   /// is never put twice.
   void _answer(WidgetRef ref, {required bool required}) {
-    ref.read(unlockChoiceProvider.notifier).record(required: required);
+    unawaited(ref.read(unlockChoiceProvider.notifier).record(required: required));
   }
 }

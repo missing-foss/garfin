@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../logging.dart';
@@ -83,15 +85,47 @@ final authControllerProvider =
 class AuthController extends AsyncNotifier<AuthState> {
   AuthRepository get _repository => ref.read(authRepositoryProvider);
 
+  /// A check is in flight. A burst of 401s — every screen's request failing at
+  /// once after a revoke — asks for one check, not one each; and the check's
+  /// own request reports to the same relay, which must not start another.
+  bool _refreshing = false;
+
+  /// Signing out is under way. The revoke is an authenticated call like any
+  /// other and reports to the same relay; its answer — or a screen's request
+  /// still landing — must not start a check of a session being given up.
+  bool _signingOut = false;
+
+  /// When a check last finished, for [_noteReachable]'s throttle.
+  DateTime? _lastChecked;
+
+  /// The least time between two checks that a *successful* call asks for.
+  ///
+  /// Only that path is throttled. A success is every call the app makes, and
+  /// if the check itself keeps failing while other calls succeed, each page of
+  /// the grid would otherwise ask for another. A 401 is not throttled — a
+  /// device revoked a minute after launch must not wait out an interval — and
+  /// a burst of them is one check already, through [_refreshing]. Resume and
+  /// *Try again* are a person asking and are never throttled.
+  static const reachableInterval = Duration(seconds: 30);
+
   @override
   Future<AuthState> build() async {
+    // Every authenticated call reports here from now on, rather than the
+    // session being checked once at launch and never again.
+    final signals = ref.read(sessionSignalsProvider)
+      ..attach(
+        onUnauthorized: () => unawaited(refreshSession()),
+        onReachable: _noteReachable,
+      );
+    ref.onDispose(signals.detach);
+
     final session = await _repository.restore();
     if (session == null) return const AuthSignedOut();
 
     // Confirm in the background rather than blocking the first frame on a
     // network round-trip. On a phone that has just been unlocked in another
     // room, that round-trip can be seconds of white screen.
-    Future<void>.microtask(refreshSession);
+    unawaited(Future<void>.microtask(refreshSession));
 
     return AuthSignedIn(session: session, verified: false);
   }
@@ -106,9 +140,17 @@ class AuthController extends AsyncNotifier<AuthState> {
   /// * The server cannot be reached — stay signed in, flag it, carry on with
   ///   what is cached.
   /// * It works — clear the flag.
+  ///
+  /// Asked at launch, on every resume, from every *Try again*, after any
+  /// authenticated call is refused with 401, and after the first call that
+  /// succeeds while the session is unconfirmed. A 401 is not taken at its word:
+  /// this check is what decides, so one endpoint's refusal cannot sign the
+  /// parent out of a session the server still honours.
   Future<void> refreshSession() async {
     final current = state.value;
     if (current is! AuthSignedIn) return;
+    if (_refreshing || _signingOut) return;
+    _refreshing = true;
 
     try {
       await _repository.verify(current.session);
@@ -122,7 +164,11 @@ class AuthController extends AsyncNotifier<AuthState> {
         case JellyfinErrorKind.notAdministrator:
         case JellyfinErrorKind.unauthorized:
           log.info('stored session is no longer usable: ${error.kind.name}');
-          await _repository.signOut();
+          // A demoted account's token still works, so it is revoked like any
+          // other. A refused one has nothing left to revoke.
+          await _repository.signOut(
+            revoke: error.kind != JellyfinErrorKind.unauthorized,
+          );
           if (!ref.mounted) return;
           state = AsyncData(AuthSignedOut(reason: error));
         // Garfin's own refusal, from the Quick Connect approval path (#40).
@@ -132,6 +178,12 @@ class AuthController extends AsyncNotifier<AuthState> {
         case JellyfinErrorKind.unusableUserId:
         case JellyfinErrorKind.unreachable:
         case JellyfinErrorKind.timeout:
+        // The server answered from another address. Not a refusal of the
+        // session, so not a sign-out: stay, and say so.
+        case JellyfinErrorKind.moved:
+        // Not a refusal of the session either: the server is there, behind a
+        // certificate this phone does not trust. Stay, and say so.
+        case JellyfinErrorKind.untrustedCertificate:
         case JellyfinErrorKind.forbidden:
         case JellyfinErrorKind.notFound:
         case JellyfinErrorKind.server:
@@ -140,7 +192,33 @@ class AuthController extends AsyncNotifier<AuthState> {
         case JellyfinErrorKind.cancelled:
           state = AsyncData(current.copyWith(offlineReason: error));
       }
+    } finally {
+      _refreshing = false;
+      _lastChecked = DateTime.now();
     }
+  }
+
+
+
+  /// A call went through, so the server is there: the banner saying it is not
+  /// comes down now, on the first call that proves otherwise.
+  ///
+  /// And if the session is still unconfirmed — the launch check never reached
+  /// the server — it is confirmed too, because that check is also the
+  /// administrator check (rule 7), and a session restored offline has not had
+  /// it yet. That part is throttled; the banner is not.
+  void _noteReachable() {
+    final current = state.value;
+    if (current is! AuthSignedIn || _signingOut) return;
+    if (current.offlineReason != null) {
+      state = AsyncData(current.copyWith(clearOfflineReason: true));
+    }
+    if (current.verified) return;
+    final last = _lastChecked;
+    if (last != null && DateTime.now().difference(last) < reachableInterval) {
+      return;
+    }
+    unawaited(refreshSession());
   }
 
   /// Adopts a session that has already passed the admin check in
@@ -175,9 +253,15 @@ class AuthController extends AsyncNotifier<AuthState> {
     );
   }
 
+  /// The parent's own sign-out, which revokes the token on the server first.
   Future<void> signOut() async {
-    await _repository.signOut();
-    if (!ref.mounted) return;
-    state = const AsyncData(AuthSignedOut());
+    _signingOut = true;
+    try {
+      await _repository.signOut();
+      if (!ref.mounted) return;
+      state = const AsyncData(AuthSignedOut());
+    } finally {
+      _signingOut = false;
+    }
   }
 }

@@ -34,17 +34,18 @@ class DeviceIdentity {
 
   /// Loads the persisted device id, generating one on first run.
   ///
-  /// A reinstall *without a restore* wipes `shared_preferences` and so mints a
-  /// fresh id, which is correct rather than unfortunate: the old session's
-  /// token is gone with it, so reusing the id would only leave a stale device
-  /// entry pointing at nothing.
+  /// A reinstall wipes `shared_preferences` and so mints a fresh id, which is
+  /// correct rather than unfortunate: the old session's token is gone with it,
+  /// so reusing the id would only leave a stale device entry pointing at
+  /// nothing.
   ///
-  /// With a restore it is not fresh. Nothing declares `allowBackup`, so
-  /// Android's default carries preferences to the user's cloud account and back
-  /// — the id survives, while the token does not, because
-  /// `flutter_secure_storage`'s master key lives in the Keystore and is not
-  /// backed up. Harmless: Jellyfin simply sees the same device entry sign in
-  /// again. Noted because this comment used to claim the opposite.
+  /// No restore should bring it back: the manifest sets `allowBackup="false"`
+  /// and its data-extraction rules exclude the app's storage from both cloud
+  /// backup and device-to-device transfer, so a new phone mints its own id
+  /// too. That is the configuration's claim; no restore has been measured.
+  /// `docs/DECISIONS.md` § Nothing syncs to a cloud account has why. Noted
+  /// because this comment used to say the opposite, written before backup was
+  /// switched off.
   static Future<DeviceIdentity> load(SharedPreferences prefs) async {
     var id = prefs.getString(_deviceIdKey);
     if (id == null || id.isEmpty) {

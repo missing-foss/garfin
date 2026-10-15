@@ -25,11 +25,13 @@ parental controls through tags — see the [README](../README.md) for what it do
 
 ## Stack
 
-- **Flutter**, Material 3, dark-first, `ColorScheme.fromSeed(seedColor: Color(0xFF7C5CD6))`
-  with `DynamicColorBuilder` for Material You on Android 12+.
+- **Flutter**, Material 3 from the `material_ui` package rather than `flutter/material` —
+  `dynamic_color` 2.x hands back `material_ui`'s `ColorScheme`. Dark-first,
+  `ColorScheme.fromSeed(seedColor: Color(0xFF7C5CD6))` with `DynamicColorBuilder` for Material
+  You on Android 12+, which Settings can turn off for the brand seed.
 - **Fonts**: Fredoka SemiBold (headings, titles, numbers, buttons), Nunito (body),
   Roboto Mono (tags and code). Declared in `pubspec.yaml`, files in `assets/fonts/`.
-- **HTTP**: `dio` or `http` — no generated Jellyfin SDK, the surface we need is small.
+- **HTTP**: `dio` — no generated Jellyfin SDK, the surface we need is small.
 - **State**: Riverpod. Keep the Jellyfin client in a repository layer; widgets never call HTTP.
 - **Storage**: `shared_preferences` for settings. **Never** the access token — that goes in
   `flutter_secure_storage`.
@@ -213,20 +215,34 @@ GPLv2 relicence is available, which the paragraph above explains it is not.
 
 ## Definition of done for a feature
 
-Builds, passes `flutter analyze` with no warnings, works offline-degraded (shows cached data
-and a clear error rather than a blank screen), and has no hardcoded strings outside a
-localisation file if l10n has been set up.
+Builds, passes `flutter analyze` with no warnings, works offline-degraded (a clear error rather
+than a blank screen), and has no hardcoded strings outside a localisation file if l10n has been
+set up.
+
+What "offline-degraded" keeps is the **session**, not the screens' data. A session restored from
+storage stays signed in when the server cannot be reached, under a notice saying so, and the
+notice comes down on the first call that gets through. No screen keeps a last good copy of what
+it fetched: a screen whose request fails shows the error in its place.
 
 ## Toolchain
 
 Not part of the repo — install these wherever you keep SDKs and put them on `PATH`.
 The versions are what the project is built and tested against, and `.tool-versions` is the
-source of truth in a stronger sense than a written list: **both CI workflows read the Flutter
-version out of it at run time**, so neither can drift from it and neither needs checking.
+source of truth in a stronger sense than a written list: **CI reads the Flutter version and the
+Java major out of it at run time**, so neither can drift from it.
 
-The one toolchain value written down twice is the mirror workflow's `java-version`, which is a
-literal. `dev/verify.sh`'s last step compares that against the pin — that single value is the
-whole of what "the toolchain pin agrees with CI" covers.
+`ci.yml` used to carry a `java-version: "17"` literal while computing the pinned value into an
+output that nothing read — so the one value that could drift was three lines above the step meant
+to prevent it. `dev/verify.sh`'s last step now guards the property that matters instead of
+comparing anything: it fails if a workflow declares a toolchain version as a literal rather than an
+expression.
+
+What CI downloads is pinned in `.ci-downloads`: the Flutter archive, the Android cmdline-tools and
+gitleaks, each with the sha256 the archive is checked against before it is extracted, and the
+Android SDK packages the forge CI installs. The same verify step fails on an SDK level or a
+cmdline-tools build written into a workflow, and on a `.ci-downloads` flutter line that names a
+different version from `.tool-versions` — which CI also refuses, so **a Flutter bump changes both
+files**, with the new archive's sha256 taken from Flutter's release index.
 
 - Flutter 3.44.9 stable · Dart 3.12.2
 - Android SDK platform 36, build-tools 36.0.0, platform-tools (`ANDROID_HOME`)
@@ -240,6 +256,10 @@ Worth turning off if you would rather not send analytics upstream:
     flutter analyze          # must be clean — it is part of the definition of done
     flutter test
     flutter build apk --debug
+
+A release build embeds the absolute path of the directory it was built in (`libapp.so`, via the
+generated plugin registrant's `file://` URI). `--obfuscate --split-debug-info` does not remove it,
+and the symbol files carry it too. Build releases from a directory whose path discloses nothing.
 
 ## Status
 
@@ -262,7 +282,7 @@ become a skipped check that still reports green.
 1. [x] Jellyfin client + auth (Quick Connect and password), admin check
 2. [x] Device unlock gate (`local_auth`) — rule 9. Early, because every later screen sits behind it
 3. [x] User list with policy parsing → Kids screen
-4. [x] Library grid with the child selector — filter bar and infinite scroll still open
+4. [x] Library grid with the child selector, the filter bar and infinite scroll
 5. [x] Assign sheet with tag diff, counts, and the write path
 6. [x] Collections, pre-flight and fix-forward
 7. [x] Settings — minus three switches that turn out to control nothing; see `docs/UI-SPEC.md`

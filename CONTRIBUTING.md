@@ -29,24 +29,29 @@ proposing something that was ruled out for a reason that still holds.
 dev/verify.sh
 ```
 
-It runs fourteen steps: `flutter analyze`, `flutter test`, debug **and**
+It runs fifteen steps: `flutter analyze`, `flutter test`, debug **and**
 release APK builds, FR translation parity, the hardcoded-string check, the copy
 rules, the no-`print` check, the leak scan, gitleaks, REUSE lint, the
-vendored-guard version check, a tracker-reference check and a toolchain-pin
-check.
+vendored-guard version check, a tracker-reference check, a check that no
+workflow hardcodes a toolchain version, and a check that the pubspec version
+has a CHANGELOG section. That last one means whoever bumps the version in
+`pubspec.yaml` renames **Unreleased** in `CHANGELOG.md` in the same change.
 
-**There are two CIs and they are not the same gate.** A repository carrying
-`.forgejo/workflows/` is served by that directory alone, so the development
-forge runs `.forgejo/workflows/ci.yml` and the published mirror runs
-`.github/workflows/ci.yml`. Both run analyze, the tests, both APK builds, FR
-parity, the copy rules, the no-`print` check, gitleaks and REUSE. The forge
-**also** runs the hardcoded-string check, the tracker-reference check and the
-vendored-guard check; the mirror runs none of those three.
+**`verify.sh` is the wider gate, and that is deliberate.**
+`.github/workflows/ci.yml` runs ten gates: analyze, the tests, the debug and
+release APK builds, the release-APK assertions — which `verify.sh` folds into
+its own release build — FR parity, the copy rules, the no-`print` check,
+gitleaks and REUSE lint.
 
-Neither runs the leak scan — it needs a pattern list that exists only on a
-development machine, and CI says so rather than passing silently — and neither
-runs the toolchain-pin check. So a green `verify.sh` covers every gate either
-CI will run, plus **two** things neither does.
+**Six of the fifteen have no counterpart in CI**: the hardcoded-string check,
+the leak scan, the vendored-guard version check, the tracker-reference check,
+the hardcoded-toolchain check and the CHANGELOG-section check. The leak scan is the one to know about — it needs
+a pattern list that exists only on a development machine, so a hosted runner
+has nothing to give it, and `verify.sh` reports SKIP rather than passing
+silently.
+
+So a green `verify.sh` covers everything CI will run, plus six checks it
+does not.
 
 It is not a superset, though, and the difference is deliberate. CI additionally
 confirms the runner's toolchain is the pinned one, which a local run cannot do,
@@ -100,14 +105,9 @@ Releases are tagged `vX.Y.Z`.
 git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
-Tagging on the published mirror triggers `release.yml`, which checks the tag
-matches `pubspec.yaml`, calls the mirror's own `ci.yml` so a release runs the
-same ten gates a mirror pull request runs, and opens a **draft** release. It
-attaches no artifact, deliberately.
-
-The development forge does not run it, by the same rule that gives the two CIs
-different contents: `release.yml` lives in `.github/workflows/`, so the release
-path exists on the mirror and nowhere else.
+Tagging triggers `release.yml`, which checks the tag matches `pubspec.yaml`,
+calls `ci.yml` so a release runs the same ten gates a pull request runs, and
+opens a **draft** release. It attaches no artifact, deliberately.
 
 Then build and sign locally — the signing key never exists in CI:
 

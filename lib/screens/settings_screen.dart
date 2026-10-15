@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app_info.dart';
@@ -28,9 +28,11 @@ import 'unlock_settings_screen.dart';
 ///   the one already in the child's policy, so there is nothing to prefix
 ///   (ground rule 8, the same consequence as a child's first label);
 /// - **cascade to collection members**, because a collection *always* writes to
-///   its members, and #50 measured that the alternative hands the child a
+///   its members, and measurement showed the alternative hands the child a
 ///   visible empty collection;
-/// - **cascade to episodes**, which is a real gap with no write path yet (#53).
+/// - **cascade to episodes**, because there is nothing to cascade: measured,
+///   the policy filter inherits from the series, so a label on a series already
+///   lets the child see every season and episode in it.
 ///
 /// A switch that controls nothing is worse than a missing one: it reads as a
 /// promise.
@@ -88,7 +90,31 @@ class SettingsScreen extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.logout),
           title: Text(l10n.signOutAction),
-          onTap: () => ref.read(authControllerProvider.notifier).signOut(),
+          // Asked first, as Stop and End are on a session card: ground rule 6
+          // confirms what takes something away, and this row sits among
+          // others a parent taps freely. Getting back in can mean pairing the
+          // phone again.
+          onTap: () async {
+            final controller = ref.read(authControllerProvider.notifier);
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text(l10n.signOutConfirmTitle),
+                content: Text(l10n.signOutConfirmBody),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: Text(l10n.cancelAction),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: Text(l10n.signOutAction),
+                  ),
+                ],
+              ),
+            );
+            if (confirmed == true) await controller.signOut();
+          },
         ),
 
         _Section(title: l10n.settingsSectionLabels),

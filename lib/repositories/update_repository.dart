@@ -111,8 +111,8 @@ class UpdateRepository {
     } on DioException catch (error) {
       log.info('update check could not reach GitHub: ${error.type}');
       return const UpdateCheck(UpdateOutcome.offline);
-    } on Object catch (error, stack) {
-      log.warning('update check failed: ${error.runtimeType}', error, stack);
+    } on Object catch (error) {
+      log.warning('update check failed: ${error.runtimeType}');
       return const UpdateCheck(UpdateOutcome.failed);
     }
   }

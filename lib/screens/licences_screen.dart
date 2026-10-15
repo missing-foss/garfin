@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../app_info.dart';
 import '../l10n/gen/app_localizations.dart';
@@ -46,8 +46,8 @@ class LicencesScreen extends StatelessWidget {
   /// thing this screen exists to stop, and a tidier list is exactly what makes
   /// dropping them tempting.
   ///
-  /// **No package reaches that path today** — measured against the release
-  /// build's `NOTICES`, all eleven in [directDependencies] have an entry, and
+  /// **No package reaches that path today** — measured against a build's
+  /// `NOTICES`, all twelve in [directDependencies] have an entry, and
   /// the one in [platformDependencies] has the entry `main.dart` registers. The
   /// one dependency without its own licence, `flutter_localizations`, is
   /// `sdk: flutter` and is excluded from that list before it gets here, so it
@@ -92,7 +92,9 @@ class LicencesScreen extends StatelessWidget {
               final entries = data[package]!;
               return ListTile(
                 title: Text(package),
-                trailing: const Icon(Icons.chevron_right),
+                // A chevron promises somewhere to go; a package with no entry
+                // has nowhere.
+                trailing: entries.isEmpty ? null : const Icon(Icons.chevron_right),
                 onTap: entries.isEmpty
                     ? null
                     : () => Navigator.of(context).push(

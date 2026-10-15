@@ -31,9 +31,14 @@ class FakeJellyfinServer implements HttpClientAdapter {
     int status = 200,
     DioExceptionType? failWith,
     Duration? delay,
+    Map<String, List<String>> headers = const {},
   }) {
-    _script.putIfAbsent(path, () => <_Reply>[]).add(
-        _Reply(json: json, status: status, failWith: failWith, delay: delay));
+    _script.putIfAbsent(path, () => <_Reply>[]).add(_Reply(
+        json: json,
+        status: status,
+        failWith: failWith,
+        delay: delay,
+        headers: headers));
   }
 
   /// Queues a reply matched on the **query** as well as the path, and reused
@@ -59,6 +64,7 @@ class FakeJellyfinServer implements HttpClientAdapter {
     int status = 200,
     DioExceptionType? failWith,
     Duration? delay,
+    Map<String, List<String>> headers = const {},
   }) {
     _matchers.insert(
       0,
@@ -66,7 +72,11 @@ class FakeJellyfinServer implements HttpClientAdapter {
         path: path,
         where: where,
         reply: _Reply(
-            json: json, status: status, failWith: failWith, delay: delay),
+            json: json,
+            status: status,
+            failWith: failWith,
+            delay: delay,
+            headers: headers),
       ),
     );
   }
@@ -132,6 +142,7 @@ class FakeJellyfinServer implements HttpClientAdapter {
       reply.status,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
+        ...reply.headers,
       },
     );
   }
@@ -149,12 +160,21 @@ class _Matcher {
 }
 
 class _Reply {
-  _Reply({this.json, this.status = 200, this.failWith, this.delay});
+  _Reply({
+    this.json,
+    this.status = 200,
+    this.failWith,
+    this.delay,
+    this.headers = const {},
+  });
 
   final Object? json;
   final int status;
   final DioExceptionType? failWith;
   final Duration? delay;
+
+  /// Response headers beyond the content type — a redirect's `Location`.
+  final Map<String, List<String>> headers;
 }
 
 /// A Jellyfin user DTO, with only the fields sign-in reads.

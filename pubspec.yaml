@@ -7,7 +7,7 @@ description: "Tag-based parental controls for Jellyfin, from your phone."
 # Garfin is a GPL-3.0-or-later application, not a pub package.
 publish_to: 'none'
 
-version: 0.2.0+2
+version: 0.3.0+3
 
 environment:
   sdk: ^3.12.2
@@ -35,19 +35,27 @@ dependencies:
 
   # Settings only. The access token goes in flutter_secure_storage, never here.
   shared_preferences: ^2.5.5
-  flutter_secure_storage: ^10.3.1
+  flutter_secure_storage: ^11.2.0
 
   # Material You on Android 12+; degrades to the seed scheme below it.
-  dynamic_color: ^1.8.1
+  # 2.x hands back material_ui's ColorScheme, which is why the app is on
+  # material_ui below rather than flutter/material.
+  dynamic_color: ^2.1.0
 
   # Posters. Cache key must include the item's ImageTag so a changed poster invalidates.
-  cached_network_image: ^3.4.1
+  cached_network_image: ^4.0.3
 
   # No print() anywhere — and never log tokens, passwords, or Quick Connect secrets.
   logging: ^1.3.0
   local_auth: ^3.0.2
   url_launcher: ^6.3.2
   diacritic: ^0.1.6
+
+  # Material widgets, as a package rather than flutter/material. Capped at 1.2.0
+  # by the pinned Dart 3.12: 1.3.0 is retracted and 1.4.0 needs Dart 3.13.
+  # Its localizations come with it; use `appLocalizationsDelegates`, not the
+  # list gen-l10n generates.
+  material_ui: ^1.2.0
 
 dev_dependencies:
   flutter_test:

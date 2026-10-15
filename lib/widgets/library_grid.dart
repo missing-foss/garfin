@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/gen/app_localizations.dart';
 import '../models/age_suitability.dart';
 import '../models/auth_session.dart';
 import '../models/item_holder.dart';
@@ -101,39 +102,49 @@ class LibraryGrid extends ConsumerWidget {
       itemCount: entries.length,
       itemBuilder: (context, index) {
         final entry = entries[index];
-        return InkWell(
-          onTap: () => onTap(entry.item),
-          child: LibraryTile(
-            entry: entry,
-            note: notes[entry.item.id],
-            serverUrl: session.serverUrl,
-            childName: child?.name,
-            childId: child?.id,
-            holders: holdersOf(
-              item: entry.item,
-              children: kids,
-              selectedChildId: child?.id,
-            ),
-            // Only a collection has members to count, and only with a child
-            // picked is there a verb to say it with.
-            //
-            // The set's plain size travels with it as the silent form. The
-            // share widget cannot know until its own build whether it has
-            // anything to say, and it stands in the corner the count used to
-            // hold, so the fallback has to be inside it rather than beside it.
-            givenBadge: entry.item.isCollection && child != null
-                ? CollectionGivenLine(
-                    session: session,
-                    collection: entry.item,
-                    child: child,
-                    whenSilent:
-                        LibraryTile.collectionCountBadge(context, entry.item),
-                  )
-                : null,
-            suitability: suitabilityFor(
-              item: entry.item,
-              ladder: ladder,
-              childAge: childAge,
+        // A button, and what pressing it does. Both grids route a collection
+        // to its own screen and everything else to the assign sheet, so the
+        // hint follows the item's kind. Without the role a screen reader says
+        // "double-tap to activate" of something it never called a control.
+        return Semantics(
+          button: true,
+          hint: entry.item.isCollection
+              ? AppLocalizations.of(context).libraryTileOpenHint
+              : AppLocalizations.of(context).libraryTileAssignHint,
+          child: InkWell(
+            onTap: () => onTap(entry.item),
+            child: LibraryTile(
+              entry: entry,
+              note: notes[entry.item.id],
+              serverUrl: session.serverUrl,
+              childName: child?.name,
+              childId: child?.id,
+              holders: holdersOf(
+                item: entry.item,
+                children: kids,
+                selectedChildId: child?.id,
+              ),
+              // Only a collection has members to count, and only with a child
+              // picked is there a verb to say it with.
+              //
+              // The set's plain size travels with it as the silent form. The
+              // share widget cannot know until its own build whether it has
+              // anything to say, and it stands in the corner the count used to
+              // hold, so the fallback has to be inside it rather than beside it.
+              givenBadge: entry.item.isCollection && child != null
+                  ? CollectionGivenLine(
+                      session: session,
+                      collection: entry.item,
+                      child: child,
+                      whenSilent:
+                          LibraryTile.collectionCountBadge(context, entry.item),
+                    )
+                  : null,
+              suitability: suitabilityFor(
+                item: entry.item,
+                ladder: ladder,
+                childAge: childAge,
+              ),
             ),
           ),
         );

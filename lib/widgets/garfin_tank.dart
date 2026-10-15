@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../app_info.dart';
@@ -141,7 +142,8 @@ class GarfinTankState extends State<GarfinTank>
   void initState() {
     super.initState();
     _random = Random(widget.seed);
-    _ticker = createTicker(_onTick)..start();
+    _ticker = createTicker(_onTick);
+    unawaited(_ticker.start());
   }
 
   @override
@@ -269,7 +271,7 @@ class GarfinTankState extends State<GarfinTank>
         // A swipe down leaves, as well as the system back gesture. No button,
         // because a button needs a label.
         onVerticalDragEnd: (d) {
-          if ((d.primaryVelocity ?? 0) > 600) Navigator.of(context).maybePop();
+          if ((d.primaryVelocity ?? 0) > 600) unawaited(Navigator.of(context).maybePop());
         },
         child: LayoutBuilder(
           builder: (context, constraints) {

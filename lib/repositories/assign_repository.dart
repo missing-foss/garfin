@@ -11,6 +11,7 @@ import '../models/tag_diff.dart';
 import 'activity_store.dart';
 import 'bounded_batch.dart';
 import 'jellyfin_api.dart';
+import 'jellyfin_exception.dart';
 
 /// The result of applying a diff, as the **server** reports it afterwards.
 class AssignOutcome {
@@ -204,7 +205,22 @@ class AssignRepository {
   /// a visibility computation, so ground rule 4 is not in play and no rating
   /// cap enters into it. Garfin cannot empty `AllowedTags` itself (rule 8);
   /// what it can do is leave the label matching nothing.
-  Future<List<LastItemWarning>> lastItemWarningsFor(TagDiff diff) async {
+  ///
+  /// [touching] is every item the write will take the label off: the one item
+  /// for a single write, and for a set its members **and the container**,
+  /// which is a BoxSet and inside the count. It used to be implicit and always
+  /// one — the check was "one tagged item left" — so taking a twelve-film set
+  /// from a child who had only that set went from twelve to none, and the
+  /// warning never fired. Required, so no write can be asked about without
+  /// saying how much it removes.
+  ///
+  /// Asked of the server, not of the membership the sheet already holds: the
+  /// reversal after a partly-written set runs exactly when that membership is
+  /// out of date.
+  Future<List<LastItemWarning>> lastItemWarningsFor(
+    TagDiff diff, {
+    required Set<String> touching,
+  }) async {
     final warnings = <LastItemWarning>[];
 
     for (final change in diff.changes) {
@@ -217,8 +233,18 @@ class AssignRepository {
         userId: _adminUserId,
         tags: [change.label],
       );
-      // Exactly one left, and this removal is it.
-      if (count <= 1) {
+      // More tagged items than this write touches: some survive it, whichever
+      // they are.
+      if (count > touching.length) continue;
+
+      // Few enough to list. The warning is for the case where every one left
+      // is one this write takes the label off.
+      final carrying = await _api.taggedItemIds(
+        userId: _adminUserId,
+        tags: [change.label],
+        limit: touching.length,
+      );
+      if (carrying.every(touching.contains)) {
         warnings.add(
           LastItemWarning(child: change.child, label: change.label),
         );
@@ -469,6 +495,20 @@ class AssignRepository {
   /// second source of truth for what an item is called.
   Future<String> _writeOne(String itemId, TagDiff diff) async {
     final item = await _api.fullItem(userId: _adminUserId, itemId: itemId);
+
+    // **The body goes back as it came, so its keys must be the ones posted.**
+    // Reads are case-insensitive on purpose — a server just started answers
+    // in camelCase for a while (`docs/JELLYFIN-API.md`) — but a write that read
+    // `tags` and then set `Tags` would post both, and which one the server
+    // keeps is not something to find out on a child's library. Refused before
+    // anything is posted, which the batch reports like any failed write.
+    if (item['Id'] != itemId ||
+        item.keys.any((k) => k != 'Tags' && k.toLowerCase() == 'tags')) {
+      throw const JellyfinException(
+        JellyfinErrorKind.server,
+        message: 'item body not in the casing it is written back in',
+      );
+    }
 
     // Mutate one key. Everything else in the map is carried back verbatim —
     // no typed model in between, because a typed model is how a field goes

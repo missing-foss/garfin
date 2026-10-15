@@ -194,6 +194,18 @@ abstract class AppLocalizations {
   /// **'Password'**
   String get passwordLabel;
 
+  /// Tooltip, and screen-reader label, of the eye button that reveals the typed password.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get passwordShowTooltip;
+
+  /// Tooltip, and screen-reader label, of the eye button that hides the password again.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get passwordHideTooltip;
+
   /// Button that submits the username and password.
   ///
   /// In en, this message translates to:
@@ -217,6 +229,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign out'**
   String get signOutAction;
+
+  /// Title of the confirmation before signing out from Settings. Signing out is destructive: getting back in may mean pairing the phone again with Quick Connect.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out?'**
+  String get signOutConfirmTitle;
+
+  /// Body of the sign-out confirmation. 'Asks' on purpose: with no network the server is not reached, and the phone still forgets the sign-in.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone forgets your Jellyfin sign-in and asks the server to stop accepting it. To use Garfin again, you\'ll sign in again or pair this phone with Quick Connect.'**
+  String get signOutConfirmBody;
 
   /// Body of the temporary home screen shown after signing in, until the Library screen exists.
   ///
@@ -254,6 +278,12 @@ abstract class AppLocalizations {
   /// **'The server didn\'t answer in time. Try again.'**
   String get errorTimeout;
 
+  /// HTTPS with a certificate the phone does not trust, usually self-signed. Garfin deliberately has no option to accept it anyway.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone doesn\'t trust the server\'s certificate. On your home network, use its http:// address, or install the server\'s certificate on this phone.'**
+  String get errorUntrustedCertificate;
+
   /// Shown for HTTP 401 during sign-in.
   ///
   /// In en, this message translates to:
@@ -271,6 +301,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something answered at that address, but it wasn\'t Jellyfin.'**
   String get errorNotFound;
+
+  /// The server answered with a redirect. Garfin does not follow redirects, because a redirect to another origin drops the sign-in. {address} is the new address, scheme and host, with no query.
+  ///
+  /// In en, this message translates to:
+  /// **'This server has moved to {address}. Sign in with that address instead.'**
+  String errorMoved(String address);
+
+  /// A redirect with no Location header.
+  ///
+  /// In en, this message translates to:
+  /// **'This server has moved, but didn\'t say where. Check its address.'**
+  String get errorMovedNoAddress;
 
   /// Shown for HTTP 5xx, or a response that could not be read.
   ///
@@ -479,7 +521,7 @@ abstract class AppLocalizations {
   /// Age on a child's card, worked out from the birth year the parent entered.
   ///
   /// In en, this message translates to:
-  /// **'{years} years old'**
+  /// **'{years, plural, one{{years} year old} other{{years} years old}}'**
   String kidsAgeYears(int years);
 
   /// Shown in place of an age when no birth year has been entered. Jellyfin does not store one.
@@ -487,6 +529,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add a birth year'**
   String get kidsAgeUnknown;
+
+  /// Screen-reader hint on the age line of a child's card, which opens the birth-year dialog when tapped.
+  ///
+  /// In en, this message translates to:
+  /// **'Change the birth year'**
+  String get kidsAgeEditHint;
 
   /// The child's parental rating cap, named from the server's own rating list.
   ///
@@ -647,13 +695,13 @@ abstract class AppLocalizations {
   /// Result line when a child is selected. Says what has not been handed over, NOT what the child can see — the second is the server's answer and includes the rating cap.
   ///
   /// In en, this message translates to:
-  /// **'{count} things {name} hasn\'t got yet'**
+  /// **'{count, plural, one{{count} thing {name} hasn\'t got yet} other{{count} things {name} hasn\'t got yet}}'**
   String libraryNotYetGiven(int count, String name);
 
   /// Result line when the selected child is on a block-list, where a label takes a title away rather than handing it over. The mirror of libraryNotYetGiven, and the same caution applies: it counts labels, not what the child can see.
   ///
   /// In en, this message translates to:
-  /// **'{count} things kept from {name}'**
+  /// **'{count, plural, one{{count} thing kept from {name}} other{{count} things kept from {name}}}'**
   String libraryWithheld(int count, String name);
 
   /// The result line while a search is active. The server orders a search by its own relevance and ignores the sort chosen in Settings, so the line says so. {line} is the ordinary result line, e.g. '12 things'.
@@ -665,7 +713,7 @@ abstract class AppLocalizations {
   /// Result line when no child is selected.
   ///
   /// In en, this message translates to:
-  /// **'{count} things'**
+  /// **'{count, plural, one{{count} thing} other{{count} things}}'**
   String libraryItemCount(int count);
 
   /// Leaves the what-a-child-can-see view for the giving grid.
@@ -697,6 +745,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Nothing here yet.'**
   String get libraryEmpty;
+
+  /// The grid is empty because the active filters matched nothing. Not a claim about the library or the child.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here matches these filters.'**
+  String get libraryNoMatches;
+
+  /// The grid is empty because the search matched nothing. {query} is what the parent typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here matches “{query}”.'**
+  String libraryNoMatchesFor(String query);
 
   /// Shown when hiding shared items leaves nothing to give.
   ///
@@ -731,19 +791,19 @@ abstract class AppLocalizations {
   /// Badge on a collection tile saying how many items it holds.
   ///
   /// In en, this message translates to:
-  /// **'{count} titles'**
+  /// **'{count, plural, one{{count} title} other{{count} titles}}'**
   String libraryCollectionCount(int count);
 
   /// Badge on a series tile saying how many episodes it holds. A separate string from libraryCollectionCount because the noun is not interchangeable: a collection holds titles, a series holds episodes, and 'titles' on a show reads as a count of something else. Measured on 10.11.11: this is RecursiveItemCount, the episodes, NOT ChildCount, which for a series is the seasons — a two-season five-episode show reports ChildCount 2.
   ///
   /// In en, this message translates to:
-  /// **'{count} episodes'**
+  /// **'{count, plural, one{{count} episode} other{{count} episodes}}'**
   String libraryEpisodeCount(int count);
 
   /// Spoken by a screen reader for a series tile, so a show is distinguishable from a film. Says the NOUN as well as the number, for the same reason librarySemanticCollection does: the bare count is what the visual badge already is. Only spoken when the server sent a recursive count — see librarySemanticSeriesAlone for when it did not.
   ///
   /// In en, this message translates to:
-  /// **'Series, {count} episodes'**
+  /// **'{count, plural, one{Series, {count} episode} other{Series, {count} episodes}}'**
   String librarySemanticSeries(int count);
 
   /// The same, for a series whose episode count the server did not send. RecursiveItemCount is absent unless Fields asks for it, and a tile in that state renders no badge either, so the spoken label degrades the same way rather than saying 'nought episodes'.
@@ -755,7 +815,7 @@ abstract class AppLocalizations {
   /// Spoken by a screen reader for a collection tile, so a box set is distinguishable from a film. Says the NOUN as well as the number: the bare count is what the visual badge already is, and 'seven titles' alone does not tell you what the thing is. Only spoken when the server sent a count — see librarySemanticCollectionAlone for when it did not. Unlike the state badge this is not a claim about any child, so it is spoken whatever the selection is.
   ///
   /// In en, this message translates to:
-  /// **'Collection, {count} titles'**
+  /// **'{count, plural, one{Collection, {count} title} other{Collection, {count} titles}}'**
   String librarySemanticCollection(int count);
 
   /// The same, for a collection whose size the server did not send. ChildCount is absent unless Fields=ChildCount is asked for, and a tile in that state renders no count badge either — so the spoken label degrades the same way rather than saying 'nought titles'.
@@ -767,7 +827,7 @@ abstract class AppLocalizations {
   /// Header on the screen showing what is inside one collection. A fact about the library, not about the selected child, so unlike the grid's result line it does not change when the selection does.
   ///
   /// In en, this message translates to:
-  /// **'{count} titles in this collection'**
+  /// **'{count, plural, one{{count} title in this collection} other{{count} titles in this collection}}'**
   String collectionTitleCount(int count);
 
   /// Button on the collection screen. This is the action that tapping a collection tile used to perform on its own; it opens the same write preview, which still shows the diff and writes nothing until Apply. Disabled until a child is picked, because the preview is for a child.
@@ -866,6 +926,18 @@ abstract class AppLocalizations {
   /// **'Who gets this?'**
   String get assignTitle;
 
+  /// Screen-reader hint on a film or show tile in the library grid: a tap opens the 'Who gets this?' sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose who gets it'**
+  String get libraryTileAssignHint;
+
+  /// Screen-reader hint on a collection tile in the library grid: a tap opens the collection rather than assigning it.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the collection'**
+  String get libraryTileOpenHint;
+
   /// A child's current visible count on their row. Fetched from the server, never predicted.
   ///
   /// In en, this message translates to:
@@ -941,13 +1013,13 @@ abstract class AppLocalizations {
   /// Shown when the item is a collection. Measured: labelling only the container gives the child an empty collection, and labelling only the members hands over the films without the set, so both are written.
   ///
   /// In en, this message translates to:
-  /// **'Labels land on all {count} titles inside, and on the collection itself.'**
+  /// **'{count, plural, one{Labels land on the {count} title inside, and on the collection itself.} other{Labels land on all {count} titles inside, and on the collection itself.}}'**
   String assignCollectionNote(int count);
 
   /// Shown when a single film belongs to a collection. A film can be in several sets, so this line can appear more than once.
   ///
   /// In en, this message translates to:
-  /// **'Part of {name} — {count} titles in the set.'**
+  /// **'{count, plural, one{Part of {name} — {count} title in the set.} other{Part of {name} — {count} titles in the set.}}'**
   String assignPartOfSet(String name, int count);
 
   /// Title of the dialog asked once when a film being given away belongs to a collection. Additions only — removing a label never cascades.
@@ -977,31 +1049,31 @@ abstract class AppLocalizations {
   /// Accepts the cascade: write every title in the set.
   ///
   /// In en, this message translates to:
-  /// **'All {count}'**
+  /// **'{count, plural, one{The {count}} other{All {count}}}'**
   String assignSetTogetherAll(int count);
 
   /// Ground rule 5's exact state after a collection write partly failed — the rule's own example is '7 of 12 tagged'. Worded for what changed rather than for tagging, because the same notice reports a partly-failed removal, and the change preview directly above already says which direction it went. Nothing that succeeded is undone; the parent chooses what happens next.
   ///
   /// In en, this message translates to:
-  /// **'{done} of {total} titles changed.'**
+  /// **'{total, plural, one{{done} of {total} title changed.} other{{done} of {total} titles changed.}}'**
   String assignBatchPartial(int done, int total);
 
   /// The other half-done state: every member took the change and the container did not. Used when the diff went both ways at once, so nothing directional can be said about what the child now sees. The two directional versions below carry the consequence.
   ///
   /// In en, this message translates to:
-  /// **'All {count} titles changed, but the collection itself didn\'t.'**
+  /// **'{count, plural, one{The {count} title changed, but the collection itself didn\'t.} other{All {count} titles changed, but the collection itself didn\'t.}}'**
   String assignBatchSetIncomplete(int count);
 
   /// Labels went on to every title and not to the container. Measured — the child gets the films while the collection stays absent from their library, so this is not finished.
   ///
   /// In en, this message translates to:
-  /// **'All {count} titles are labelled, but the collection itself isn\'t. The films are there; the set isn\'t.'**
+  /// **'{count, plural, one{The {count} title is labelled, but the collection itself isn\'t. The film is there; the set isn\'t.} other{All {count} titles are labelled, but the collection itself isn\'t. The films are there; the set isn\'t.}}'**
   String assignBatchSetIncompleteAdded(int count);
 
   /// The mirror image, and it must not be described as the one above. Labels came off every title and not off the container, so — measured — the child keeps the collection and finds nothing inside it.
   ///
   /// In en, this message translates to:
-  /// **'All {count} titles are unlabelled, but the collection itself still is. The films are gone; the set is still there, and it will look empty.'**
+  /// **'{count, plural, one{The {count} title is unlabelled, but the collection itself still is. The film is gone; the set is still there, and it will look empty.} other{All {count} titles are unlabelled, but the collection itself still is. The films are gone; the set is still there, and it will look empty.}}'**
   String assignBatchSetIncompleteRemoved(int count);
 
   /// The reversing button when the change was a removal, or went both ways: reversing it puts labels back on. Saying 'Remove all' there would name the opposite of what the button does.
@@ -1025,7 +1097,7 @@ abstract class AppLocalizations {
   /// Ground rule 5's pre-flight: every member is read before anything is written, and one unreadable member cancels the write.
   ///
   /// In en, this message translates to:
-  /// **'Nothing was changed. {count} titles in this set couldn\'t be read, so Garfin left the whole set alone.'**
+  /// **'{count, plural, one{Nothing was changed. {count} title in this set couldn\'t be read, so Garfin left the whole set alone.} other{Nothing was changed. {count} titles in this set couldn\'t be read, so Garfin left the whole set alone.}}'**
   String assignBatchPreflightFailed(int count);
 
   /// The fourth navigation destination, and the title of its screen.
@@ -1241,7 +1313,7 @@ abstract class AppLocalizations {
   /// Subtitle under the short list. Measured on the 0.2.0 release build: the full page lists 201 packages, almost all of it the Flutter engine's vendored C++. This says which of those were decisions anyone made.
   ///
   /// In en, this message translates to:
-  /// **'{count} chosen here — the rest come with Flutter'**
+  /// **'{count, plural, one{{count} chosen here — the rest come with Flutter} other{{count} chosen here — the rest come with Flutter}}'**
   String aboutOurPackagesCount(int count);
 
   /// Opens Flutter's licence page, which lists every bundled package.
@@ -1385,7 +1457,7 @@ abstract class AppLocalizations {
   /// A collection entry: when it happened, and how many titles it covered. One entry per action, not per title.
   ///
   /// In en, this message translates to:
-  /// **'{when} · {count} titles'**
+  /// **'{count, plural, one{{when} · {count} title} other{{when} · {count} titles}}'**
   String activityWhenCollection(String when, int count);
 
   /// Shown when the entry's child no longer has a shortlist Garfin can interpret. Ground rule 3 forbids guessing a verb, so the undo is refused rather than attempted.
@@ -1646,10 +1718,10 @@ abstract class AppLocalizations {
   /// **'{device} signed straight back in, and it\'s still playing.'**
   String sessionsEndReturnedStillPlaying(String device);
 
-  /// Shown when SupportsRemoteControl is false. Measured: the message and stop commands answer 204 anyway, so without this the parent would be told something was sent to a device that cannot receive it. It no longer offers End as the way round, because the revoke does not stop playback either.
+  /// Shown when SupportsRemoteControl is false. Worded as the device's own claim, because that is what the flag is: Stop stays offered beside it, and the read-back says whether a command was obeyed. Measured: the message and stop commands answer 204 anyway, so without this the parent would be told something was sent to a device that may not act on it. It does not offer End as the way round, because the revoke does not stop playback either.
   ///
   /// In en, this message translates to:
-  /// **'This device doesn\'t accept remote commands. Signing it out won\'t stop what\'s playing.'**
+  /// **'This device says it doesn\'t accept remote commands. Signing it out won\'t stop what\'s playing.'**
   String get sessionsUncontrollable;
 
   /// Placeholder in the library search field (#73). 'Titles' rather than 'library', because the server matches the title and nothing else — measured: not the overview, the cast, tags or genres.
@@ -1877,7 +1949,7 @@ abstract class AppLocalizations {
   /// The whole set. Its own string rather than a plural of the partial one, because 'All 8' is the sentence a parent is looking for and '8 of 8' reads like a coincidence.
   ///
   /// In en, this message translates to:
-  /// **'All {total} given to {name}'**
+  /// **'{total, plural, one{The {total} title given to {name}} other{All {total} given to {name}}}'**
   String collectionGivenAll(int total, String name);
 
   /// The same three states for a block-list child, where the identical label means the opposite (ground rule 3). One count with one verb would be exactly backwards for every child in that mode, and nothing on screen would look wrong.
@@ -1895,7 +1967,7 @@ abstract class AppLocalizations {
   /// Block mode, whole set.
   ///
   /// In en, this message translates to:
-  /// **'All {total} kept from {name}'**
+  /// **'{total, plural, one{The {total} title kept from {name}} other{All {total} kept from {name}}}'**
   String collectionKeptAll(int total, String name);
 }
 

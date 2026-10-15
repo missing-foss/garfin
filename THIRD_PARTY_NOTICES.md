@@ -44,6 +44,7 @@ Direct dependencies. Transitive dependencies are covered by the Flutter
 | `local_auth` | BSD-3-Clause | 2013 The Flutter Authors |
 | `url_launcher` | BSD-3-Clause | 2013 The Flutter Authors |
 | `dynamic_color` | Apache-2.0 | Google LLC |
+| `material_ui` | BSD-3-Clause | 2013 The Flutter Authors |
 | `diacritic` | BSD-3-Clause | 2016 Agilord |
 
 `local_auth` pulls in `local_auth_android`, and `pubspec.lock` also resolves
@@ -152,6 +153,15 @@ font it covers:
 The canonical text is also at [`LICENSES/OFL-1.1.txt`](LICENSES/OFL-1.1.txt).
 It is not duplicated inline here because the app already redistributes all three
 copies above; a reader of the APK has the licence in hand without this file.
+
+## Phosphor icons font — MIT
+
+The item sheet's icons come from `assets/fonts/Phosphor.ttf`: the regular weight of
+`@phosphor-icons/web` 2.1.1, **subset** to the glyphs the app draws. Copyright 2020-2021 Phosphor
+Icons (https://github.com/phosphor-icons/web), MIT. The licence text ships in the APK beside the
+font, as `assets/fonts/MIT-Phosphor.txt`, and the canonical text is at
+[`LICENSES/MIT.txt`](LICENSES/MIT.txt). How the subset is cut is in
+`lib/widgets/phosphor_glyphs.dart`.
 
 ## Material icons font — CC BY 4.0
 

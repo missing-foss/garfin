@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garfin/models/library_filters.dart';
+import 'package:garfin/l10n/app_delegates.dart';
 import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/models/jellyfin_user.dart';
@@ -20,6 +21,7 @@ import 'package:garfin/screens/library_screen.dart';
 import 'package:garfin/widgets/library_tile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/roster_from_overview.dart';
 import 'support/fake_jellyfin_server.dart';
 
 /// What a tile says while a new child's query is in flight (#96).
@@ -113,6 +115,7 @@ void main() {
           adapter: server,
         ),
       ),
+      rosterFromOverview(session),
       kidsOverviewProvider(session).overrideWith(
         (ref) async => KidsOverview(
           shortlisted: [
@@ -140,7 +143,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: const Scaffold(body: LibraryScreen(session: session)),
         ),
@@ -251,6 +254,7 @@ void main() {
           adapter: server,
         ),
       ),
+      rosterFromOverview(session),
       kidsOverviewProvider(session).overrideWith(
         (ref) async => KidsOverview(
           shortlisted: [KidSummary(user: emma), KidSummary(user: leo)],
@@ -270,7 +274,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: const Scaffold(body: LibraryScreen(session: session)),
         ),
@@ -349,6 +353,7 @@ void main() {
           adapter: server,
         ),
       ),
+      rosterFromOverview(session),
       kidsOverviewProvider(session).overrideWith(
         (ref) async => KidsOverview(
           shortlisted: [KidSummary(user: emma)],
@@ -367,7 +372,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: const Scaffold(body: LibraryScreen(session: session)),
         ),
@@ -430,6 +435,7 @@ void main() {
           adapter: server,
         ),
       ),
+      rosterFromOverview(session),
       kidsOverviewProvider(session).overrideWith(
         (ref) async => KidsOverview(
           shortlisted: [KidSummary(user: emma)],
@@ -448,7 +454,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: const Scaffold(body: LibraryScreen(session: session)),
         ),
