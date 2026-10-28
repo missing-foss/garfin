@@ -42,6 +42,18 @@ class ActivityStore extends ChangeNotifier {
   /// — which is also the only way anything is ever deleted from here.
   static const maxEntries = 200;
 
+  static const _totalKey = 'activity_total';
+
+  /// How many actions were ever recorded, which the bounded log cannot say.
+  ///
+  /// Counted beside the log rather than derived from it, because the log
+  /// stops at [maxEntries] and the support card's milestone is a lifetime
+  /// figure. [clear] leaves it alone: clearing the history does not undo the
+  /// work. An install from before the counter starts from what its log
+  /// still holds — a lower bound, never an overstatement.
+  int get total =>
+      _prefs.getInt(_totalKey) ?? (_prefs.getStringList(_key)?.length ?? 0);
+
   /// Newest first, which is the order the screen renders and the order the
   /// list is stored in — so reading it is not a sort.
   List<ActivityEntry> read() {
@@ -67,11 +79,16 @@ class ActivityStore extends ChangeNotifier {
       jsonEncode(entry.toJson()),
       ...raw.take(maxEntries - 1),
     ];
+    final before = total;
     await _prefs.setStringList(_key, next);
+    await _prefs.setInt(_totalKey, before + 1);
     notifyListeners();
   }
 
   Future<void> clear() async {
+    // Written first: on an install from before the counter, [total] is still
+    // the log's length, and removing the log would otherwise take it to 0.
+    await _prefs.setInt(_totalKey, total);
     await _prefs.remove(_key);
     notifyListeners();
   }

@@ -10,6 +10,7 @@ import 'package:garfin/l10n/gen/app_localizations.dart';
 import 'package:garfin/models/auth_session.dart';
 import 'package:garfin/models/jellyfin_user.dart';
 import 'package:garfin/models/kid_summary.dart';
+import 'package:garfin/providers/app_providers.dart';
 import 'package:garfin/providers/kids_providers.dart';
 import 'package:garfin/screens/kids_screen.dart';
 import 'package:garfin/widgets/adaptive_layout.dart';
@@ -171,10 +172,13 @@ void main() {
       tester.view.physicalSize = Size(width, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
+      // The screen reads preferences for its one-time support card.
+      final prefs = await SharedPreferences.getInstance();
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
             kidsOverviewProvider(session).overrideWith(
               (ref) async => KidsOverview(
                 shortlisted: [kid('emma', 'Emma')],

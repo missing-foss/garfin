@@ -12,6 +12,14 @@ you get.
 
 ## Unreleased
 
+## 0.3.1 — 2026-10-28
+
+### Support
+
+- About links to Garfin's Ko-fi page, with a line on what support pays for.
+- After your 50th change, Kids shows a one-time thank-you card with the same
+  link. It never comes back, whether you answer it or not.
+
 ## 0.3.0 — 2026-10-15
 
 ### Giving and taking back

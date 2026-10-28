@@ -2,7 +2,9 @@
   "description": [
     "Dependency updates for garfin. Renovate's pull requests go through reviewer-bot, CI and merge-bot like any other, and none is merged automatically.",
     "A release must be three days old before it is proposed; a release whose date the registry does not publish is still proposed.",
-    "Updates arrive once a week, one pull request per manager group (pub, gradle, GitHub Actions), so a week of bumps is one review each rather than many."
+    "Updates arrive once a week, one pull request per manager group (pub, gradle, GitHub Actions), so a week of bumps is one review each rather than many.",
+    "dev.flutter.flutter-plugin-loader is ignored: it ships inside the Flutter SDK and is not published to Maven, so its lookup can only fail and put a warning on the dashboard.",
+    "A pull request is rebased whenever it falls behind main, not only when it conflicts: the merge desk needs main as an ancestor, so one that is merely behind would otherwise wait for someone to tick its rebase box."
   ],
   "extends": [
     "config:recommended",
@@ -18,6 +20,10 @@
   ],
   "pinDigests": true,
   "automerge": false,
+  "rebaseWhen": "behind-base-branch",
+  "ignoreDeps": [
+    "dev.flutter.flutter-plugin-loader"
+  ],
   "packageRules": [
     {
       "matchManagers": [

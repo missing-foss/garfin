@@ -15,7 +15,7 @@ const appClientName = 'Garfin';
 /// which fails if the two drift. Reading it at runtime instead would mean a
 /// `package_info_plus` dependency for one string, and every new dependency
 /// costs a licence review (`CONTRIBUTING.md`).
-const appVersion = '0.3.0';
+const appVersion = '0.3.1';
 
 /// The packages Garfin itself chose to depend on.
 ///
@@ -114,3 +114,8 @@ const jellyfinUsersDocsUrl =
 /// into every locale. (Writing that pattern out in this comment tripped the
 /// grep, which is the rule proving itself.)
 const sourceUrl = 'https://github.com/missing-foss/garfin';
+
+/// Where support for the project goes: the org's one donation link, on the
+/// About screen and in the README. A link like the others, in the app's own
+/// theme: no logo, no brand colour.
+const supportUrl = 'https://ko-fi.com/missingfoss';

@@ -50,7 +50,7 @@ jobs:
       # Flutter's Android build tooling is Gradle underneath (same as
       # trobar-android) and needs a JDK — pin it explicitly rather than
       # trusting whatever the runner image happens to default to.
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
           distribution: temurin
           java-version: ${{ steps.tools.outputs.java }}

@@ -83,18 +83,30 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('the four links carry the addresses they claim', (tester) async {
+  testWidgets('the five links carry the addresses they claim', (tester) async {
     // The subtitle is the address, and it is there so that someone can see
     // where a tap goes before taking it. Asserting the strings keeps a typo
-    // from shipping as a link to nowhere.
+    // from shipping as a link to nowhere. A tall view, so that the lazy list
+    // builds all five tiles.
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(app());
 
     expect(find.text(sourceUrl), findsOneWidget);
     expect(find.text('$sourceUrl/issues'), findsOneWidget);
     expect(find.text('$sourceUrl/releases'), findsOneWidget);
     expect(find.text('$sourceUrl/tree/main/docs'), findsOneWidget);
+    expect(find.text(supportUrl), findsOneWidget);
+    expect(find.text('Support on Ko-fi'), findsOneWidget);
+    expect(
+        find.text('Support pays for test devices, infrastructure and Claude. '
+            'Mostly, it buys a good coffee and keeps the motivation going for '
+            'the next projects.'),
+        findsOneWidget,
+        reason: 'what the money pays for, next to the link');
     // Every one of them is tappable — the whole reason url_launcher was taken.
-    expect(find.byIcon(Icons.open_in_new), findsNWidgets(4));
+    expect(find.byIcon(Icons.open_in_new), findsNWidgets(5));
   });
 
   testWidgets('nothing is asked of GitHub until the button is pressed',

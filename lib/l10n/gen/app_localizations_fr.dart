@@ -1282,6 +1282,29 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aboutReleases => 'Versions';
 
   @override
+  String get aboutSupport => 'Soutenir sur Ko-fi';
+
+  @override
+  String get aboutSupportPays =>
+      'Le soutien paie les appareils de test, l\'infrastructure et Claude. Surtout, il offre un bon café et entretient la motivation pour les prochains projets.';
+
+  @override
+  String supportCardBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Garfin a enregistré $count modifications d\'étiquettes pour vous. S\'il vous est utile, un café aide.',
+      one:
+          'Garfin a enregistré $count modification d\'étiquette pour vous. S\'il vous est utile, un café aide.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get supportCardLater => 'Plus tard';
+
+  @override
   String get aboutOpenFailed => 'Impossible d\'ouvrir ce lien.';
 
   @override

@@ -1856,6 +1856,30 @@ abstract class AppLocalizations {
   /// **'Releases'**
   String get aboutReleases;
 
+  /// Link to the project's Ko-fi page, where people can support its development. Ko-fi is a name: keep it.
+  ///
+  /// In en, this message translates to:
+  /// **'Support on Ko-fi'**
+  String get aboutSupport;
+
+  /// Under the Ko-fi link on About: what support pays for. The maintainer's own wording; Claude is the name of an AI assistant, keep it.
+  ///
+  /// In en, this message translates to:
+  /// **'Support pays for test devices, infrastructure and Claude. Mostly, it buys a good coffee and keeps the motivation going for the next projects.'**
+  String get aboutSupportPays;
+
+  /// The one-time thank-you card on the Kids screen, shown once after the parent's 50th change. A tag change is one title given to or taken from one child.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Garfin has saved {count} tag change for you. If it\'s useful, a coffee helps.} other{Garfin has saved {count} tag changes for you. If it\'s useful, a coffee helps.}}'**
+  String supportCardBody(int count);
+
+  /// Closes the one-time support card. It does not come back.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get supportCardLater;
+
   /// Shown when no app on the phone would take an https intent, which is rare but not impossible.
   ///
   /// In en, this message translates to:

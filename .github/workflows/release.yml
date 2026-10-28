@@ -113,14 +113,15 @@ jobs:
             /^## / { if (found) { print $2; exit } if ($2 == v) found = 1 }
           ' CHANGELOG.md)
           {
-            echo
-            echo "Install the APK for your device's ABI; Obtainium users get it automatically."
             case "$prev" in
               [0-9]*)
                 echo
                 echo "Changes since v$prev: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/v$prev...$TAG"
                 ;;
             esac
+            # One quiet line, last, on every release.
+            echo
+            echo "If Garfin is useful to you, you can support its development on Ko-fi: https://ko-fi.com/missingfoss"
           } >> "$notes"
           echo "NOTES_FILE=$notes" >> "$GITHUB_ENV"
           cat "$notes"
@@ -137,7 +138,7 @@ jobs:
           else
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
               --title "$TAG" --draft --notes-file "$NOTES_FILE"
-            notes_line="The notes are the \`${TAG#v}\` section of \`CHANGELOG.md\`, followed by the install line and, when an earlier release is listed there, the compare link."
+            notes_line="The notes are the \`${TAG#v}\` section of \`CHANGELOG.md\`, followed, when an earlier release is listed there, by the compare link, and then by the Ko-fi support line."
           fi
           cat >> "$GITHUB_STEP_SUMMARY" <<SUMMARY
           ### $TAG — draft release created

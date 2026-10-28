@@ -24,6 +24,7 @@ import '../models/label_collision.dart';
 import '../widgets/kid_card.dart';
 import '../widgets/label_clash_notice.dart';
 import '../widgets/session_card.dart';
+import '../widgets/support_card.dart';
 import '../widgets/open_external.dart';
 
 /// Build order step 3. The first screen that reads a child's policy.
@@ -230,6 +231,9 @@ class _KidsList extends ConsumerWidget {
               normalize: foldLabelLikeJellyfin,
             ),
           ),
+          // Under the clash notice, which is about this household's data;
+          // this is about the app, and appears once in its lifetime.
+          const SupportCard(),
           if (sessions.isNotEmpty) ...[
             Text(l10n.sessionsHeading, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),

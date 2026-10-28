@@ -17,6 +17,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <img src="https://img.shields.io/badge/licence-GPL--3.0-blue" alt="GPL-3.0">
   <img src="https://img.shields.io/badge/platform-Android-3ddc84" alt="Android">
   <img src="https://img.shields.io/badge/built%20with-Flutter-42a5f5" alt="Flutter">
+  <a href="https://ko-fi.com/missingfoss"><img src="https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
 </p>
 
 ---
@@ -225,6 +226,14 @@ reason, and `docs/ENGINEERING.md` records the build order the project followed.
 
 `docs/ui-mockup.jsx` is a clickable React mockup of the whole app — a visual reference, not source.
 Open `brand/garfin-design-pack.html` in a browser for the full identity system.
+
+## Support
+
+Garfin is free. If it saves you an evening of tagging and you'd like to support its development, you can on [Ko-fi](https://ko-fi.com/missingfoss). There's also a link under **About** in the app.
+
+Support pays for test devices, infrastructure and Claude. Mostly, it buys a good coffee and keeps the motivation going for the next projects.
+
+Thanks to everyone in [SUPPORTERS.md](SUPPORTERS.md).
 
 ## Licence
 

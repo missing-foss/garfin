@@ -1273,6 +1273,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutReleases => 'Releases';
 
   @override
+  String get aboutSupport => 'Support on Ko-fi';
+
+  @override
+  String get aboutSupportPays =>
+      'Support pays for test devices, infrastructure and Claude. Mostly, it buys a good coffee and keeps the motivation going for the next projects.';
+
+  @override
+  String supportCardBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Garfin has saved $count tag changes for you. If it\'s useful, a coffee helps.',
+      one:
+          'Garfin has saved $count tag change for you. If it\'s useful, a coffee helps.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get supportCardLater => 'Not now';
+
+  @override
   String get aboutOpenFailed => 'Couldn\'t open that link.';
 
   @override

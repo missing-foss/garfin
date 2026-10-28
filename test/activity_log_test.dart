@@ -275,6 +275,79 @@ void main() {
       expect(entries.map((e) => e.itemId), isNot(contains('item-0')));
     });
 
+    test('the lifetime total keeps counting past the bound and past a clear',
+        () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final store = ActivityStore(await SharedPreferences.getInstance());
+
+      for (var i = 0; i < ActivityStore.maxEntries + 20; i++) {
+        await store.add(ActivityEntry(
+          itemId: 'item-$i',
+          itemName: 'Item $i',
+          childId: 'kid-1',
+          childName: 'Emma',
+          label: 'kids-emma',
+          gaveAccess: true,
+          at: DateTime(2026, 8, 6),
+        ));
+      }
+      expect(store.total, ActivityStore.maxEntries + 20);
+
+      await store.clear();
+      expect(store.read(), isEmpty);
+      expect(store.total, ActivityStore.maxEntries + 20,
+          reason: 'clearing the history does not undo the work');
+    });
+
+    test('an install from before the total starts from its log', () async {
+      final line = jsonEncode(ActivityEntry(
+        itemId: 'item-1',
+        itemName: 'Paddington',
+        childId: 'kid-1',
+        childName: 'Emma',
+        label: 'kids-emma',
+        gaveAccess: true,
+        at: DateTime(2026, 8, 6),
+      ).toJson());
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'activity_log': <String>[line, line, line],
+      });
+      final store = ActivityStore(await SharedPreferences.getInstance());
+      expect(store.total, 3);
+
+      await store.add(ActivityEntry(
+        itemId: 'item-2',
+        itemName: 'Paddington 2',
+        childId: 'kid-1',
+        childName: 'Emma',
+        label: 'kids-emma',
+        gaveAccess: true,
+        at: DateTime(2026, 8, 7),
+      ));
+      expect(store.total, 4);
+    });
+
+    test('an install from before the total keeps its count through a clear',
+        () async {
+      final line = jsonEncode(ActivityEntry(
+        itemId: 'item-1',
+        itemName: 'Paddington',
+        childId: 'kid-1',
+        childName: 'Emma',
+        label: 'kids-emma',
+        gaveAccess: true,
+        at: DateTime(2026, 8, 6),
+      ).toJson());
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'activity_log': <String>[line, line, line],
+      });
+      final store = ActivityStore(await SharedPreferences.getInstance());
+
+      await store.clear();
+      expect(store.read(), isEmpty);
+      expect(store.total, 3, reason: 'the seed is kept, not lost with the log');
+    });
+
     test('one unreadable line does not cost the whole history', () async {
       // A half-written value, or one from a later version. Losing the log
       // because of a single bad row would be a worse answer than losing the row.

@@ -144,6 +144,16 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             label: l10n.aboutReleases,
             url: '$sourceUrl/releases',
           ),
+          _LinkTile(
+            icon: Icons.coffee_outlined,
+            label: l10n.aboutSupport,
+            url: supportUrl,
+          ),
+          Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 8),
+            child: Text(l10n.aboutSupportPays,
+                style: theme.textTheme.bodySmall),
+          ),
           const Divider(),
           _SectionHeading(l10n.aboutSectionLicences),
           Padding(
